@@ -17,7 +17,7 @@ Supersedes the previous `IMPLEMENTATION-PLAN.md` (targeted spec v0.5.3, never co
 | 0 | Monorepo scaffold | ✅ **done** — `pnpm verify` green; build emits ESM + `.d.ts`, exports ATTW-clean |
 | 1 | `events`, `validate`, `id` | ✅ **done** — 131 tests; 26/47 V rules emit a code, 21 declared not-covered with reasons in `test/_v-coverage.ts` |
 | 2 | `patch` — the T1/T2/T3 matcher | ✅ **done** — 209 tests; gate green over 10k round-trip and 5k zero-context cases. Mini-spec in [`PATCH-MATCHER.md`](PATCH-MATCHER.md). Found SPEC-FEEDBACK F5–F9 and correction C1 to D31 |
-| 3 | `resolve` — chain + overlays | not started — gate defined (confluence + SF-4 + no-tip + rule partition), since `application.json` does not exist |
+| 3 | `resolve` — chain + overlays | ✅ **done** — 285 tests; G1 green over 10k permutations, G2 over 4k, 3/32 rules emit a code and 29 declared not-covered. Mini-spec in [`RESOLVE.md`](RESOLVE.md). Found SPEC-FEEDBACK F10–F11 |
 | 4 | `admit` | not started |
 | 5 | `store` — reducer + ports + epochs | not started |
 | 6 | `query`, `build` | not started |

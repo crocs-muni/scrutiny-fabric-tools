@@ -166,6 +166,12 @@ in a way worth knowing:
 - **Halt upstream of the fork** — application stops at the halt; the fork is still real and still
   reported (SF-3 is a MUST), but it did not determine the content. Status `halted`.
 
+**Implementation note, sharper than the above.** Once written out, the two cases collapse: the walk
+*stops at* the fork, so every patch that could halt is at or before the fork parent. A fork is
+therefore structurally never upstream of a halt within one resolution, and **a halt always wins when
+both are live** — there is no comparison to perform. The freeze-at-the-earlier-point rule is still
+the right way to state the intent, but the code needs no arithmetic to implement it.
+
 ---
 
 ## 5. Applying the chain
@@ -202,17 +208,22 @@ Phase 2 deferred two type decisions for, and this is where they get made:
 > exists, and must re-scan the issue list for the non-H1 entry to learn which rule fired. Both were
 > left alone in Phase 2 as speculative; `resolve` is the real caller that makes them concrete.
 
-**Per-position content and the LRU (D28).** OV-2 needs the canonical bytes *at each overlay's
-target position*, not just at the tip. Materialising every position eagerly measured 216 MB at
-sec-certs scale against ~25 MB lazily — a difference that matters in a browser tab far more than in
-a CLI.
+**Per-position content, and why D28's LRU is not needed here.** OV-2 needs the canonical bytes *at
+each overlay's target position*, not just at the tip. Materialising every position eagerly measured
+216 MB at sec-certs scale against ~25 MB lazily, which is what D28 responds to with a byte-bounded
+LRU.
 
-The chain application above already walks every position in sequence, so the positions an overlay
-needs are a *subset* of those already computed. Only the positions some overlay actually targets are
-retained, under a byte-bounded budget, evicting least-recently-used when over. Positions no overlay
-references are never held. The cache lives inside the single `resolve` call and does not appear in
-the result (§0); cross-call caching is `store`'s concern in Phase 5, where the epoch machinery
-(D24) can invalidate it correctly.
+Within a single `resolve` pass there is a strictly better answer than caching: **classify each
+overlay at the moment its target's content is live.** The chain walk already visits every position
+in sequence, so when content-at-N is in hand, every overlay anchored to N is classified right there
+and the content is then discarded with the loop variable. Nothing beyond the running content is ever
+retained — O(1) rather than O(bounded), with no eviction policy, no replay-on-miss, and no cache to
+get wrong.
+
+The one thing the interleaved pass cannot know yet is *clean versus stale*, since that depends on
+the final tip. So the walk records only whether each overlay applied, and the clean/stale split is
+decided at the end from `tipId`. Cross-call caching remains `store`'s concern in Phase 5, where
+D24's epochs can invalidate it correctly; **D28 stands, but it describes a Phase 5 problem.**
 
 ---
 
@@ -291,9 +302,11 @@ type ChainState =
                         ; haltedAt: string; reason: HaltReason }
   | { status: 'forked';   content: string; forkParentId: string
                         ; branchIds: readonly string[] }        // no tipId — SF-1, structurally
+  | { status: 'aborted';  content: string; tipId: string | null; applied: readonly string[]
+                        ; abortedAt: string; limit: LimitKind } // RL-3 — see below
   | { status: 'absent';   reason: 'root-unobserved' | 'root-not-patchable' }
 
-type OverlayState = 'clean' | 'conflict' | 'stale' | 'orphaned'
+type OverlayState = 'clean' | 'conflict' | 'stale' | 'orphaned' | 'unclassified'
 
 interface Overlay {
   readonly id: string
@@ -314,6 +327,20 @@ interface Resolution {
 `tipId` is `null`, not absent, when the chain resolves with zero patches — the tip is genuinely the
 root. `forked` has no `tipId` field at all, which is a different statement: not "the tip is nothing"
 but "asking is a category error." Same technique as Phase 2's halt variant carrying no `content`.
+
+**Two variants the spec does not provide, both forced by §5.4 and recorded as SPEC-FEEDBACK F11.** A
+resource ceiling can be hit while applying the chain and while classifying an overlay, and §5.4
+insists it be surfaced as something distinct and *never* as a HALT — but neither §7.4's chain
+procedure nor §7.3's four-state overlay table has a slot for it.
+
+- `aborted` is not `resolved`, because patches remain that were deliberately not applied and naming
+  the last applied patch the tip would claim a completeness we do not have — which RC-3 obliges
+  non-UI consumers to serve on. And it is not `halted`, because §5.4 forbids exactly that.
+- `unclassified` is not one of §7.3's four. A ceiling is not a `conflict` (the overlay may well
+  apply, and saying otherwise is a false statement about its author), and not `orphaned` (the target
+  is perfectly well defined, and `orphaned` would wrongly trigger the α/β rule).
+
+Both carry the distinct RL-3 annotation §5.4 requires, and neither ever cites H1.
 
 ---
 

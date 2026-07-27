@@ -109,12 +109,22 @@ describe('T3 — sequencing against the content prior hunks produced', () => {
 describe('no-ops — E7, N1, N2, N3', () => {
   it('treats absent fenced block as a prose-only no-op (E7, N1)', () => {
     const result = applyPatchContent('unchanged\n', 'Just prose about the change, no diff block.')
-    expect(result).toEqual({ status: 'noop', content: 'unchanged\n', shape: 'prose-only' })
+    expect(result).toEqual({
+      status: 'noop',
+      content: 'unchanged\n',
+      shape: 'prose-only',
+      issues: [],
+    })
   })
 
   it('treats a header block with zero hunks as a no-op (N2)', () => {
     const result = applyPatchContent('unchanged\n', '```diff\n--- a/content\n+++ b/content\n```')
-    expect(result).toEqual({ status: 'noop', content: 'unchanged\n', shape: 'header-only' })
+    expect(result).toEqual({
+      status: 'noop',
+      content: 'unchanged\n',
+      shape: 'header-only',
+      issues: [],
+    })
   })
 
   it('locates the payload through E1–E6 rather than re-implementing fence scanning', () => {

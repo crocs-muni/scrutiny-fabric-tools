@@ -345,6 +345,44 @@ and the two cases are written up in `docs/RESOLVE.md` §4.
 
 ---
 
+## F11 — §5.4's resource limit has no disposition in §7.3's overlay table, or in the chain states
+
+**Where.** §5.4: *"Exceeding a ceiling aborts application and MUST be surfaced as a distinct
+resource-limit-exceeded annotation, never as HALT. The event remains V-valid."* Against §7.3's
+overlay table, which offers exactly four states, and §7.4's chain procedure, which offers
+resolved-or-HALT-or-frozen.
+
+**The gap.** A ceiling can be hit in two places, and neither has a defined outcome.
+
+*Classifying an overlay.* The four states are clean, conflict, stale, orphaned. A ceiling is none of
+them: the overlay may well apply, so `conflict` asserts a failure that was never established; the
+target is perfectly well defined and obtainable, so `orphaned` is false and would wrongly trigger
+the α/β rule. OV-4 requires the classification be a pure function of (payload, target content) —
+which it still is, given fixed ceilings — but the function has no value to return.
+
+*Applying the chain.* §7.4 step 4 has two outcomes, apply-all or HALT. A ceiling is explicitly not a
+HALT, but the chain is not resolved either: patches remain that were deliberately not applied.
+Reporting `resolved` would name the last applied patch as the tip and claim a completeness the
+implementation does not have — and RC-3 obliges non-UI consumers to serve canonical bytes on that
+basis.
+
+**Why it matters.** RL-2 exists because patch payloads are adversary-controlled on a permissionless
+network, so hitting a ceiling is an expected operating condition, not an exotic one. Two conforming
+implementations will pick different fallbacks — most likely `conflict`, which is the closest of the
+four and is a false statement about the overlay's author.
+
+**Suggested fix.** Give the limit its own disposition in both places. For overlays, a fifth state
+(or an explicit "the classification is unavailable" carve-out attached to the annotation). For the
+chain, wording that distinguishes "aborted under a ceiling" from both "resolved" and "HALT", since
+§5.4 already insists the two must not be conflated.
+
+**What the implementation does meanwhile.** Adds a fifth `OverlayState`, `unclassified`, marked in
+the type's own documentation as *not* one of §7.3's four; and a fifth `ChainState`, `aborted`,
+carrying the ceiling that was hit. Both are accompanied by the distinct RL-3 annotation §5.4
+requires, and neither ever cites H1.
+
+---
+
 ## Cross-cutting note — the V layer has only one disposition
 
 Three of the four items above are symptoms of the same underlying shape: §6.0 gives the Validity
