@@ -1,0 +1,10 @@
+# Force LF in the working tree on every platform.
+#
+# Without this, a Windows checkout under the common `core.autocrlf=true` converts LF to CRLF,
+# and Biome's format check (which expects LF) then fails on the windows-latest CI leg only.
+* text=auto eol=lf
+
+# Conformance vectors are byte-exact by design: PB-1/PB-2 make payload bytes normative, and the
+# corpus deliberately includes CRLF and no-trailing-newline cases. Never let git rewrite them.
+packages/core/vectors/**    -text
+*.tgz         binary

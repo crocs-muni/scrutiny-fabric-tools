@@ -473,3 +473,38 @@ certificate with `created_at` set to its issue year is silently refused.
    that private disclosure was unavailable. Handoff prepared at `~/ndk/`.
 5. Does the demo relay support NIP-77 Negentropy? Only affects whether sync is "design toward" or
    "available now".
+
+---
+
+## 6. Corrections
+
+This document is append-only. A decision that turns out to rest on a false premise is corrected
+here, with the evidence, rather than edited in place or quietly worked around.
+
+**C1 (2026-07-27, Phase 2) — D31's producer recipe does not work in `diff@9.0.0`.**
+
+D31 states: "Producer is `structuredPatch` + `formatPatch({isGit:true})` with names
+`a/content`/`b/content`, which emits spec-canonical bytes natively." The second argument to
+`formatPatch` is not an options object in v9. Passing **any** second argument makes it emit the
+hunks alone, with no `--- a/content` / `+++ b/content` header block — a payload that violates C1
+and matches no production of the §5.2 grammar. Verified against `diff@9.0.0`:
+
+```js
+formatPatch(p)                  // '===…===\n--- a/content\n+++ b/content\n@@ -1,1 +1,1 @@\n-a\n+b\n'
+formatPatch(p, {isGit: true})   // '@@ -1,1 +1,1 @@\n-a\n+b\n'
+formatPatch(p, {isGit: false})  // '@@ -1,1 +1,1 @@\n-a\n+b\n'   ← same, so it is not an isGit flag
+```
+
+Nor does the no-argument form emit spec-canonical bytes: it prefixes a bare `===…===` separator,
+which §5.2's `index-preamble` admits only after an `Index: content` line. Recorded as
+SPEC-FEEDBACK F8.
+
+**What is unaffected.** D31's substance stands — jsdiff remains the v0.1 producer, behind the port,
+with names `a/content` / `b/content` and `context: 3`. Only the exact call was wrong. The
+"17/21 fixtures byte-identical" measurement in D31 was presumably taken against a different jsdiff
+major or a different entry point, and should not be relied on until re-measured.
+
+**Corrected recipe**, implemented in `patch.ts` as `makePatch` and to be reused by `build.ts` in
+Phase 6: `structuredPatch('a/content', 'b/content', before, after, '', '', { context: 3 })`, then
+`formatPatch(patch)` **with no second argument**, then strip a leading bare `===…` separator line
+if present.

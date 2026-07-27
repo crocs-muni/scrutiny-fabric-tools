@@ -1,0 +1,66 @@
+{
+  "name": "@scrutiny-fabric/core",
+  "version": "0.1.0",
+  "description": "Reference implementation of the SCRUTINY Fabric protocol (spec v0.6.0). Sans-IO, crypto-free, ESM-only.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/crocs-muni/scrutiny-fabric-tools.git",
+    "directory": "packages/core"
+  },
+  "homepage": "https://github.com/crocs-muni/scrutiny-fabric-tools/tree/main/packages/core#readme",
+  "bugs": "https://github.com/crocs-muni/scrutiny-fabric-tools/issues",
+  "type": "module",
+  "sideEffects": false,
+  "engines": {
+    "node": ">=22"
+  },
+  "//files": "src ships because declarationMap and sourceMap point into it; without it every published .map is dead and consumers get broken go-to-definition.",
+  "files": ["dist", "src"],
+  "publishConfig": {
+    "access": "public"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./events.js": {
+      "types": "./dist/events.d.ts",
+      "default": "./dist/events.js"
+    },
+    "./validate.js": {
+      "types": "./dist/validate.d.ts",
+      "default": "./dist/validate.js"
+    },
+    "./id.js": {
+      "types": "./dist/id.d.ts",
+      "default": "./dist/id.js"
+    },
+    "./rules.js": {
+      "types": "./dist/rules.d.ts",
+      "default": "./dist/rules.js"
+    },
+    "./errors.js": {
+      "types": "./dist/errors.d.ts",
+      "default": "./dist/errors.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run",
+    "attw": "attw --pack . --profile esm-only"
+  },
+  "devDependencies": {
+    "@arethetypeswrong/cli": "^0.18.5",
+    "@types/node": "^22",
+    "fast-check": "^4.9.0",
+    "typescript": "^5.8",
+    "vitest": "^2.1.8"
+  },
+  "dependencies": {
+    "diff": "^9"
+  }
+}

@@ -1,0 +1,45 @@
+name: CI
+
+# Work reaches main only through a pull request (DECISIONS, "Working conventions"),
+# so the pull_request trigger is the gate. The push trigger re-runs the same checks
+# on the merge commit.
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: verify (node ${{ matrix.node }}, ${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        node: ['22']
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      # One step, not six: `pnpm verify` is the documented gate, and re-listing its steps here
+      # means a phase that extends it (Phase 7 adds coverage:rules and vectors:verify) passes CI
+      # while the gate itself has grown. It runs lint, typecheck, rules:check, build, attw, test.
+      - name: Verify
+        run: pnpm verify
