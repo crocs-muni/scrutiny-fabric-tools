@@ -187,6 +187,122 @@ row) and its own verification checklist.
       `scrutiny-fabric-tools/investigations/diff-parity/` but the report as bare
       `investigations/diff-parity/REPORT.md`.
 
+---
+
+# Additional amendments — pre-existing spec defects
+
+Found by the rule-registry extractor (`tools/extract-rules.mjs`), **not caused by the proposed
+amendments**. These exist in v0.5.9 today. Fold them into the brief as new amendments during A0.
+
+The extractor validated the registry itself as **completely clean** — 123 rules, 47 V / 50 A / 25 D /
+1 reserved, and zero mismatches between the 20 per-section rule tables and Appendix F on IDs, layers,
+`inheritsFrom`, sections, duplicates, or ID format. v0.5.9's cleanup was done properly. What follows
+is normative language that never reached a rule table, and drift between prose and registry.
+
+## 🔴 A13 — §9 contradicts PR-4 / MD-4 on `k` tags (implementation-blocking)
+
+Confirmed by quotation:
+
+- **§9:902** — "The event **SHOULD** carry at least one `k` tag for each distinct prefix kind present
+  in its `i` tags."
+- **PR-4 / MD-4**, layer **V** — "The `k` collection **MUST** contain at minimum one entry per
+  distinct `i` prefix kind present in the event."
+
+Same proposition, different RFC 2119 keyword. Because PR-4/MD-4 are **V**, this decides whether an
+event with an `i` tag and no matching `k` tag is **admissible or rejected**. An implementation cannot
+be written until it is resolved.
+
+- [ ] Decide MUST or SHOULD, and make §9 and PR-4/MD-4 agree. If MUST stays, §9's sentence must say
+      MUST and cite PR-4/MD-4.
+
+## 🔴 A14 — §5.2's consumer grammar contradicts N2, and is invalid ABNF
+
+**§5.2:495** — `patch-payload = [ index-preamble ] [ diff-git-line ] header-block [ hunk-block ]+`
+
+Two defects:
+
+1. `[ x ]+` is not valid ABNF — ABNF uses prefix repetition (`*x`, `1*x`); postfix `+` is regex/EBNF.
+2. Read as "one or more", it **contradicts N2**, which declares a header-only block with **zero
+   hunks** a valid no-op that "Consumers MUST NOT reject as malformed."
+
+The grammar block carries a "conforming consumer MUST accept" obligation (§5.2:492) with no rule ID,
+so nothing in the registry constrains it.
+
+- [ ] Change to `*hunk-block`, and register the grammar's MUST-accept obligation as a rule.
+
+## 🟡 A15 — twelve unregistered normative statements
+
+Genuinely normative, no rule ID. Register each or explicitly de-normativise.
+
+| § | Statement |
+|---|---|
+| 3.1 | Publishers SHOULD inspect NIP-11 `min_pow_difficulty` before publishing (no PoW rule exists at all) |
+| 3.2 | "implementations MUST defer to the base-layer specification rather than re-derive semantics" — **§3.2 has no rule table whatsoever** |
+| 4.3 | Third parties who believe a Binding is wrong SHOULD publish a competing Binding — the *only* stated dispute mechanism for edges |
+| 4.3 | Implementations MAY surface long-pending Bindings in audit views |
+| 4.6 | imeta is RECOMMENDED for SBOMs, CSAF, in-toto/SLSA, signed PDFs, reports — no IM rule says *when* to use imeta |
+| 5.2 | "Producers SHOULD emit payloads conforming to the consumer grammar" — the umbrella obligation P1–P4 never state |
+| 7.3 | Conflict row: default rendering SHOULD show target-time / proposed / current side-by-side (OV-5 only requires *exposing* the classification) |
+| 7.5 | Implementations SHOULD query multiple relays and cross-reference — the protocol's stated defence against relay malice, in a section with no rule table |
+| 7.5 | Implementations SHOULD warn when trust-radius expansion admits many unseen pubkeys — the only stated Sybil mitigation |
+| 8.0 | Clients SHOULD check NIP-11 before relying on NIP-50 search (DQ-3 covers verifying *results*, not the capability pre-check) |
+| 9 | The `k`-tag SHOULD — see A13 |
+| 10 | Default mode SHOULD treat a retracted root as absent; audit mode SHOULD surface full history |
+
+- [ ] Register or de-normativise each. Note §3.2, §7.5, §8.0, §8.1 and §8.2 have **no rule table at
+      all** while carrying normative directives.
+
+## 🟡 A16 — four registry entries weaken their prose
+
+The registry is the conformance-test surface, so an obligation lost there is lost in practice.
+
+| Rule | Prose says | Registry says |
+|---|---|---|
+| SF-5 | "The root author **MUST** emit a NIP-09 kind 5 deletion targeting any patch in one of the forked branches" | "the root author emits…" — MUST dropped |
+| RC-2 | "overlays … **MUST NOT** be folded into the canonical answer" | "Foreign overlays are NOT part of canonical bytes" — imperative lost |
+| OV-8 | "The root author who wishes to incorporate a foreign change **MUST** emit their own patch … replying to a canonical parent" | only the "is ignored for chain construction" half registered |
+| §9 vs PR-4 | see A13 | |
+
+- [ ] Restore the normative keyword in each registry entry.
+
+## 🟢 A17 — §6.0's layer manifest is wrong in one place and incomplete
+
+- [ ] **§6.0's V bullet cites "§5.2 E\*"**, which sweeps in **E7 — tagged A** in the rule tables and
+      separately (correctly) listed in the A bullet. Change to `E1–E6`.
+- [ ] §6.0 cites 14 of 47 V rules and 45 of 50 A rules (OTS-1, PT-5, PT-6, PT-8, PT-9 absent), and
+      **TR-1 and IR-4 appear in no bullet at all**. Not a contradiction, but §6.0 cannot serve as the
+      layer index — only the tables can. Either complete it or say explicitly that it is illustrative.
+- [ ] **Appendix F section skew:** TR-1…TR-6 are cited as `§6` though the table is under §6.4;
+      DQ-1…DQ-4 as `§8` though the table is under §8.3. Every other prefix cites its exact defining
+      subsection, so the `§` column is not a reliable deep-link target. Normalise or document.
+
+## 🟢 A18 — ID grammar is split
+
+Two incompatible grammars coexist: `PREFIX-N` (18 prefixes) everywhere, and bare `LETTER+N` (`E`, `N`,
+`C`, `P`, `T`, `H`) confined to §5.2/§5.3. A new bare-form rule is indistinguishable from a typo.
+
+- [ ] Either keep the bare form strictly within §5.2/§5.3, or normalise everything to `PREFIX-N` while
+      the version is bumping anyway. Note normalising renames rules, which breaks citation stability —
+      probably not worth it.
+
+## Guard rails for the editing session
+
+`tools/extract-rules.mjs` is a CI gate: it exits non-zero on any registry inconsistency, and was
+validated by mutation testing (layer flips, deleted rows, malformed and duplicate IDs, section moves).
+**Run it after every amendment.** It also cross-checks §6.0's prose against the tables, so a re-tag
+applied to the tables but not to §6.0 is caught — a live risk given the BD-6/BD-7 re-tag under
+discussion.
+
+Two brittleness warnings for whoever edits:
+
+- Body rule tables are found by exact header match on `| # | Layer | Inherits from | Rule |`.
+  **Adding or renaming a column silently yields zero rows** and 123 spurious errors. Don't change the
+  table header.
+- Cells split on raw `|`. No rule currently contains a pipe; if a new rule needs one (a regex
+  alternation, say), escape it as `\|` in the spec.
+
+---
+
 ## 🟡 Cross-cutting — terminology
 
 - [ ] The spec already overloads **"admitted"** in two senses: V-admissibility (§3, BD-5 "MUST NOT be

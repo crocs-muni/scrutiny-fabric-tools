@@ -1,0 +1,1109 @@
+[
+  {
+    "id": "TAG-1",
+    "section": "3",
+    "layer": "V",
+    "inheritsFrom": null,
+    "summary": "Exactly one `[\"t\",\"scrutiny-fabric\"]` tag.",
+    "text": "Every SCRUTINY event MUST carry exactly one `[\"t\",\"scrutiny-fabric\"]` tag.",
+    "reserved": false
+  },
+  {
+    "id": "TAG-2",
+    "section": "3",
+    "layer": "V",
+    "inheritsFrom": null,
+    "summary": "Exactly one version `t` tag matching `^scrutiny-v\\d{3}$`.",
+    "text": "Every SCRUTINY event MUST carry exactly one version `t` tag matching `^scrutiny-v\\d{3}$`.",
+    "reserved": false
+  },
+  {
+    "id": "TAG-3",
+    "section": "3",
+    "layer": "V",
+    "inheritsFrom": null,
+    "summary": "Exactly one event-type `t` tag from the recognised set.",
+    "text": "Every SCRUTINY event MUST carry exactly one event-type `t` tag from `{scrutiny-product, scrutiny-metadata, scrutiny-binding, scrutiny-patch}`.",
+    "reserved": false
+  },
+  {
+    "id": "TAG-4",
+    "section": "3",
+    "layer": "V",
+    "inheritsFrom": null,
+    "summary": "Tag names use kebab-case.",
+    "text": "Tag names use kebab-case; underscored variants from older drafts are not recognised.",
+    "reserved": false
+  },
+  {
+    "id": "TAG-5",
+    "section": "3",
+    "layer": "V",
+    "inheritsFrom": "NIP-01",
+    "summary": "Unknown tags MUST be ignored.",
+    "text": "Unknown tags MUST be ignored by parsers.",
+    "reserved": false
+  },
+  {
+    "id": "VER-1",
+    "section": "3",
+    "layer": "V",
+    "inheritsFrom": null,
+    "summary": "`scrutiny-vMMP` digits encode MAJOR/MINOR/PATCH; lexicographic ordering.",
+    "text": "The three digits in `scrutiny-vMMP` encode MAJOR/MINOR/PATCH. Lexicographic comparison coincides with semantic ordering.",
+    "reserved": false
+  },
+  {
+    "id": "VER-2",
+    "section": "3",
+    "layer": "V",
+    "inheritsFrom": null,
+    "summary": "Higher-version events MAY be admitted opaquely if V-valid.",
+    "text": "A higher-version event MAY be admitted opaquely if it satisfies every Validity invariant of this specification.",
+    "reserved": false
+  },
+  {
+    "id": "VER-3",
+    "section": "3",
+    "layer": "V",
+    "inheritsFrom": null,
+    "summary": "Higher-version events violating Validity MUST NOT render.",
+    "text": "A higher-version event that violates a Validity invariant of this specification MUST NOT be rendered as a Product, Metadata, Binding, or Patch.",
+    "reserved": false
+  },
+  {
+    "id": "VER-4",
+    "section": "3",
+    "layer": "V",
+    "inheritsFrom": null,
+    "summary": "MUST NOT reject higher-version events *solely* for the version tag.",
+    "text": "Implementations MUST NOT reject higher-version events *solely* because of the version tag.",
+    "reserved": false
+  },
+  {
+    "id": "OTS-1",
+    "section": "3",
+    "layer": "A",
+    "inheritsFrom": "NIP-03",
+    "summary": "OTS is audit signal only; not used for chain construction or tip selection.",
+    "text": "OpenTimestamps attestations are an audit signal only: consumers MUST NOT use OTS-derived timestamps in canonical-chain construction, overlay classification, or self-fork resolution.",
+    "reserved": false
+  },
+  {
+    "id": "PR-1",
+    "section": "4.1",
+    "layer": "V",
+    "inheritsFrom": null,
+    "summary": "Product `content` field is required.",
+    "text": "A Product event MUST carry a `content` field (any UTF-8 byte sequence; format is free-form).",
+    "reserved": false
+  },
+  {
+    "id": "PR-2",
+    "section": "4.1",
+    "layer": "D",
+    "inheritsFrom": null,
+    "summary": "Product SHOULD carry ≤64 `i` tags.",
+    "text": "A Product event SHOULD carry no more than 64 `i` tags.",
+    "reserved": false
+  },
+  {
+    "id": "PR-3",
+    "section": "4.1",
+    "layer": "D",
+    "inheritsFrom": null,
+    "summary": "Product SHOULD carry ≤64 `k` tags.",
+    "text": "A Product event SHOULD carry no more than 64 `k` tags.",
+    "reserved": false
+  },
+  {
+    "id": "PR-4",
+    "section": "4.1",
+    "layer": "V",
+    "inheritsFrom": "NIP-73",
+    "summary": "`k` collection contains ≥1 entry per distinct `i` prefix; treat as set.",
+    "text": "The `k` collection MUST contain at minimum one entry per **distinct** `i` prefix kind present in the event. Consumers MUST treat `k` as a set.",
+    "reserved": false
+  },
+  {
+    "id": "PR-5",
+    "section": "4.1",
+    "layer": "V",
+    "inheritsFrom": "NIP-92",
+    "summary": "`imeta` attachments OPTIONAL.",
+    "text": "`imeta` attachments are OPTIONAL.",
+    "reserved": false
+  },
+  {
+    "id": "MD-1",
+    "section": "4.2",
+    "layer": "V",
+    "inheritsFrom": null,
+    "summary": "Metadata `content` field is required.",
+    "text": "A Metadata event MUST carry a `content` field (any UTF-8 byte sequence; format is free-form).",
+    "reserved": false
+  },
+  {
+    "id": "MD-2",
+    "section": "4.2",
+    "layer": "D",
+    "inheritsFrom": null,
+    "summary": "Metadata SHOULD carry ≤64 `i` tags.",
+    "text": "A Metadata event SHOULD carry no more than 64 `i` tags.",
+    "reserved": false
+  },
+  {
+    "id": "MD-3",
+    "section": "4.2",
+    "layer": "D",
+    "inheritsFrom": null,
+    "summary": "Metadata SHOULD carry ≤64 `k` tags.",
+    "text": "A Metadata event SHOULD carry no more than 64 `k` tags.",
+    "reserved": false
+  },
+  {
+    "id": "MD-4",
+    "section": "4.2",
+    "layer": "V",
+    "inheritsFrom": "NIP-73",
+    "summary": "`k` collection contains ≥1 entry per distinct `i` prefix; treat as set.",
+    "text": "The `k` collection MUST contain at minimum one entry per **distinct** `i` prefix kind present in the event. Consumers MUST treat `k` as a set.",
+    "reserved": false
+  },
+  {
+    "id": "MD-5",
+    "section": "4.2",
+    "layer": "V",
+    "inheritsFrom": "NIP-92",
+    "summary": "`imeta` attachments OPTIONAL.",
+    "text": "`imeta` attachments are OPTIONAL.",
+    "reserved": false
+  },
+  {
+    "id": "BD-1",
+    "section": "4.3",
+    "layer": "V",
+    "inheritsFrom": null,
+    "summary": "Exactly one `e root` tag.",
+    "text": "A Binding event MUST carry exactly one `e` tag with marker `root`.",
+    "reserved": false
+  },
+  {
+    "id": "BD-2",
+    "section": "4.3",
+    "layer": "V",
+    "inheritsFrom": null,
+    "summary": "Exactly one `e link` tag.",
+    "text": "A Binding event MUST carry exactly one `e` tag with marker `link`.",
+    "reserved": false
+  },
+  {
+    "id": "BD-3",
+    "section": "4.3",
+    "layer": "V",
+    "inheritsFrom": null,
+    "summary": "`e root` endpoint MUST be a `scrutiny-product`.",
+    "text": "The `e root` endpoint MUST be a `scrutiny-product` event.",
+    "reserved": false
+  },
+  {
+    "id": "BD-4",
+    "section": "4.3",
+    "layer": "V",
+    "inheritsFrom": null,
+    "summary": "`e link` endpoint MUST be a `scrutiny-metadata`.",
+    "text": "The `e link` endpoint MUST be a `scrutiny-metadata` event.",
+    "reserved": false
+  },
+  {
+    "id": "BD-5",
+    "section": "4.3",
+    "layer": "V",
+    "inheritsFrom": null,
+    "summary": "Binding with invalid endpoint typing MUST NOT be admitted.",
+    "text": "A Binding whose endpoints, once observed, do not satisfy BD-3/BD-4 is an invalid SCRUTINY event and MUST NOT be admitted.",
+    "reserved": false
+  },
+  {
+    "id": "BD-6",
+    "section": "4.3",
+    "layer": "D",
+    "inheritsFrom": null,
+    "summary": "Binding with unobserved endpoints is pending; admitted but not rendered.",
+    "text": "A Binding whose endpoints are not yet observed MUST be treated as *pending*: admitted to local storage but NOT rendered until both endpoints are observed.",
+    "reserved": false
+  },
+  {
+    "id": "BD-7",
+    "section": "4.3",
+    "layer": "V",
+    "inheritsFrom": null,
+    "summary": "Endpoint contradiction → permanently invalid; SHOULD cache rejection.",
+    "text": "A Binding whose observed endpoint contradicts BD-3/BD-4 transitions to permanently invalid; implementations SHOULD cache the rejection.",
+    "reserved": false
+  },
+  {
+    "id": "BD-8",
+    "section": "4.3",
+    "layer": "D",
+    "inheritsFrom": "NIP-10",
+    "summary": "Relay-hint advisory; MUST fall back to full relay set if not found on hint.",
+    "text": "The `<relay>` field in `e` tags is advisory. An empty string means \"no hint.\" Implementations MUST NOT rely on relay hints exclusively and SHOULD query their configured relay set for referenced events; they MUST fall back to their full relay set if the event is not found on the hinted relay.",
+    "reserved": false
+  },
+  {
+    "id": "BD-9",
+    "section": "4.3",
+    "layer": "A",
+    "inheritsFrom": null,
+    "summary": "No patch-based Binding update; correct via kind 5 + replacement.",
+    "text": "Bindings have no patch-based update mechanism. To correct a Binding, kind 5 delete it and publish a replacement. Patch events cannot target a Binding.",
+    "reserved": false
+  },
+  {
+    "id": "BD-10",
+    "section": "4.3",
+    "layer": "V",
+    "inheritsFrom": null,
+    "summary": "Binding MUST NOT contain more than one `e root` or `e link`.",
+    "text": "A Binding MUST NOT contain more than one `e root` or more than one `e link`.",
+    "reserved": false
+  },
+  {
+    "id": "BD-11",
+    "section": "4.3",
+    "layer": "D",
+    "inheritsFrom": null,
+    "summary": "Duplicate Binding collapse is a presentation concern.",
+    "text": "Duplicate detection is a presentation concern. Implementations MAY collapse visually-identical bindings (same root, same link, same pubkey) at render time.",
+    "reserved": false
+  },
+  {
+    "id": "BD-12",
+    "section": "4.3",
+    "layer": "V",
+    "inheritsFrom": "NIP-10",
+    "summary": "Author-hint mismatch does NOT invalidate the referencing Binding.",
+    "text": "A mismatch between the author-hint suffix in an `e` tag and the actual event `pubkey` does not invalidate the referencing Binding. Trust decisions MUST be based on the verified event pubkey, not the hint.",
+    "reserved": false
+  },
+  {
+    "id": "PT-1",
+    "section": "4.4",
+    "layer": "V",
+    "inheritsFrom": "NIP-10",
+    "summary": "Exactly one `e root` tag.",
+    "text": "A Patch event MUST carry exactly one `e` tag with marker `root` (pointing at the root Product or Metadata).",
+    "reserved": false
+  },
+  {
+    "id": "PT-2",
+    "section": "4.4",
+    "layer": "V",
+    "inheritsFrom": "NIP-10",
+    "summary": "Exactly one `e reply` tag.",
+    "text": "A Patch event MUST carry exactly one `e` tag with marker `reply` (pointing at its immediate target).",
+    "reserved": false
+  },
+  {
+    "id": "PT-3",
+    "section": "4.4",
+    "layer": "V",
+    "inheritsFrom": null,
+    "summary": "Zero or one fenced `diff` / `patch` block.",
+    "text": "A Patch event MUST carry zero or one fenced `diff` / `patch` code block.",
+    "reserved": false
+  },
+  {
+    "id": "PT-4",
+    "section": "4.4",
+    "layer": "V",
+    "inheritsFrom": null,
+    "summary": "Multiple fenced blocks → only the first is the payload.",
+    "text": "If multiple fenced `diff` / `patch` blocks appear, only the first (document order) is the patch payload; subsequent blocks MUST be treated as prose.",
+    "reserved": false
+  },
+  {
+    "id": "PT-5",
+    "section": "4.4",
+    "layer": "A",
+    "inheritsFrom": null,
+    "summary": "Root-author vs foreign classification by `pubkey`.",
+    "text": "Authorship classification: a **root-author patch** has `pubkey` equal to the root event's `pubkey`; a **foreign patch** does not.",
+    "reserved": false
+  },
+  {
+    "id": "PT-6",
+    "section": "4.4",
+    "layer": "A",
+    "inheritsFrom": null,
+    "summary": "Root-author patch `e reply` MUST point at root or root-author patch (otherwise ignored for chain).",
+    "text": "A root-author patch's `e reply` MUST point at the root event or another root-author patch. A root-author patch replying to a foreign patch is ignored for canonical-chain construction (§7.3).",
+    "reserved": false
+  },
+  {
+    "id": "PT-7",
+    "section": "4.4",
+    "layer": "V",
+    "inheritsFrom": null,
+    "summary": "Foreign patch `e reply` MUST point at root or root-author patch; no overlay-to-overlay.",
+    "text": "A foreign patch's `e reply` MUST point at the root event or a root-author patch. Overlay-to-overlay reply is invalid (§7.3).",
+    "reserved": false
+  },
+  {
+    "id": "PT-8",
+    "section": "4.4",
+    "layer": "A",
+    "inheritsFrom": null,
+    "summary": "No-op patch participates in chain topology but contributes no change.",
+    "text": "A no-op patch (no fenced block, or header-only fenced block per §5.2 N1/N2) participates in chain topology but contributes no content change.",
+    "reserved": false
+  },
+  {
+    "id": "PT-9",
+    "section": "4.4",
+    "layer": "A",
+    "inheritsFrom": null,
+    "summary": "Patches append-only; removal only via author's own kind 5.",
+    "text": "Patches are append-only. A patch cannot be inserted between two existing patches, and its parent pointer cannot be changed after publication. Removal is only via kind 5 deletion by the patch's own author (§10).",
+    "reserved": false
+  },
+  {
+    "id": "IX-1",
+    "section": "4.5",
+    "layer": "D",
+    "inheritsFrom": null,
+    "summary": "Publishers SHOULD include canonical `i` tags for top-level indexers.",
+    "text": "Publishers SHOULD include canonical `i` tags for top-level indexers the event is *about* (CVE, CPE, PURL, CC certificate ID, FIPS validation number, etc.).",
+    "reserved": false
+  },
+  {
+    "id": "IX-2",
+    "section": "4.5",
+    "layer": "D",
+    "inheritsFrom": null,
+    "summary": "Events SHOULD carry ≤64 `i` tags.",
+    "text": "Events SHOULD contain no more than 64 `i` tags.",
+    "reserved": false
+  },
+  {
+    "id": "IX-3",
+    "section": "4.5",
+    "layer": "A",
+    "inheritsFrom": null,
+    "summary": "`i` and `k` tags on root events are immutable.",
+    "text": "`i` tags and `k` tags on root events (Products and Metadata) are immutable. Patches only modify `content` (§4.4). To add or change indexers after publication, publish a new root event.",
+    "reserved": false
+  },
+  {
+    "id": "IX-4",
+    "section": "4.5",
+    "layer": "D",
+    "inheritsFrom": null,
+    "summary": "Deeply nested indexers SHOULD NOT be duplicated as `i` tags.",
+    "text": "Deeply nested indexers from payload contents (e.g., every component in a large SBOM) SHOULD NOT be duplicated as `i` tags.",
+    "reserved": false
+  },
+  {
+    "id": "IM-1",
+    "section": "4.6",
+    "layer": "A",
+    "inheritsFrom": "NIP-92",
+    "summary": "SHOULD verify `x` hash by streaming and comparing SHA-256.",
+    "text": "Implementations SHOULD verify the `x` hash by streaming the artifact contents and comparing against the declared SHA-256.",
+    "reserved": false
+  },
+  {
+    "id": "IM-2",
+    "section": "4.6",
+    "layer": "A",
+    "inheritsFrom": null,
+    "summary": "`size` mismatch is a verification failure equal to hash mismatch.",
+    "text": "If a declared `size` is present, implementations SHOULD additionally compare fetched byte length against `size` and treat a mismatch as a verification failure of the same severity as a hash mismatch.",
+    "reserved": false
+  },
+  {
+    "id": "IM-3",
+    "section": "4.6",
+    "layer": "A",
+    "inheritsFrom": "NIP-92",
+    "summary": "Multi-URL `imeta`: first hash-matching mirror is accepted; mirror choice MUST NOT influence validity.",
+    "text": "A single `imeta` tag MAY carry multiple `url` entries. Implementations SHOULD try them in order and accept the first whose fetched bytes match the declared `x` hash. Mirror selection MUST NOT influence the validity decision — only the hash check does.",
+    "reserved": false
+  },
+  {
+    "id": "IM-4",
+    "section": "4.6",
+    "layer": "A",
+    "inheritsFrom": null,
+    "summary": "MUST warn before displaying unverified artifacts.",
+    "text": "Implementations MUST warn before displaying or processing unverified artifacts.",
+    "reserved": false
+  },
+  {
+    "id": "IM-5",
+    "section": "4.6",
+    "layer": "V",
+    "inheritsFrom": null,
+    "summary": "`imeta` attachments not required to be referenced in `content`.",
+    "text": "SCRUTINY extends NIP-92: `imeta` attachments are not required to be referenced in the event's `content` field.",
+    "reserved": false
+  },
+  {
+    "id": "PB-1",
+    "section": "5.1",
+    "layer": "A",
+    "inheritsFrom": null,
+    "summary": "`content` consumed verbatim; no normalization before diff/apply.",
+    "text": "The `content` field is consumed verbatim as a UTF-8 byte sequence; no normalization (line-ending, trailing-newline, BOM-stripping, whitespace trimming) is performed before diffing or applying.",
+    "reserved": false
+  },
+  {
+    "id": "PB-2",
+    "section": "5.1",
+    "layer": "A",
+    "inheritsFrom": null,
+    "summary": "Consumers MUST NOT normalize patch payload bytes before applying.",
+    "text": "Consumers MUST NOT normalize the patch-payload byte sequence (the bytes strictly between fence lines, each terminated by `\\n`) before feeding it to a unified-diff applier.",
+    "reserved": false
+  },
+  {
+    "id": "E1",
+    "section": "5.2",
+    "layer": "V",
+    "inheritsFrom": "CommonMark §4.5",
+    "summary": "Backtick-fenced code block; tilde fences not recognised.",
+    "text": "The patch payload MUST be wrapped in a CommonMark §4.5 fenced code block using backtick (`` ` ``) fences. Tilde (`~`) fences are not recognized as SCRUTINY patch payloads.",
+    "reserved": false
+  },
+  {
+    "id": "E2",
+    "section": "5.2",
+    "layer": "V",
+    "inheritsFrom": "CommonMark §4.5",
+    "summary": "Opening fence ≥3 backticks; info string first token `diff` or `patch`.",
+    "text": "The opening fence MUST consist of three or more consecutive backticks, followed by an info string whose first whitespace-delimited token, lowercased, is `diff` or `patch`. Any additional info-string tokens after the first are ignored.",
+    "reserved": false
+  },
+  {
+    "id": "E3",
+    "section": "5.2",
+    "layer": "V",
+    "inheritsFrom": "CommonMark §4.5",
+    "summary": "Closing fence ≥ opening-fence length.",
+    "text": "The closing fence MUST consist of at least as many backticks as the opening fence, on a line of its own (CommonMark §4.5 closing-fence rule).",
+    "reserved": false
+  },
+  {
+    "id": "E4",
+    "section": "5.2",
+    "layer": "V",
+    "inheritsFrom": null,
+    "summary": "Variable-length fences: `max(3, N+1)` where `N` is longest payload run.",
+    "text": "**Variable-length fences.** Producers MUST choose an opening-fence length of `max(3, N + 1)`, where `N` is the longest run of consecutive backticks anywhere inside the payload bytes. This guarantees that any payload — including patches whose hunks operate on content that itself contains backtick fences (e.g., a Metadata event embedding a code-block PoC) — can be embedded unambiguously.",
+    "reserved": false
+  },
+  {
+    "id": "E5",
+    "section": "5.2",
+    "layer": "V",
+    "inheritsFrom": "CommonMark §4.5",
+    "summary": "Payload = bytes between fence lines, each terminated by `\\n`.",
+    "text": "The payload bytes are the concatenation of all lines strictly between the opening and closing fence lines, each line terminated by `\\n` (LF). The opening and closing fence lines themselves are NOT part of the payload.",
+    "reserved": false
+  },
+  {
+    "id": "E6",
+    "section": "5.2",
+    "layer": "V",
+    "inheritsFrom": null,
+    "summary": "Multiple matching fenced blocks: first is payload, rest ignored.",
+    "text": "A patch event's `content` MAY contain multiple fenced blocks. The **first** block (in document order) whose info string matches E2 is the patch payload; all subsequent matching blocks are prose and MUST be ignored as patch payloads.",
+    "reserved": false
+  },
+  {
+    "id": "E7",
+    "section": "5.2",
+    "layer": "A",
+    "inheritsFrom": null,
+    "summary": "No matching fenced block → no-op (§4.4).",
+    "text": "If no fenced block matching E2 is present in `content`, the patch is a no-op (see §4.4, Prose-only and no-op patches).",
+    "reserved": false
+  },
+  {
+    "id": "N1",
+    "section": "5.2",
+    "layer": "A",
+    "inheritsFrom": null,
+    "summary": "Prose-only patch is a valid no-op.",
+    "text": "A prose-only patch event (no fenced `diff` / `patch` block matching E2) is a valid no-op.",
+    "reserved": false
+  },
+  {
+    "id": "N2",
+    "section": "5.2",
+    "layer": "A",
+    "inheritsFrom": null,
+    "summary": "Header-only fenced block (valid headers, zero hunks) is a valid no-op.",
+    "text": "A header-only fenced block (valid `--- a/content` / `+++ b/content` headers, zero hunks) is a valid no-op. Consumers MUST NOT reject this shape as malformed.",
+    "reserved": false
+  },
+  {
+    "id": "N3",
+    "section": "5.2",
+    "layer": "A",
+    "inheritsFrom": null,
+    "summary": "Both no-op shapes MUST be treated as successful no-op application.",
+    "text": "Consumers MUST treat both N1 and N2 as successful no-op application against the current content: the content is unchanged; the event is recorded in the chain as normal.",
+    "reserved": false
+  },
+  {
+    "id": "C1",
+    "section": "5.2",
+    "layer": "V",
+    "inheritsFrom": null,
+    "summary": "`---`/`+++` path tokens MUST be exactly `a/content` and `b/content`.",
+    "text": "The `---` and `+++` header path tokens MUST be exactly `a/content` and `b/content` respectively. A payload with any other path tokens is invalid.",
+    "reserved": false
+  },
+  {
+    "id": "C2",
+    "section": "5.2",
+    "layer": "V",
+    "inheritsFrom": "unified-diff",
+    "summary": "Trailing data on header/`@@` lines MUST be tolerated and ignored.",
+    "text": "Trailing data on `---`, `+++`, `diff --git`, and `@@` lines (timestamps as emitted by `patch -u` / GNU `diff -u`, whitespace, etc.) MUST be tolerated and ignored.",
+    "reserved": false
+  },
+  {
+    "id": "C3",
+    "section": "5.2",
+    "layer": "V",
+    "inheritsFrom": "unified-diff",
+    "summary": "`Index:` preamble MAY appear; MUST be tolerated.",
+    "text": "The `Index:` preamble (capital `I`, followed by an `===…` separator line) MAY appear; consumers MUST tolerate it. It is *not* the same as the `index <sha>..<sha>` line emitted by `git diff` by default, which is forbidden (see P2).",
+    "reserved": false
+  },
+  {
+    "id": "C4",
+    "section": "5.2",
+    "layer": "V",
+    "inheritsFrom": "unified-diff",
+    "summary": "`diff --git` line MAY appear; MUST be tolerated.",
+    "text": "The `diff --git a/content b/content` line MAY appear before the headers; consumers MUST tolerate it. It is not required.",
+    "reserved": false
+  },
+  {
+    "id": "C5",
+    "section": "5.2",
+    "layer": "A",
+    "inheritsFrom": "unified-diff",
+    "summary": "`\\ No newline at end of file` marker MUST be handled per unified-diff spec.",
+    "text": "A `\\ No newline at end of file` marker MAY appear in hunks; consumers MUST handle it per the unified-diff spec (it signals the absence of a trailing newline in the corresponding side of the diff).",
+    "reserved": false
+  },
+  {
+    "id": "C6",
+    "section": "5.2",
+    "layer": "A",
+    "inheritsFrom": null,
+    "summary": "`@@` line numbers advisory; consumers locate hunks by context match.",
+    "text": "Hunk `@@` line numbers are advisory. Consumers MUST locate each hunk by context match against the current content, subject to the determinism requirement in §5.3.",
+    "reserved": false
+  },
+  {
+    "id": "P1",
+    "section": "5.2",
+    "layer": "V",
+    "inheritsFrom": "unified-diff",
+    "summary": "Minimum 3 lines of context before/after each change block.",
+    "text": "Minimum 3 lines of context before and after each change block (the default for all reference tools).",
+    "reserved": false
+  },
+  {
+    "id": "P2",
+    "section": "5.2",
+    "layer": "V",
+    "inheritsFrom": null,
+    "summary": "No `index <sha>..<sha>`, `mode`, `similarity index`, or rename metadata.",
+    "text": "No `index <oldsha>..<newsha> <mode>` lines (the lowercase-`index` form emitted by `git diff` by default), no `mode` lines, no `similarity index` lines, and no rename metadata. Use `--no-index` with git, or strip these post-hoc.",
+    "reserved": false
+  },
+  {
+    "id": "P3",
+    "section": "5.2",
+    "layer": "V",
+    "inheritsFrom": null,
+    "summary": "UTF-8 encoding, LF line endings inside the payload.",
+    "text": "UTF-8 encoding, LF line endings inside the payload.",
+    "reserved": false
+  },
+  {
+    "id": "P4",
+    "section": "5.2",
+    "layer": "A",
+    "inheritsFrom": null,
+    "summary": "Producers SHOULD verify their patch applies cleanly before publishing.",
+    "text": "Producers SHOULD verify their patch applies cleanly against the target event's resolved content before publishing.",
+    "reserved": false
+  },
+  {
+    "id": "T1",
+    "section": "5.3",
+    "layer": "A",
+    "inheritsFrom": null,
+    "summary": "Determinism: context+`-` lines MUST occur exactly once in current content.",
+    "text": "**Determinism (unambiguous context).** Each hunk's context lines together with its removed (`-`) lines MUST occur exactly once in the current content at the time of application. If the pattern occurs zero times, the patch is invalid (HALT, H1). If the pattern occurs two or more times, the patch is also invalid — the protocol does not rely on the hunk's `@@` line numbers for disambiguation, because production appliers (`git apply`, jsdiff) treat those line numbers as advisory and relocate hunks based on context match. Implementations MAY use the `@@` line numbers as a hint for the initial search position but MUST verify uniqueness across the full target content before applying.",
+    "reserved": false
+  },
+  {
+    "id": "T2",
+    "section": "5.3",
+    "layer": "A",
+    "inheritsFrom": null,
+    "summary": "Insertion carve-out: pure-insertion hunks apply at the `@@` `-`-line position.",
+    "text": "**Insertion carve-out.** A hunk with no context lines and no `-` lines (e.g., `@@ -0,0 +1,N @@` against empty content, or any pure-insertion hunk) has no pattern to disambiguate. Such a hunk MUST apply at the position implied by its `@@` header's `-` line number; the T1 uniqueness check does not apply.",
+    "reserved": false
+  },
+  {
+    "id": "T3",
+    "section": "5.3",
+    "layer": "A",
+    "inheritsFrom": null,
+    "summary": "Multi-hunk sequencing: each hunk checked against post-prior-hunks content.",
+    "text": "**Multi-hunk sequencing.** When a patch carries multiple hunks, the T1 check for each hunk is evaluated against the content as produced after all prior hunks in the **same patch** have already been applied. Hunks are processed in document order. A hunk that would satisfy T1 against the pre-patch content but fails after an earlier hunk in the same patch has shifted matching positions causes the patch to HALT (H1).",
+    "reserved": false
+  },
+  {
+    "id": "H1",
+    "section": "5.3",
+    "layer": "A",
+    "inheritsFrom": null,
+    "summary": "HALT: pre-validation failure freezes chain at last successful patch.",
+    "text": "**HALT semantics.** If pre-validation fails for a patch in the canonical chain, the patched content is the state after the last successfully applied patch (or the root state, if the first patch is invalid). No later patches are applied, even if they might themselves be individually valid. HALT is reevaluated whenever the chain topology changes — most commonly when the invalid patch is kind 5 deleted by its author (§10), removing it from the chain.",
+    "reserved": false
+  },
+  {
+    "id": "H2",
+    "section": "5.3",
+    "layer": "A",
+    "inheritsFrom": null,
+    "summary": "Invalid patches MUST be surfaced as protocol error annotations.",
+    "text": "**Protocol error annotation.** Implementations MUST surface an invalid patch as a protocol error annotation, including the event ID, author, and the failure reason.",
+    "reserved": false
+  },
+  {
+    "id": "CHN-1",
+    "section": "5.3",
+    "layer": "A",
+    "inheritsFrom": "NIP-10",
+    "summary": "Canonical chain walks root-author patches via NIP-10 `e reply`.",
+    "text": "The canonical chain is built by walking root-author patches (those whose `pubkey` equals the root event's `pubkey`) by following NIP-10 `e reply` markers from the root forward.",
+    "reserved": false
+  },
+  {
+    "id": "CHN-2",
+    "section": "5.3",
+    "layer": "A",
+    "inheritsFrom": null,
+    "summary": "Kind 5 cascade applied during chain build.",
+    "text": "Kind 5 cascade per §10 is applied while building the chain (deleted patches and their descendants are removed).",
+    "reserved": false
+  },
+  {
+    "id": "CHN-3",
+    "section": "5.3",
+    "layer": "A",
+    "inheritsFrom": null,
+    "summary": "Foreign patches never enter the canonical chain; same T/H rules apply to overlays.",
+    "text": "Foreign patches (those whose `pubkey` differs from the root event's `pubkey`) never enter the canonical chain. They are evaluated separately as overlays against their `e reply` target's resolved content (the target-state snapshot rule, §7.3). The same T1/T2/T3/H1 rules apply when computing an overlay's classification against its target.",
+    "reserved": false
+  },
+  {
+    "id": "TR-1",
+    "section": "6",
+    "layer": "V",
+    "inheritsFrom": null,
+    "summary": "V-invalid events MUST NOT enter SCRUTINY processing; V-valid events MUST NOT be rejected by an A or D rule.",
+    "text": "V-invalid events MUST NOT enter SCRUTINY processing and MUST NOT be rendered. A V-valid event MUST NOT be rejected by an A or D rule (§6.0).",
+    "reserved": false
+  },
+  {
+    "id": "TR-2",
+    "section": "6",
+    "layer": "D",
+    "inheritsFrom": null,
+    "summary": "Event admitted if `pubkey` trusted OR reachable via a trusted Binding.",
+    "text": "A SCRUTINY event is admitted to a user's view if its `pubkey` is trusted OR it is reachable via a trusted Binding (§6.2).",
+    "reserved": false
+  },
+  {
+    "id": "TR-3",
+    "section": "6",
+    "layer": "D",
+    "inheritsFrom": null,
+    "summary": "Binding admitted only if its `pubkey` is trusted; no transitive endpoint trust.",
+    "text": "A Binding event is admitted only if its `pubkey` is trusted. Trust does NOT flow transitively through the endpoints (§6.3).",
+    "reserved": false
+  },
+  {
+    "id": "TR-4",
+    "section": "6",
+    "layer": "D",
+    "inheritsFrom": null,
+    "summary": "A trusted Binding admits its `e root` and `e link` endpoints.",
+    "text": "When a Binding is admitted, both of its endpoints (`e root` and `e link`) become reachable and are admitted even if their authors are not directly trusted (§6.4).",
+    "reserved": false
+  },
+  {
+    "id": "TR-5",
+    "section": "6",
+    "layer": "D",
+    "inheritsFrom": null,
+    "summary": "Root admission admits the root's canonical chain.",
+    "text": "When a root Product or Metadata is admitted, its canonical chain is admitted with it: root-author patches and root-author kind 5 events targeting them are admitted automatically.",
+    "reserved": false
+  },
+  {
+    "id": "TR-6",
+    "section": "6",
+    "layer": "D",
+    "inheritsFrom": null,
+    "summary": "Foreign patches are NOT transitively admitted; require independent trust.",
+    "text": "Foreign patches are NOT transitively admitted via root admission. They require independent trust on the foreign author's pubkey.",
+    "reserved": false
+  },
+  {
+    "id": "RC-1",
+    "section": "7.1",
+    "layer": "A",
+    "inheritsFrom": "NIP-10",
+    "summary": "Canonical chain = linear root-author patch sequence by `e reply`.",
+    "text": "The canonical chain is the linear sequence of patch events whose `pubkey` equals the root event's `pubkey`, threaded by NIP-10 `e reply` markers from the root forward.",
+    "reserved": false
+  },
+  {
+    "id": "RC-2",
+    "section": "7.1",
+    "layer": "A",
+    "inheritsFrom": null,
+    "summary": "Canonical bytes computed from root + canonical chain; overlays excluded.",
+    "text": "Canonical bytes are computed strictly from the root event plus the canonical chain. Foreign overlays are NOT part of canonical bytes.",
+    "reserved": false
+  },
+  {
+    "id": "RC-3",
+    "section": "7.1",
+    "layer": "A",
+    "inheritsFrom": null,
+    "summary": "Non-UI consumers MUST recompute on observed-set change.",
+    "text": "Non-UI consumers MUST recompute canonical bytes and overlay states whenever their observed event set changes in a way that affects events they serve.",
+    "reserved": false
+  },
+  {
+    "id": "RC-4",
+    "section": "7.1",
+    "layer": "A",
+    "inheritsFrom": null,
+    "summary": "UI consumers SHOULD recompute on observed-set change.",
+    "text": "UI consumers SHOULD recompute on observed-set change.",
+    "reserved": false
+  },
+  {
+    "id": "SF-1",
+    "section": "7.2",
+    "layer": "A",
+    "inheritsFrom": null,
+    "summary": "Root self-fork: two root-author patches at same parent → chain undefined.",
+    "text": "A **root self-fork** occurs when two or more root-author patches reply to the same parent event. The canonical chain is undefined while the self-fork is unresolved.",
+    "reserved": false
+  },
+  {
+    "id": "SF-2",
+    "section": "7.2",
+    "layer": "A",
+    "inheritsFrom": null,
+    "summary": "Freeze patched content at shared parent while unresolved.",
+    "text": "Clients MUST freeze the patched content at the shared parent of the forked patches while the self-fork is unresolved.",
+    "reserved": false
+  },
+  {
+    "id": "SF-3",
+    "section": "7.2",
+    "layer": "A",
+    "inheritsFrom": null,
+    "summary": "Surface self-fork as an explicit error condition.",
+    "text": "Clients MUST surface the self-fork as an explicit error condition (event IDs of both branches, timestamps, available context).",
+    "reserved": false
+  },
+  {
+    "id": "SF-4",
+    "section": "7.2",
+    "layer": "A",
+    "inheritsFrom": null,
+    "summary": "MUST NOT pick branch by `created_at`, event ID, or any heuristic.",
+    "text": "Clients MUST NOT silently pick one branch by `created_at`, event ID, or any other heuristic.",
+    "reserved": false
+  },
+  {
+    "id": "SF-5",
+    "section": "7.2",
+    "layer": "A",
+    "inheritsFrom": "NIP-09",
+    "summary": "Resolution: root author kind 5 deletion on one branch.",
+    "text": "Resolution: the root author emits a kind 5 deletion targeting a patch in one of the forked branches; topology cascade (§10) eliminates that branch in its entirety.",
+    "reserved": false
+  },
+  {
+    "id": "SF-6",
+    "section": "7.2",
+    "layer": "A",
+    "inheritsFrom": null,
+    "summary": "Multiple forks resolved independently; freeze at earliest unresolved.",
+    "text": "Multiple unresolved forks are resolved independently; patched content is frozen at the earliest unresolved fork.",
+    "reserved": false
+  },
+  {
+    "id": "OV-1",
+    "section": "7.3",
+    "layer": null,
+    "inheritsFrom": null,
+    "summary": "*Reserved.* See **PT-7** (§4.4).",
+    "text": "*Reserved.* Foreign-patch reply-target validity is normative under **PT-7** (§4.4). This ID is retained for cross-reference stability.",
+    "reserved": true
+  },
+  {
+    "id": "OV-2",
+    "section": "7.3",
+    "layer": "A",
+    "inheritsFrom": null,
+    "summary": "Target-state snapshot: overlay evaluated against target's resolved content.",
+    "text": "**Target-state snapshot.** An overlay is interpreted against the target's resolved content — the canonical bytes computed by applying the canonical chain up to and including the foreign patch's `e reply` target. This is the byte sequence the overlay author signed against, and the only sequence the overlay is evaluated against.",
+    "reserved": false
+  },
+  {
+    "id": "OV-3",
+    "section": "7.3",
+    "layer": "A",
+    "inheritsFrom": null,
+    "summary": "Undefined target content → overlay is orphaned, not clean/conflict/stale.",
+    "text": "If the overlay's `e reply` target has no defined resolved content (downstream of HALT, inside an unresolved self-fork, or itself a sibling in such a fork), the overlay MUST be treated as **orphaned** and MUST NOT be classified as clean / conflict / stale.",
+    "reserved": false
+  },
+  {
+    "id": "OV-4",
+    "section": "7.3",
+    "layer": "A",
+    "inheritsFrom": null,
+    "summary": "Classification is a pure deterministic function of (payload, target content).",
+    "text": "Overlay classification against its target is a pure function of (overlay payload, target's resolved content) and MUST be deterministic across compliant clients.",
+    "reserved": false
+  },
+  {
+    "id": "OV-5",
+    "section": "7.3",
+    "layer": "D",
+    "inheritsFrom": null,
+    "summary": "Clients SHOULD expose classification through their API/data layer.",
+    "text": "Clients SHOULD expose the classification (clean / conflict / stale / orphaned) through their API/data layer so downstream tooling can read it. Visual rendering remains client-defined.",
+    "reserved": false
+  },
+  {
+    "id": "OV-6",
+    "section": "7.3",
+    "layer": "A",
+    "inheritsFrom": null,
+    "summary": "Overlay rendered against original target; \"rebase preview\" is non-normative.",
+    "text": "A foreign overlay is rendered against its original `e reply` target's resolved content. Clients MAY additionally offer a \"rebase preview\" against the current canonical tip; this is informational and outside the protocol's normative surface.",
+    "reserved": false
+  },
+  {
+    "id": "OV-7",
+    "section": "7.3",
+    "layer": "D",
+    "inheritsFrom": null,
+    "summary": "Foreign overlay visible only if its `pubkey` is in the user's trusted set.",
+    "text": "A foreign patch is visible to the user only if its `pubkey` is in the user's trusted set. The trust set gates which overlays appear; it does not affect the canonical chain.",
+    "reserved": false
+  },
+  {
+    "id": "OV-8",
+    "section": "7.3",
+    "layer": "A",
+    "inheritsFrom": null,
+    "summary": "Root-author patch replying to foreign patch ignored for chain construction.",
+    "text": "A root-author patch whose `e reply` points at a foreign patch is ignored for canonical-chain construction.",
+    "reserved": false
+  },
+  {
+    "id": "DQ-1",
+    "section": "8",
+    "layer": "D",
+    "inheritsFrom": "NIP-01",
+    "summary": "Discovery queries assume NIP-01 `#t`/`#e`/`#i` filters; include `#t:[\"scrutiny-fabric\"]`.",
+    "text": "All discovery queries assume relays supporting NIP-01 `#t`, `#e`, and `#i` filters and MUST include `#t:[\"scrutiny-fabric\"]` (except for kind 5 lookups, which do not carry `scrutiny-fabric` tags).",
+    "reserved": false
+  },
+  {
+    "id": "DQ-2",
+    "section": "8",
+    "layer": "D",
+    "inheritsFrom": "NIP-09",
+    "summary": "SHOULD issue `{kinds:[5], #e:[<id>]}` per cached event, periodically.",
+    "text": "Clients SHOULD issue `{kinds:[5], #e:[<id>]}` for every chain root and every patch they cache, both at first sight and periodically thereafter, to guard against relays that store deletions but omit them from default filter results.",
+    "reserved": false
+  },
+  {
+    "id": "DQ-3",
+    "section": "8",
+    "layer": "D",
+    "inheritsFrom": "NIP-50",
+    "summary": "NIP-50 search results MUST be verified for valid `scrutiny-fabric` tags and intent match.",
+    "text": "When falling back to NIP-50 free-text `search` queries (§8.1 step 3), clients MUST verify returned events carry valid `scrutiny-fabric` tags (per §3) and match the user's intent. NIP-50 ranking is relay-dependent and untrusted.",
+    "reserved": false
+  },
+  {
+    "id": "DQ-4",
+    "section": "8",
+    "layer": "D",
+    "inheritsFrom": "NIP-10",
+    "summary": "`{\"#e\":[id]}` traversal results MUST be filtered for the expected `scrutiny-*` `t` tag and `e` markers inspected for role.",
+    "text": "When traversing `e`-tag references via `{\"#e\":[<event-id>]}` (§4.3, §8.2), results MUST be filtered for the expected `scrutiny-*` event-type `t` tag, and the `e` tag markers (`root`, `link`, `reply`) MUST be inspected to determine each result's role relative to the queried event.",
+    "reserved": false
+  },
+  {
+    "id": "IR-1",
+    "section": "9",
+    "layer": "V",
+    "inheritsFrom": null,
+    "summary": "`i` prefix is lowercase ASCII matching `[a-z0-9-]+`.",
+    "text": "Prefix is lowercase ASCII matching `[a-z0-9-]+`.",
+    "reserved": false
+  },
+  {
+    "id": "IR-2",
+    "section": "9",
+    "layer": "V",
+    "inheritsFrom": null,
+    "summary": "`i` value is the source authority's canonical form, preserved verbatim.",
+    "text": "Value is the source authority's canonical form, preserved verbatim (case, punctuation, separators all as the issuing body writes them).",
+    "reserved": false
+  },
+  {
+    "id": "IR-3",
+    "section": "9",
+    "layer": "V",
+    "inheritsFrom": "NIP-73",
+    "summary": "Parsers split on the first `:` only.",
+    "text": "Parsers split on the **first** `:` only; values containing colons (e.g., `cpe:2.3:...`) work transparently.",
+    "reserved": false
+  },
+  {
+    "id": "IR-4",
+    "section": "9",
+    "layer": "V",
+    "inheritsFrom": null,
+    "summary": "Unknown prefixes valid; pass through as opaque indexers.",
+    "text": "Unknown prefixes are valid; parsers pass them through and treat them as opaque indexers.",
+    "reserved": false
+  },
+  {
+    "id": "DEL-1",
+    "section": "10",
+    "layer": "A",
+    "inheritsFrom": "NIP-09",
+    "summary": "Kind 5 honored only when `pubkey` matches target event's `pubkey`.",
+    "text": "A kind 5 deletion is honored only when its `pubkey` matches the target event's `pubkey`.",
+    "reserved": false
+  },
+  {
+    "id": "DEL-2",
+    "section": "10",
+    "layer": "A",
+    "inheritsFrom": null,
+    "summary": "Root-author patch deletion → topology cascade in canonical chain.",
+    "text": "Deletion of a root-author patch removes the patch and all its canonical descendants from the canonical chain (topology cascade). The patched content reverts to the last surviving ancestor.",
+    "reserved": false
+  },
+  {
+    "id": "DEL-3",
+    "section": "10",
+    "layer": "A",
+    "inheritsFrom": null,
+    "summary": "Foreign overlay deletion → hidden from default; canonical bytes unaffected.",
+    "text": "Deletion of a foreign overlay hides it from default overlay rendering. Canonical bytes are unaffected.",
+    "reserved": false
+  },
+  {
+    "id": "DEL-4",
+    "section": "10",
+    "layer": "D",
+    "inheritsFrom": null,
+    "summary": "Root deletion → default-view retraction; annotations preserved for audit.",
+    "text": "Deletion of a root Product/Metadata hides the root from default views. The canonical chain, foreign overlays, and Bindings referencing the root are preserved for audit. Clients MUST NOT silently drop annotations or patches associated with a retracted root.",
+    "reserved": false
+  },
+  {
+    "id": "DEL-5",
+    "section": "10",
+    "layer": "D",
+    "inheritsFrom": null,
+    "summary": "Binding deletion → edge retraction; endpoints unaffected.",
+    "text": "Deletion of a Binding hides the edge from default views. Its endpoints remain valid independently.",
+    "reserved": false
+  },
+  {
+    "id": "DEL-6",
+    "section": "10",
+    "layer": "A",
+    "inheritsFrom": "NIP-09",
+    "summary": "Kind 5 events cannot themselves be kind-5-deleted.",
+    "text": "A kind 5 event cannot itself be deleted by another kind 5 event. To restore previously deleted content, the author must publish a fresh event with a new ID.",
+    "reserved": false
+  },
+  {
+    "id": "DEL-7",
+    "section": "10",
+    "layer": "A",
+    "inheritsFrom": null,
+    "summary": "α/β degradation for orphaned overlays; not re-anchored.",
+    "text": "**α/β degradation for orphaned overlays.** If the overlay's target is obtainable (cached or fetched), render against the target's universe (α). If unobtainable, render as a standalone artifact (β); the overlay is not re-anchored to any other event.",
+    "reserved": false
+  },
+  {
+    "id": "DEL-8",
+    "section": "10",
+    "layer": "A",
+    "inheritsFrom": null,
+    "summary": "Late-arriving deletion target → retroactive application; recompute content.",
+    "text": "If a kind 5 deletion's target is not yet available, the deletion event is recorded and applied retroactively once the target becomes available. Patched content MUST be recomputed when a previously-unavailable deletion target arrives.",
+    "reserved": false
+  },
+  {
+    "id": "DEL-9",
+    "section": "10",
+    "layer": "A",
+    "inheritsFrom": null,
+    "summary": "MUST cache received kind 5 events and apply during chain construction.",
+    "text": "Implementations MUST cache locally received kind 5 deletion events and apply them during chain construction, regardless of whether the queried relay reports the deletion.",
+    "reserved": false
+  },
+  {
+    "id": "DEL-10",
+    "section": "10",
+    "layer": "D",
+    "inheritsFrom": null,
+    "summary": "Clients SHOULD offer a \"show deleted events\" toggle exposing deleted events + descendants.",
+    "text": "Clients SHOULD offer a \"show deleted events\" toggle that, when enabled, surfaces deleted events and all their descendants (patches against a deleted root, overlays against deleted patches, etc.) so users can inspect the historical state.",
+    "reserved": false
+  },
+  {
+    "id": "DEL-11",
+    "section": "10",
+    "layer": "D",
+    "inheritsFrom": "NIP-09",
+    "summary": "SCRUTINY-aware relays SHOULD store kind 5 deletions targeting scrutiny-fabric events alongside originals.",
+    "text": "SCRUTINY-aware relays SHOULD inspect the `e` tag target of a kind 5 event; if the target event carries a `scrutiny-fabric` `t` tag, the relay SHOULD store the deletion alongside the original and surface it to SCRUTINY-aware queriers.",
+    "reserved": false
+  }
+]
