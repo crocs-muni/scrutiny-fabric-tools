@@ -23,5 +23,12 @@
     "@biomejs/biome": "1.9.4",
     "@changesets/cli": "^2.27.11",
     "typescript": "^5.8"
+  },
+  "//pnpm": "vitest 3.2.7 resolves vite 5.4.21 transitively, which carries a high-severity server.fs.deny bypass and two path-traversal advisories; esbuild <0.25 lets any website reach the dev server. All are dev-only — vitest is a devDependency and the package ships only `diff` at runtime — but overriding is cheap and keeps `pnpm audit` clean so a real advisory is not lost in the noise. Drop these once vitest depends on patched versions directly.",
+  "pnpm": {
+    "overrides": {
+      "vite": "^6.4.3",
+      "esbuild": "^0.25.0"
+    }
   }
 }
