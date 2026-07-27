@@ -16,8 +16,8 @@ Supersedes the previous `IMPLEMENTATION-PLAN.md` (targeted spec v0.5.3, never co
 | — | Conformance vectors: Appendix G + first vector files | ⛔ **next** — spec repo. See below |
 | 0 | Monorepo scaffold | ✅ **done** — `pnpm verify` green; build emits ESM + `.d.ts`, exports ATTW-clean |
 | 1 | `events`, `validate`, `id` | ✅ **done** — 131 tests; 26/47 V rules emit a code, 21 declared not-covered with reasons in `test/_v-coverage.ts` |
-| 2 | `patch` — the T1/T2/T3 matcher | ✅ **done** — 201 tests; gate green over 10k round-trip and 5k zero-context cases. Mini-spec in [`PATCH-MATCHER.md`](PATCH-MATCHER.md). Found SPEC-FEEDBACK F5–F9 and correction C1 to D31 |
-| 3 | `resolve` — chain + overlays | not started |
+| 2 | `patch` — the T1/T2/T3 matcher | ✅ **done** — 209 tests; gate green over 10k round-trip and 5k zero-context cases. Mini-spec in [`PATCH-MATCHER.md`](PATCH-MATCHER.md). Found SPEC-FEEDBACK F5–F9 and correction C1 to D31 |
+| 3 | `resolve` — chain + overlays | not started — gate defined (confluence + SF-4 + no-tip + rule partition), since `application.json` does not exist |
 | 4 | `admit` | not started |
 | 5 | `store` — reducer + ports + epochs | not started |
 | 6 | `query`, `build` | not started |
@@ -26,7 +26,11 @@ Supersedes the previous `IMPLEMENTATION-PLAN.md` (targeted spec v0.5.3, never co
 The spec amendment is complete and `tools/rules.json` regenerated against v0.6.0. `SPEC-AMENDMENT-BRIEF.md`
 is spent and can be deleted.
 
-**The conformance vectors are not a hard blocker on Phase 0**, but they are on Phase 1's gate. §11 still
+**The conformance vectors are still missing, and each phase has now had to route around them.** Phase 1
+gated on its V-rule coverage partition, Phase 2 on property tests, and Phase 3's gate is defined below
+in the same spirit. The loader skips cleanly on an absent corpus, so vectors are additive whenever they
+arrive — but three phases of substitutes is the point at which this stops being a deferral and starts
+being the plan. §11 still
 lists test vectors as future work and there is no Appendix G — that was deliberately dropped from the
 amendment to keep it to behaviour-affecting changes. Outstanding spec-repo work: add Appendix G naming
 the vector files and pinning their digests, create the first few vector files, and remove "Test vectors"
@@ -184,7 +188,78 @@ be implemented literally — see `SPEC-FEEDBACK-v0.6.0.md` F3.
 Chain construction, kind-5 cascade, HALT, self-fork freeze, overlay classification. Trust-blind.
 Lazy per-position content under a byte-bounded LRU (D28).
 
-Gate: `application.json` vectors pass. A self-fork test asserts the returned variant exposes no tip.
+Write a mini-spec before coding, as Phase 2 did: how the canonical chain is walked, how a kind-5
+cascade re-parents or truncates it, where a HALT freezes it, how a self-fork is detected, and how
+overlays are classified against a chain that may itself be frozen.
+
+#### Gate
+
+`application.json` does not exist — §11 still lists test vectors as future work and there is no
+Appendix G, so the gate as originally written cannot be run. The corpus is not abandoned: the loader
+in `test/_vectors.ts` already reads `packages/core/vectors/*.json` and skips cleanly when the
+directory is absent, so vectors are **added on top of** the four items below when they land, not
+substituted back in for them.
+
+**G1 — Confluence (UR-1).** `resolve` is a pure function of an event *set*, so permuting its input
+must change nothing:
+
+```
+∀ permutations π of an event set E:  resolve(π(E)) ≡ resolve(E)      deep equality
+```
+
+≥10 000 `fast-check` cases. This is not the tautology it looks like: it fails whenever arrival order
+leaks into the result — a tie broken by insertion position, `Map`/`Set` iteration order reaching the
+output, an accumulator whose fold is not commutative, or a pending patch (UR-2) that is retained but
+never re-evaluated when its root arrives. The plan's own note says this property "would have caught
+the pending-patch gap without anyone reading §5.3 closely"; that gap is an ordering leak of exactly
+this shape.
+
+**G2 — Branch choice is not a heuristic (SF-4).** G1 is necessary and *not sufficient*, and this is
+the trap worth naming: an implementation that sorts two competing root-author patches by
+`(created_at, id)` and takes the first is perfectly confluent and squarely violates SF-4, which
+forbids picking a branch by `created_at`, by event ID, or by any heuristic. G1 cannot see that bug,
+because such an implementation is deterministic.
+
+So the second property is differential rather than invariant. Build a self-fork — two root-author
+patches sharing one `e reply` parent — then permute the attributes a heuristic would reach for, and
+assert the verdict never moves:
+
+```
+∀ self-forks F, ∀ swaps s ∈ {created_at, id, tag order, pubkey-hex ordering}:
+    resolve(s(F)).status === 'forked'   and   resolve(s(F)) ≡ resolve(F)
+```
+
+A tie-breaking implementation returns a different chain as the swapped attribute flips sides. A
+conforming one returns the same frozen state every time.
+
+**G3 — A forked chain exposes no tip (SF-1).** `ChainState.forked` carries no `tipId`, so "read the
+tip of a forked chain" is unrepresentable rather than merely wrong. Assert it structurally
+(`expect(state).not.toHaveProperty('tipId')`, the same shape as the Phase 2 atomicity assertion)
+rather than trusting the type alone, since the type vanishes at runtime.
+
+**G4 — Rule-coverage partition.** Same discipline and same machinery as Phases 1 and 2 (D34): every
+rule the module-ownership table assigns to `resolve` — CHN-1…3, RC-1/2, SF-1…6, H1/H2,
+OV-2/3/4/6/8, DEL-1/2/3/6/7, PT-5/6/8/9, IX-3, BD-9 — either **emits its code** in a test, or is
+listed as not-test-covered **with a written reason**. Reuse `test/_coverage.ts`; the table is a new
+`test/_a-resolve-coverage.ts`. This is what made Phases 1 and 2 defensible without a corpus, and it
+is the item that keeps a rule from being silently skipped.
+
+**Generator design carries the gate.** Phase 2's lesson was that the property is only as good as its
+bias — the round trip nominally covered T1 while barely reaching its rejecting branch, which is why
+a zero-context generator with a floor assertion had to be added. The analogue here is to bias hard
+toward the shapes where ordering can matter and then *assert the rates*, so the branch cannot
+silently stop being exercised: `created_at` ties, kind-5 deletions arriving before their targets,
+patches whose `e root` or `e reply` is not yet present, self-forks, overlay-on-overlay replies, and
+chains already frozen by a HALT. Log the outcome mix as Phase 2 does and put a floor under the
+interesting outcomes.
+
+**Every counterexample becomes a permanent regression case**, shaped to convert verbatim into a
+conformance vector, exactly as `test/patch-regressions.ts` is.
+
+One property is deliberately *not* here: "adding an event never un-halts a frozen chain." It sounds
+right and it interacts with UR-2's re-evaluation of pending patches in a way §5.3 does not obviously
+settle. Decide it against the spec text during the mini-spec, then either assert it or record why
+not — do not assume it.
 
 ### Phase 4 — `admit`
 
@@ -227,8 +302,12 @@ applyPatch(a, makePatch(a, b)) === b
     → the diff matcher. Generates repeated-line content, which breaks T1.
 
 any permutation of an event set → identical store state
-    → confluence (UR-2). Would have caught the pending-patch gap
-      without anyone reading §5.3 closely.
+    → confluence (UR-1: "state depends on the observed set, never on
+      arrival order"). UR-2's retain-and-re-evaluate is the mechanism
+      that makes it achievable, not the property itself. Would have
+      caught the pending-patch gap without anyone reading §5.3 closely.
+      Phase 3 gates a resolve-level form of this, plus SF-4, which
+      confluence alone cannot see — see that phase's gate.
 
 incremental admission index ≡ full recompute, for every trust set
     → the refcount bugs in D23, including sticky-admission-after-revocation.
