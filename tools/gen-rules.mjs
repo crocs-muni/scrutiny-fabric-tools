@@ -23,8 +23,16 @@ const here = dirname(fileURLToPath(import.meta.url))
 const SOURCE = join(here, 'rules.json')
 const TARGET = join(here, '..', 'packages', 'core', 'src', 'rules.ts')
 
-/** Single-quoted TS string literal, matching the Biome style used across the package. */
-const lit = (s) => `'${s.replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/\n/g, '\\n')}'`
+/**
+ * Single-quoted TS string literal, matching the Biome style used across the package.
+ *
+ * CR is escaped as well as LF: a raw CR inside a string literal is a LineTerminator and a hard
+ * SyntaxError, so a CRLF `rules.json` — entirely possible on Windows, and this repo deliberately
+ * carries CRLF fixtures — would emit a `rules.ts` that does not parse. U+2028 and U+2029 need no
+ * escaping: they have been legal in string literals since ES2019 and the package targets ES2022.
+ */
+const lit = (s) =>
+  `'${s.replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/\n/g, '\\n').replace(/\r/g, '\\r')}'`
 
 const nullable = (s) => (s === null || s === '' ? 'null' : lit(s))
 
