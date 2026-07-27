@@ -1,15 +1,25 @@
 import { describe, expect, it } from 'vitest'
 import { issue } from '../src/errors.js'
 import { RULES, RULE_IDS } from '../src/rules.js'
-import { ALL_EMITTED_ISSUES } from './_v-coverage.js'
+import { ALL_PATCH_ISSUES } from './_a-patch-coverage.js'
+import { ALL_EMITTED_ISSUES as V_ISSUES } from './_v-coverage.js'
+
+const ALL_EMITTED_ISSUES = [...V_ISSUES, ...ALL_PATCH_ISSUES]
 
 describe('structural invariants', () => {
-  it('never emits an error citing a D-layer rule (TR-1)', () => {
-    // §6.0: "A consumer MUST NOT reject a V-valid event because it violates a D-rule." TR-1 makes
-    // this normative. Checked across every issue the coverage suite actually produces, rather than
-    // asserted for the cases someone remembered to think about.
+  it('never emits an error citing an A-layer or D-layer rule (TR-1)', () => {
+    // §6.0: "A V-valid event MUST NOT be rejected by an A or D rule." TR-1 makes this normative,
+    // and `error` in this codebase means exactly "reject the event", so the obligation covers both
+    // layers — not just D, which is all the Phase 1 form of this assertion checked.
+    //
+    // This is what keeps HALT honest. A patch that fails to apply is a severe outcome, but it does
+    // not make the event invalid: §5.3 keeps the event in the chain and §5.4 says the same of a
+    // resource limit in as many words. The `status` discriminant carries that weight instead.
+    //
+    // Checked across every issue the coverage suites actually produce, rather than asserted for
+    // the cases someone remembered to think about.
     const violations = ALL_EMITTED_ISSUES.filter(
-      (i) => i.severity === 'error' && i.layer === 'D',
+      (i) => i.severity === 'error' && (i.layer === 'A' || i.layer === 'D'),
     ).map((i) => `${i.code} (${i.layer}): ${i.message}`)
 
     expect(violations).toEqual([])

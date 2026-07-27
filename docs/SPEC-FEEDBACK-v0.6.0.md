@@ -147,6 +147,160 @@ rules are V.
 
 ---
 
+## F5 — a payload with two header blocks has two incompatible readings
+
+**Status:** open · **Rules:** C7, C1 · **Sections:** §5.2 · **Severity:** ambiguity, rare in practice
+
+The grammar at line 519 admits exactly one `header-block`:
+
+```
+patch-payload = [ index-preamble ] [ diff-git-line ] header-block *hunk-block
+```
+
+Given a payload containing a second `--- a/content` / `+++ b/content` pair, two readings follow
+from the spec's own text and they disagree:
+
+1. `hunk-line = ( " " / "+" / "-" / "\" ) *VCHAR LF` (line 527). `--- a/content` begins with `-`, so
+   it is a **valid hunk-line** — a removal of the line `-- a/content`.
+2. Every real unified-diff parser, including jsdiff, treats it as the start of a **second file
+   patch**. Verified 2026-07-27: `parsePatch` returns two patch objects for such a payload.
+
+Nothing in §5.2 says which is intended, and the two produce different content.
+
+**Suggested resolution.** State that a payload contains exactly one header block and that a
+subsequent `---` line at hunk-line position is a removal line, or explicitly permit multiple header
+blocks and define their sequencing. Either is fine; the silence is the defect.
+
+**What the implementation does meanwhile.** Takes reading 2, concatenating the hunks of every
+parsed file patch in document order and sequencing them under T3. It drops nothing and is
+deterministic. Covered by a test in `patch.test.ts`.
+
+---
+
+## F6 — T2 and T3 disagree about which file a pure insertion's line number indexes
+
+**Status:** open · **Rules:** T2, T3 · **Sections:** §5.3 · **Severity:** produces wrong content;
+found by the Phase 2 property test, not by inspection
+
+T2 (line 591) says a pure-insertion hunk "MUST apply at the position implied by its `@@` header's
+`-` line number". T3 (line 592) says each hunk is evaluated "against the content as produced after
+all prior hunks in the **same patch** have already been applied".
+
+For a hunk located by T1 there is no conflict — it is found by content match, and C6 makes the
+numbers advisory. For a **pure insertion** there is no pattern to match, so the `@@` number is the
+only positional information available. But that number indexes the **pre-patch** file, while T3
+requires application against the **post-prior-hunk** content. Once an earlier hunk in the same
+patch has added or removed lines, the two instructions designate different positions and the spec
+does not say which wins.
+
+Concretely, from the generated counterexample (fast-check seed 2082756637), content `a\n+++ b/content\n`:
+
+```
+--- a/content
++++ b/content
+@@ -1,1 +0,0 @@
+-a
+@@ -2,0 +2,1 @@
++a
+\ No newline at end of file
+```
+
+The first hunk removes one line. Applying the second hunk's `-2` literally against the now-shorter
+content inserts one position too late and yields `+++ b/content\n\na` — an extra blank line — where
+the patch's own intent is `+++ b/content\na`.
+
+**Suggested resolution.** Add to T2: the `@@` line number is interpreted in the coordinates of the
+patch's pre-application content, and is carried forward by the net line delta of all prior hunks in
+the same patch. That is what `git apply` and jsdiff both do, and it is the only reading under which
+T2 and T3 can both hold.
+
+**What the implementation does meanwhile.** Tracks a running line-count shift and offsets T2's
+insertion index by it. Pinned as regression case
+`t2/insertion-index-after-an-earlier-hunk-shifted-lines`.
+
+---
+
+## F7 — the grammar's `hunk-line` cannot match a blank context line
+
+**Status:** open · **Rules:** C7, C5 · **Sections:** §5.2 · **Severity:** rejects payloads every
+real tool accepts
+
+`hunk-line = ( " " / "+" / "-" / "\" ) *VCHAR LF` (line 527) requires a prefix character. A context
+line that is itself empty is therefore encoded as a single space — and a lone trailing space is the
+first thing stripped by editors, mail transports, web forms, and any pipeline that trims lines. The
+resulting bare empty line matches no production, so a consumer reading the grammar strictly rejects
+a payload that every deployed applier accepts.
+
+Verified 2026-07-27:
+
+- `git diff` **emits** the space form: `cat -A` shows ` $` for a blank context line.
+- `git apply` **accepts** the stripped form: given a hunk whose blank context line has no leading
+  space, it reports "Applied patch cleanly."
+- `jsdiff.parsePatch` accepts it too, preserving it as a `""` element in `hunk.lines`.
+
+This is the same class of defect as F3 — the grammar is stricter than the format it describes — but
+it is independent of the `*VCHAR` reading and survives F3's suggested fix.
+
+**Suggested resolution.** Allow an empty line as a context line:
+`hunk-line = ( " " / "+" / "-" / "\" ) line-content LF / LF`.
+
+**What the implementation does meanwhile.** Treats a bare `""` inside a hunk as a context line with
+an empty body. Pinned as regression case `grammar/empty-context-line`.
+
+---
+
+## F8 — the reference producer emits a separator line the grammar does not admit
+
+**Status:** open · **Rules:** C3 · **Sections:** §5.2 · **Severity:** minor, but it affects a tool
+the spec names
+
+`index-preamble = "Index: content" LF "=" 1*"=" LF` (line 521) admits the `===…` separator only
+when preceded by an `Index: content` line. jsdiff — named in the reference toolchain at line 549 —
+emits the separator **without** the `Index:` line when the patch is produced through
+`structuredPatch` + `formatPatch` rather than `createPatch`. Verified 2026-07-27 with `diff@9.0.0`:
+
+```
+===================================================================
+--- a/content
++++ b/content
+@@ -1,1 +1,1 @@
+```
+
+`createPatch` emits both lines, but it names the paths `content`, not `a/content` / `b/content`,
+so it violates C1 — meaning neither jsdiff entry point emits a payload the spec accepts unmodified.
+
+**Suggested resolution.** Make the `Index:` line optional relative to the separator:
+`index-preamble = [ "Index: " *VCHAR LF ] "=" 1*"=" LF`.
+
+**What the implementation does meanwhile.** `makePatch` strips a leading bare separator line so its
+own output is grammatical, and the consumer path tolerates the line either way (§5.2's grammar is a
+floor on acceptance, not a ceiling).
+
+---
+
+## F9 — C5 names an English string that GNU diff and git localise
+
+**Status:** open · **Rules:** C5 · **Sections:** §5.2 · **Severity:** rejects conformant payloads
+produced under a non-English locale
+
+C5 (line 540) refers to "a `\ No newline at end of file` marker". GNU diff and git translate this
+message through gettext, so the same content diffed under `LANG=de_DE.UTF-8` produces
+`\ Kein Zeilenumbruch am Dateiende`. A consumer matching the English text treats such a payload as
+carrying an unrecognised line and silently loses the no-trailing-newline signal — which changes the
+resulting bytes, and PB-1 makes those bytes normative.
+
+The grammar itself is already correct here: `hunk-line` admits `\` as a prefix without constraining
+what follows.
+
+**Suggested resolution.** Reword C5 to key on the prefix — "a hunk line beginning with `\` is a
+no-newline-at-end-of-file marker; its text is informational and MUST NOT be relied upon" — and keep
+the English form as an example.
+
+**What the implementation does meanwhile.** Matches on the `\` prefix, not the message text. Pinned
+as regression case `c5/localised-marker`.
+
+---
+
 ## Cross-cutting note — the V layer has only one disposition
 
 Three of the four items above are symptoms of the same underlying shape: §6.0 gives the Validity

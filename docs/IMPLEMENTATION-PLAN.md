@@ -16,7 +16,7 @@ Supersedes the previous `IMPLEMENTATION-PLAN.md` (targeted spec v0.5.3, never co
 | — | Conformance vectors: Appendix G + first vector files | ⛔ **next** — spec repo. See below |
 | 0 | Monorepo scaffold | ✅ **done** — `pnpm verify` green; build emits ESM + `.d.ts`, exports ATTW-clean |
 | 1 | `events`, `validate`, `id` | ✅ **done** — 131 tests; 26/47 V rules emit a code, 21 declared not-covered with reasons in `test/_v-coverage.ts` |
-| 2 | `patch` — the T1/T2/T3 matcher | not started |
+| 2 | `patch` — the T1/T2/T3 matcher | ✅ **done** — 201 tests; gate green over 10k round-trip and 5k zero-context cases. Mini-spec in [`PATCH-MATCHER.md`](PATCH-MATCHER.md). Found SPEC-FEEDBACK F5–F9 and correction C1 to D31 |
 | 3 | `resolve` — chain + overlays | not started |
 | 4 | `admit` | not started |
 | 5 | `store` — reducer + ports + epochs | not started |

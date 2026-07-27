@@ -48,7 +48,11 @@
   "devDependencies": {
     "@arethetypeswrong/cli": "^0.18.5",
     "@types/node": "^22",
+    "fast-check": "^4.9.0",
     "typescript": "^5.7.3",
     "vitest": "^2.1.8"
+  },
+  "dependencies": {
+    "diff": "^9"
   }
 }
