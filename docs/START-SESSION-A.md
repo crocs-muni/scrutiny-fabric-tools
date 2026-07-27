@@ -11,10 +11,11 @@ brief's "Deliberately not doing" section records what and why.
 
 ## Pre-flight already done — do not redo
 
-- **Rule IDs are free** in v0.5.9: `UR-1`, `UR-2`, `UR-3`, `RL-1`…`RL-4`, `SIG-1`, `TR-7`, `CA-1`.
+- **Rule IDs are free** in v0.5.9: `UR-1`, `UR-2`, `UR-3`, `RL-1`…`RL-4`, `SIG-1`, `TR-7`, `CA-1`,
+  `C7` (the existing C-series stops at C6).
 - **Section slots are free** and sequentially correct: §5.4 (existing §5 stops at 5.3), §7.6
   (existing §7 stops at 7.5).
-- **Rule count is 123** — 47 V, 50 A, 25 D, 1 reserved. After the nine changes it should be **133**.
+- **Rule count is 123** — 47 V, 50 A, 25 D, 1 reserved. After the nine changes it should be **134**.
 - **Registry is clean.** `node tools/extract-rules.mjs` in the tools repo reports 0 errors against the
   unamended spec, so you have a known-good before-state.
 - **Relay limits verified** against `hoytech/strfry/strfry.conf`: `maxEventSize = 65536`,
@@ -79,7 +80,7 @@ every location per change. Do not skip the secondary edits.
 
 WHEN ALL NINE ARE DONE
 - Run the verification checklist at the end of the brief and report each item pass/fail.
-- Confirm the validator reports 133 rules with 0 errors.
+- Confirm the validator reports 134 rules with 0 errors.
 - Commit on the branch with a conventional-commit message.
 - Do NOT push, do NOT merge to main, do NOT open a PR.
 
@@ -95,7 +96,7 @@ through one adversarial review that found real contradictions, so a further one 
 1. Review the diff, then merge and push when satisfied.
 2. Build the conformance vector files and validator (change 8's Appendix G work is *not* in this
    brief — it was deferred). Author vectors **incrementally as rules get implemented**; attempting all
-   133 up front is how this stalls.
+   134 up front is how this stalls.
 3. Delete `SPEC-AMENDMENT-BRIEF.md` — it is an input, not documentation.
 4. Update the target version in `IMPLEMENTATION-PLAN.md`'s status table and unblock Phase 0.
 

@@ -275,9 +275,24 @@ patch-payload = [ index-preamble ] [ diff-git-line ] header-block [ hunk-block ]
 
 `[ x ]+` is also not valid ABNF — ABNF uses prefix repetition (`*x`, `1*x`); postfix `+` is regex.
 
-**Change.** `header-block *hunk-block`. Register the grammar block's existing "a conforming consumer
-MUST accept" obligation (§5.2, above the grammar) as a rule, since nothing in the registry currently
-constrains it.
+**Change.** Two parts.
+
+**6a.** Fix the grammar line to `header-block *hunk-block`.
+
+**6b.** Register §5.2's existing acceptance obligation — the sentence above the grammar reading "A
+conforming consumer MUST accept any patch payload matching the following structure" — as a new rule
+**C7**. Nothing in the registry currently constrains it: C1 fixes the path tokens, C2–C4 mandate
+tolerating specific optional lines, and C5–C6 govern newline markers and line numbers. None of them
+states the acceptance obligation itself, so the grammar is normatively unanchored — and that
+obligation is exactly what 6a turns on, since `*hunk-block` versus `[ hunk-block ]+` *is* a question
+about what must be accepted.
+
+| # | Layer | Inherits from | Rule |
+|---|---|---|---|
+| C7 | V | unified-diff | A conforming consumer MUST accept any patch payload matching the §5.2 consumer grammar, subject to C1–C6. A payload that matches the grammar MUST NOT be rejected as malformed. |
+
+`C7` appends to the existing C-series and follows §5.2's local bare-letter ID convention (`E`, `N`,
+`C`, `P`). Layer **V** — it governs whether a payload is admissible.
 
 ---
 
@@ -392,7 +407,7 @@ costs churn and citation instability.
 # Verification checklist
 
 - [ ] `node tools/extract-rules.mjs` exits 0
-- [ ] Rule count is 123 + 10 new (UR-1..3, RL-1..4, SIG-1, TR-7, CA-1) = **133**; layer tallies updated
+- [ ] Rule count is 123 + 11 new (UR-1..3, RL-1..4, SIG-1, TR-7, CA-1, C7) = **134**; layer tallies updated
 - [ ] PR-4 and MD-4 re-tagged V → D in **both** their §4 tables and Appendix F
 - [ ] Every new rule appears in its section table **and** Appendix F with identical layer and inheritance
 - [ ] No rule ID renumbered or reused
