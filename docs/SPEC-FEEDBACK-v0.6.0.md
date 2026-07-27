@@ -301,6 +301,50 @@ as regression case `c5/localised-marker`.
 
 ---
 
+## F10 — self-fork precedence over HALT is stated unconditionally, and conflicts with H1 when the HALT is upstream
+
+**Where.** §5.3 step 5: *"A root-self-fork (§7.2) is a separate freeze condition that applies before
+HALT; if the chain is forked, canonical bytes freeze at the shared parent regardless of whether the
+per-patch pre-validation would have failed."* Against H1, same table: *"No later patches are applied,
+even if they might themselves be individually valid."* And SF-6: *"patched content is frozen at the
+earliest unresolved fork."*
+
+**The conflict.** Take a canonical chain `root → p1 → p2` where `p2` has two root-author children —
+a self-fork at `p2` — and where `p1` fails pre-validation.
+
+| rule | freeze point |
+|---|---|
+| H1 | the root state; `p1` never applies |
+| §5.3 step 5, read literally | `p2`, the shared parent of the forked patches |
+
+Freezing at `p2` requires applying `p1` and `p2` — that is, applying two patches *past a HALT*, which
+H1 prohibits without qualification. The precedence sentence does not bound itself to the case where
+the fork is upstream of the halt, which is the only case where the two rules agree.
+
+The asymmetry is worth seeing: when the fork is **upstream**, there is no conflict and nothing to
+decide, because the walk stops at the fork parent and the downstream HALT is never even discovered —
+the chain past an undefined point is not evaluated. The conflict exists only in the other direction.
+
+**Why it matters.** The two readings return different canonical bytes for the same event set, from
+two MUST-level rules, with no stated tiebreak. §7.1's canonical-bytes guarantee is what non-UI
+consumers — indexers, vulnerability scanners — serve downstream, and RC-3 obliges them to recompute
+into it. Two conforming implementations disagreeing here is exactly the class of divergence the
+determinism rules exist to prevent.
+
+**Suggested fix.** Bound the precedence to the case it was written for, and name the freeze point
+rather than the winning rule. Something like: *"Where both conditions are live, canonical bytes
+freeze at whichever point is earlier in chain order. A self-fork upstream of a HALT freezes at the
+shared parent and the downstream patches are never evaluated; a HALT upstream of a self-fork freezes
+at the last successfully applied patch, and the fork is still surfaced per SF-3 though it did not
+determine the content."*
+
+**What the implementation does meanwhile.** Freezes at the earlier of the two points, reports the
+earlier cause as the status, and surfaces *every* condition found as an annotation regardless of
+which one froze the chain — so SF-3's MUST is satisfied even when the fork lost the race. Reasoning
+and the two cases are written up in `docs/RESOLVE.md` §4.
+
+---
+
 ## Cross-cutting note — the V layer has only one disposition
 
 Three of the four items above are symptoms of the same underlying shape: §6.0 gives the Validity
