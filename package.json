@@ -1,0 +1,26 @@
+{
+  "name": "scrutiny-fabric-tools",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@9.15.9",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build": "pnpm -r build",
+    "typecheck": "pnpm -r typecheck",
+    "test": "pnpm -r test",
+    "lint": "biome check .",
+    "format": "biome check --write .",
+    "attw": "pnpm -r attw",
+    "rules:gen": "node tools/gen-rules.mjs",
+    "rules:check": "node tools/gen-rules.mjs --check",
+    "verify": "pnpm lint && pnpm typecheck && pnpm rules:check && pnpm build && pnpm attw && pnpm test"
+  },
+  "devDependencies": {
+    "@arethetypeswrong/cli": "^0.18.5",
+    "@biomejs/biome": "^1.9.4",
+    "@changesets/cli": "^2.27.11",
+    "typescript": "^5.7.3"
+  }
+}
