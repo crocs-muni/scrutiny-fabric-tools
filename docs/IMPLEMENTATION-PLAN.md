@@ -12,9 +12,9 @@ Supersedes the previous `IMPLEMENTATION-PLAN.md` (targeted spec v0.5.3, never co
 
 | Phase | Work | State |
 |---|---|---|
-| — | Spec amended to v0.6.0 | ⛔ next — work order in [`SPEC-AMENDMENT-BRIEF.md`](SPEC-AMENDMENT-BRIEF.md) |
-| — | Conformance vector skeletons + validator in the spec repo | ⛔ blocked on the above |
-| 0 | Monorepo scaffold | not started |
+| — | Spec amended to v0.6.0 | ✅ **done** 2026-07-27 — spec repo `b44dbf1`, **134 rules** (V=47 A=55 D=31 +1 reserved), validator clean |
+| — | Conformance vectors: Appendix G + first vector files | ⛔ **next** — spec repo. See below |
+| 0 | Monorepo scaffold | **ready to start** |
 | 1 | `events`, `validate`, `id` | not started |
 | 2 | `patch` — the T1/T2/T3 matcher | not started |
 | 3 | `resolve` — chain + overlays | not started |
@@ -23,8 +23,17 @@ Supersedes the previous `IMPLEMENTATION-PLAN.md` (targeted spec v0.5.3, never co
 | 6 | `query`, `build` | not started |
 | 7 | Coverage tooling, adapters, docs | not started |
 
-**Do not start Phase 0 until the spec is at v0.6.0.** Both prior implementations died of protocol
-drift; beginning against an unamended spec reproduces the cause.
+The spec amendment is complete and `tools/rules.json` regenerated against v0.6.0. `SPEC-AMENDMENT-BRIEF.md`
+is spent and can be deleted.
+
+**The conformance vectors are not a hard blocker on Phase 0**, but they are on Phase 1's gate. §11 still
+lists test vectors as future work and there is no Appendix G — that was deliberately dropped from the
+amendment to keep it to behaviour-affecting changes. Outstanding spec-repo work: add Appendix G naming
+the vector files and pinning their digests, create the first few vector files, and remove "Test vectors"
+from §11. Author the rest **incrementally as each rule is implemented** — attempting all 134 up front is
+how this stalls.
+
+Scaffolding (Phase 0) can proceed in parallel with that.
 
 ## Scope
 

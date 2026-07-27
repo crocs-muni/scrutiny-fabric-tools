@@ -90,6 +90,24 @@
     "reserved": false
   },
   {
+    "id": "SIG-1",
+    "section": "3",
+    "layer": "V",
+    "inheritsFrom": "NIP-01",
+    "summary": "Every consumed event MUST have both its signature and its `id` verified before processing.",
+    "text": "Before processing any event — including kind 5 deletions and kind 1040 attestations — implementations MUST verify the signature **and** that `id` equals the SHA-256 of the NIP-01 canonical serialization. A signature-only check is insufficient.",
+    "reserved": false
+  },
+  {
+    "id": "CA-1",
+    "section": "4",
+    "layer": "D",
+    "inheritsFrom": null,
+    "summary": "`created_at` SHOULD NOT be backdated to a historical date; historical dates belong in `content`.",
+    "text": "Publishers SHOULD NOT backdate `created_at` to a historical date the event describes. Deployed relays reject events outside a bounded timestamp window; historical dates belong in `content`.",
+    "reserved": false
+  },
+  {
     "id": "PR-1",
     "section": "4.1",
     "layer": "V",
@@ -119,10 +137,10 @@
   {
     "id": "PR-4",
     "section": "4.1",
-    "layer": "V",
+    "layer": "D",
     "inheritsFrom": "NIP-73",
-    "summary": "`k` collection contains ≥1 entry per distinct `i` prefix; treat as set.",
-    "text": "The `k` collection MUST contain at minimum one entry per **distinct** `i` prefix kind present in the event. Consumers MUST treat `k` as a set.",
+    "summary": "`k` SHOULD contain ≥1 entry per distinct `i` prefix; absence does not invalidate; treat as set.",
+    "text": "The `k` collection SHOULD contain at minimum one entry per **distinct** `i` prefix kind present in the event. A missing or incomplete `k` collection does NOT invalidate the event; consumers MAY derive the kind from the `i` value's prefix (§9). Consumers MUST treat `k` as a set.",
     "reserved": false
   },
   {
@@ -164,10 +182,10 @@
   {
     "id": "MD-4",
     "section": "4.2",
-    "layer": "V",
+    "layer": "D",
     "inheritsFrom": "NIP-73",
-    "summary": "`k` collection contains ≥1 entry per distinct `i` prefix; treat as set.",
-    "text": "The `k` collection MUST contain at minimum one entry per **distinct** `i` prefix kind present in the event. Consumers MUST treat `k` as a set.",
+    "summary": "`k` SHOULD contain ≥1 entry per distinct `i` prefix; absence does not invalidate; treat as set.",
+    "text": "The `k` collection SHOULD contain at minimum one entry per **distinct** `i` prefix kind present in the event. A missing or incomplete `k` collection does NOT invalidate the event; consumers MAY derive the kind from the `i` value's prefix (§9). Consumers MUST treat `k` as a set.",
     "reserved": false
   },
   {
@@ -612,6 +630,15 @@
     "reserved": false
   },
   {
+    "id": "C7",
+    "section": "5.2",
+    "layer": "V",
+    "inheritsFrom": null,
+    "summary": "Consumers MUST accept any payload matching the §5.2 consumer grammar, including zero-hunk payloads.",
+    "text": "A conforming consumer MUST accept any patch payload matching the consumer grammar above, including a payload carrying a header block and zero hunks (the header-only no-op shape, N2).",
+    "reserved": false
+  },
+  {
     "id": "P1",
     "section": "5.2",
     "layer": "V",
@@ -720,6 +747,42 @@
     "reserved": false
   },
   {
+    "id": "RL-1",
+    "section": "5.4",
+    "layer": "D",
+    "inheritsFrom": null,
+    "summary": "Producers SHOULD respect the recommended resource bounds of §5.4.",
+    "text": "Producers SHOULD respect the recommended bounds of §5.4.",
+    "reserved": false
+  },
+  {
+    "id": "RL-2",
+    "section": "5.4",
+    "layer": "A",
+    "inheritsFrom": null,
+    "summary": "Consumers SHOULD enforce configurable ceilings and bound total patch-application work in bytes compared.",
+    "text": "Consumers SHOULD enforce configurable ceilings and SHOULD bound total patch-application work (bytes compared), not only hunk or patch counts.",
+    "reserved": false
+  },
+  {
+    "id": "RL-3",
+    "section": "5.4",
+    "layer": "A",
+    "inheritsFrom": null,
+    "summary": "Ceiling exceeded → resource-limit-exceeded annotation, never HALT; event remains V-valid.",
+    "text": "Exceeding a ceiling aborts application and MUST be surfaced as a distinct resource-limit-exceeded annotation, never as HALT. The event remains V-valid.",
+    "reserved": false
+  },
+  {
+    "id": "RL-4",
+    "section": "5.4",
+    "layer": "A",
+    "inheritsFrom": null,
+    "summary": "Content abandoned for resource reasons MUST NOT be served or cached as canonical bytes.",
+    "text": "Content abandoned for resource reasons MUST NOT be served or cached as canonical bytes.",
+    "reserved": false
+  },
+  {
     "id": "TR-1",
     "section": "6",
     "layer": "V",
@@ -751,8 +814,8 @@
     "section": "6",
     "layer": "D",
     "inheritsFrom": null,
-    "summary": "A trusted Binding admits its `e root` and `e link` endpoints.",
-    "text": "When a Binding is admitted, both of its endpoints (`e root` and `e link`) become reachable and are admitted even if their authors are not directly trusted (§6.4).",
+    "summary": "A trusted Binding admits its `e root` and `e link` endpoints, until the Binding is retracted.",
+    "text": "When a Binding is admitted, both of its endpoints (`e root` and `e link`) become reachable and are admitted even if their authors are not directly trusted (§6.4) — for as long as the Binding is not retracted (§10, DEL-5).",
     "reserved": false
   },
   {
@@ -760,8 +823,8 @@
     "section": "6",
     "layer": "D",
     "inheritsFrom": null,
-    "summary": "Root admission admits the root's canonical chain.",
-    "text": "When a root Product or Metadata is admitted, its canonical chain is admitted with it: root-author patches and root-author kind 5 events targeting them are admitted automatically.",
+    "summary": "Root admission admits the root's canonical chain, for as long as the root's admission survives.",
+    "text": "When a root Product or Metadata is admitted, its canonical chain is admitted with it: root-author patches and root-author kind 5 events targeting them are admitted automatically — for as long as the root's own admission survives (§10, DEL-5).",
     "reserved": false
   },
   {
@@ -771,6 +834,15 @@
     "inheritsFrom": null,
     "summary": "Foreign patches are NOT transitively admitted; require independent trust.",
     "text": "Foreign patches are NOT transitively admitted via root admission. They require independent trust on the foreign author's pubkey.",
+    "reserved": false
+  },
+  {
+    "id": "TR-7",
+    "section": "6",
+    "layer": "D",
+    "inheritsFrom": null,
+    "summary": "Trust filtering is presentation-time; MUST NOT precede chain construction, self-fork detection, or overlay classification.",
+    "text": "Trust filtering is applied at presentation time, to the results of chain and overlay computation. Implementations MUST NOT filter by trust before canonical-chain construction, self-fork detection, or overlay classification.",
     "reserved": false
   },
   {
@@ -936,6 +1008,33 @@
     "reserved": false
   },
   {
+    "id": "UR-1",
+    "section": "7.6",
+    "layer": "A",
+    "inheritsFrom": null,
+    "summary": "Ingestion MUST be confluent: state depends on the observed set, never on arrival order.",
+    "text": "Ingestion MUST be confluent: the state an implementation reaches depends only on the set of events observed, never on arrival order.",
+    "reserved": false
+  },
+  {
+    "id": "UR-2",
+    "section": "7.6",
+    "layer": "A",
+    "inheritsFrom": null,
+    "summary": "Patch with unobserved `e root` is retained and re-evaluated on the root's arrival.",
+    "text": "A Patch whose `e root` is unobserved MUST be retained and re-evaluated on the root's arrival. It does not participate in the canonical chain until then.",
+    "reserved": false
+  },
+  {
+    "id": "UR-3",
+    "section": "7.6",
+    "layer": "D",
+    "inheritsFrom": null,
+    "summary": "Classification cached as permanent only when no further observation could change it.",
+    "text": "A classification MAY be cached as permanent only when no further observation could change it. A Patch's authorship class MUST NOT be cached while its root is unobserved.",
+    "reserved": false
+  },
+  {
     "id": "DQ-1",
     "section": "8",
     "layer": "D",
@@ -949,8 +1048,8 @@
     "section": "8",
     "layer": "D",
     "inheritsFrom": "NIP-09",
-    "summary": "SHOULD issue `{kinds:[5], #e:[<id>]}` per cached event, periodically.",
-    "text": "Clients SHOULD issue `{kinds:[5], #e:[<id>]}` for every chain root and every patch they cache, both at first sight and periodically thereafter, to guard against relays that store deletions but omit them from default filter results.",
+    "summary": "SHOULD issue `{kinds:[5], #e:[<id>]}` per cached root, patch, and Binding, periodically.",
+    "text": "Clients SHOULD issue `{kinds:[5], #e:[<id>]}` for every chain root, every patch, and every Binding they cache, both at first sight and periodically thereafter, to guard against relays that store deletions but omit them from default filter results. Binding deletions are required because retraction revokes conferred admission (§10, DEL-5).",
     "reserved": false
   },
   {
@@ -1048,8 +1147,8 @@
     "section": "10",
     "layer": "D",
     "inheritsFrom": null,
-    "summary": "Binding deletion → edge retraction; endpoints unaffected.",
-    "text": "Deletion of a Binding hides the edge from default views. Its endpoints remain valid independently.",
+    "summary": "Binding deletion → edge retraction and revocation of the admission it conferred; endpoints stay V-valid.",
+    "text": "Deletion of a Binding hides the edge from default views **and revokes the admission it conferred** (TR-4). Endpoints remain V-valid and are never cascade-deleted; an endpoint with no surviving admission path leaves the default view along with its canonical chain. An independently-admitted overlay whose target has left the view renders per the α/β rule, not dropped.",
     "reserved": false
   },
   {
