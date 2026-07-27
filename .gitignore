@@ -1,0 +1,40 @@
+# investigations are local-only scratch space, EXCEPT their published reports.
+# The protocol spec's Appendix E cites investigations/diff-parity/REPORT.md by path,
+# so that file must be publicly reachable.
+investigations/**
+!investigations/*/
+!investigations/*/REPORT.md
+
+# deps
+node_modules/
+
+# build output
+dist/
+*.tsbuildinfo
+
+# test output
+coverage/
+.vitest-cache/
+
+# editor / OS
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# env / secrets
+.env
+.env.*
+!.env.example
+*.nsec
+*.key
+
+# logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# changeset markdown files (only commit config + README)
+.changeset/*-*.md
+!.changeset/README.md
+!.changeset/config.json
