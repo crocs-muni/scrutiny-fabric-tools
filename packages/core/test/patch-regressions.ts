@@ -214,4 +214,17 @@ export const REGRESSIONS: readonly RegressionCase[] = [
     payload: '--- a/content\n+++ b/content\n',
     expect: { status: 'noop' },
   },
+  {
+    name: 'malformed/empty-fenced-block',
+    rule: 'C1',
+    why:
+      'An empty ```diff block yields an empty payload, which used to short-circuit to the N2 ' +
+      'header-only no-op and validate with zero issues. It is neither no-op shape: E7/N1 cover ' +
+      'the absence of a block, N2 covers a block carrying a header, and this has a block with no ' +
+      'header. §5.2 makes header-block mandatory, so C1 applies and application is malformed. ' +
+      'Found by review on PR #1.',
+    content: 'a\nb\n',
+    payload: '',
+    expect: { status: 'halt', reason: 'malformed-payload' },
+  },
 ]

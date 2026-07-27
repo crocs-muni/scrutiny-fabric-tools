@@ -3,9 +3,23 @@ name: CI
 # Work reaches main only through a pull request (DECISIONS, "Working conventions"),
 # so the pull_request trigger is the gate. The push trigger re-runs the same checks
 # on the merge commit.
+#
+# Two separate hazards, both hit while landing the Phase 2/3 stack:
+#
+# 1. `pull_request` is deliberately *unfiltered* by base branch. A `branches: [main]`
+#    filter looks right and silently skips every stacked PR: phase N+1 opened against
+#    phase N's branch gets no checks at all. Observed on PR #2, which had zero checks
+#    until it was closed and reopened.
+#
+# 2. `edited` is in the type list because a PR's base can change. Retargeting a stacked
+#    PR from phase N's branch to main alters the merge commit Actions tests against,
+#    but emits only `pull_request.edited` — NOT `synchronize`, despite what the event
+#    name suggests. Verified on PR #2: the retarget produced no run at a time when the
+#    base filter would have matched, so a synchronize plainly never fired. Without this
+#    the PR keeps a green check computed against a base it is no longer merging into.
 on:
   pull_request:
-    branches: [main]
+    types: [opened, synchronize, reopened, edited]
   push:
     branches: [main]
   workflow_dispatch:
@@ -19,6 +33,13 @@ permissions:
 
 jobs:
   verify:
+    # `edited` also fires for title and description edits, where nothing under test has
+    # changed. `changes.base` is present only when the base branch itself moved, which is
+    # the one edit that invalidates a previous run.
+    if: >-
+      github.event_name != 'pull_request' ||
+      github.event.action != 'edited' ||
+      github.event.changes.base != null
     name: verify (node ${{ matrix.node }}, ${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     strategy:

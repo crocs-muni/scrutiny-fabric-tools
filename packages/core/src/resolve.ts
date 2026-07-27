@@ -53,8 +53,12 @@ export type ChainState =
        * A ceiling stopped application before a verdict was reached (RL-3).
        *
        * Distinct from `halted` because §5.4 forbids surfacing a resource limit as a HALT, and
-       * distinct from `resolved` because the chain has patches we declined to apply — calling the
-       * last applied patch the "tip" would claim a completeness we do not have.
+       * distinct from `resolved` because patches remain that were deliberately not applied.
+       *
+       * `tipId` still carries the last *successfully applied* patch, exactly as it does on
+       * `halted` — it is the last position with defined content, which overlay classification
+       * needs. The incompleteness is carried by `status`, not by blanking the field: a `null`
+       * here would be indistinguishable from a chain with no patches at all.
        */
       readonly status: 'aborted'
       readonly content: string

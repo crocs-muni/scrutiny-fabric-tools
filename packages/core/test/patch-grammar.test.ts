@@ -174,7 +174,15 @@ describe('rejections', () => {
     // Not a no-op. The spec names exactly two no-op shapes: no block at all (N1) and a block with
     // valid headers and zero hunks (N2). An empty block is neither, and `header-block` is
     // mandatory in the consumer grammar, so C7's acceptance obligation does not attach to it.
-    expect(codes(fenced(''))).toContain('C1')
+    //
+    // Both spellings, because they take different code paths and only the first was covered here
+    // before. `fenced('')` leaves one blank line between the fences, so the payload is "\n" and
+    // the grammar check runs normally. A fence closed on the very next line yields the *empty*
+    // payload, which short-circuited ahead of the C1 check and validated with no issues at all —
+    // the test read as if it covered this, and did not. Found by review on PR #1.
+    expect(codes(fenced('')), 'blank line between fences').toContain('C1')
+    expect(codes('```diff\n```'), 'fence closed immediately').toContain('C1')
+    expect(findPatchPayload('```diff\n```'), 'the payload really is empty').toBe('')
   })
 
   it('rejects git index, mode and rename metadata (P2)', () => {

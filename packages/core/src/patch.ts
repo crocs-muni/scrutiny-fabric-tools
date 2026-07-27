@@ -407,7 +407,10 @@ const limitReached = (
  * Apply a patch payload to content, enforcing T1, T2 and T3.
  *
  * `payload` is the bytes strictly between the fences (E5) — `undefined` when the event carries no
- * fenced diff block at all, which is the prose-only no-op of E7 and N1.
+ * fenced diff block at all, which is the prose-only no-op of E7 and N1. The **empty string** is a
+ * different thing entirely: an empty fenced block, which carries no header block and is therefore
+ * malformed rather than a no-op. It gets no special case here, so it falls through to
+ * {@link parseHunks} and is normalised with every other headerless payload.
  *
  * Application is atomic: a halt on any hunk discards the effect of every prior hunk in the same
  * patch, because §5.3 step 3 pre-validates "in a temporary workspace" and a partially applied patch
@@ -420,7 +423,6 @@ export function applyPatchPayload(
 ): ApplyResult {
   if (payload === undefined)
     return { status: 'noop', content, shape: 'prose-only', issues: NO_ISSUES }
-  if (payload === '') return { status: 'noop', content, shape: 'header-only', issues: NO_ISSUES }
 
   const maxHunks = options.maxHunks ?? DEFAULT_MAX_HUNKS
   const maxWork = options.maxWork ?? DEFAULT_MAX_WORK

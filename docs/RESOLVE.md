@@ -361,8 +361,22 @@ rather than reverse-engineered from whatever the tests happened to produce (D34)
 | DEL-6 | "No effect" — the correct behaviour is to emit nothing and change nothing. Covered positively. |
 | OV-6 | Rebase preview is explicitly outside the normative surface and is not implemented. |
 
-Emitting rules — expected to be the whole of the partition's positive half: **H1**, **H2**, **SF-3**,
-**OV-3**, **DEL-7**, plus **RL-3** passed through from `patch.ts`.
+Emitting rules — the whole of the partition's positive half: **H1**, **SF-3**, and **RL-3** passed
+through from `patch.ts`. Three of thirty-two.
+
+This list originally also named H2, OV-3 and DEL-7, drafted before the code existed. All three turned
+out to have no code to emit, and the coverage gate caught the claim rather than the prose being
+quietly right:
+
+- **OV-3** and **DEL-7** express their outcome as a *state on the overlay* — `state: 'orphaned'` and
+  `degradation: 'alpha' | 'beta'`. That is the stronger form. A caller reading the classification
+  cannot miss it, whereas an annotation can go unread.
+- **H2** requires an invalid patch be *surfaced* with its event id, author and reason. That is the
+  shape of the annotation, not a code inside it; the issues it carries cite H1 and the specific
+  determinism rule.
+
+Listing them as emitting and then finding they were not is exactly what D34 is for: coverage is
+measured by observed emission, never by intent — including the author's.
 
 ---
 

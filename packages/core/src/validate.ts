@@ -564,7 +564,18 @@ function checkPatchPayload(event: NostrEvent, issues: Issue[]): void {
  *   forbids are rejected. P1 is not evaluated at all (F1).
  */
 function checkPayloadGrammar(payload: string, issues: Issue[]): void {
-  if (payload === '') return
+  // A wholly empty fenced block — ```diff immediately followed by its closing fence — is not a
+  // no-op. E7 and N1 cover the *absence* of a payload block; N2 covers a block carrying a header
+  // and no hunks. This is neither: E2 matched, so these bytes *are* the payload, and §5.2's
+  // `header-block` is mandatory, so C1 applies. Returning early here let the shape validate with no
+  // issues at all, which is how it was found. It is also outside C7's acceptance floor, since the
+  // grammar admits no payload without a header block.
+  if (payload === '') {
+    issues.push(
+      issue('C1', 'error', 'the fenced diff block is empty and carries no "--- a/content" header'),
+    )
+    return
+  }
 
   const lines = payload.split('\n')
   if (lines.at(-1) === '') lines.pop()
