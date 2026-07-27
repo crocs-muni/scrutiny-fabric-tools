@@ -1,5 +1,13 @@
 # Spec amendment brief — v0.5.9 → v0.6.0
 
+> [!CAUTION]
+> **DO NOT EXECUTE AS WRITTEN.** An adversarial review against the v0.5.9 specification returned 23
+> findings, including four contradictions with existing normative rules that were confirmed by direct
+> quotation. **A4 needs a substantial rewrite, A3 is blocked on it, and A2/A5/A6/A7/A8/A11 need
+> fixes.** Work through [`AMENDMENT-REVISIONS-REQUIRED.md`](AMENDMENT-REVISIONS-REQUIRED.md) first;
+> it lists every item as a checkbox in execution order. Only A1, A9, A10 and A12 are safe to apply
+> largely as drafted.
+
 Self-contained work order for a session editing `docs/protocol-spec.md`. Every amendment below has a
 motivation and, where the wording is settled, proposed prose to insert. Rule-table rows are given in
 the document's existing format.

@@ -1,10 +1,16 @@
 # Session A starter — amend the spec to v0.6.0
 
-Start a fresh Claude Code session **in `~/scrutiny-fabric`** and paste the prompt below.
+> [!CAUTION]
+> **BLOCKED.** The pre-flight review found the amendment brief unsafe to execute — 23 findings, four
+> of them confirmed contradictions with existing normative rules. **Revise the brief first** using
+> [`AMENDMENT-REVISIONS-REQUIRED.md`](AMENDMENT-REVISIONS-REQUIRED.md), then run this session.
+>
+> The revision is substantial enough to deserve its own session: A4 needs a rewrite and its
+> cross-reference list grows from 3 sites to 12. Attempting revision and execution in one pass is how
+> a half-amended specification happens.
 
-Two background agents were run on 2026-07-27 to pre-flight this work: one extracting the rule
-registry, one adversarially reviewing the amendment brief against the spec. **Check their findings
-first** — they may have identified amendments needing revision before execution.
+Start a fresh Claude Code session **in `~/scrutiny-fabric`** and paste the prompt below — *after* the
+brief has been revised.
 
 ---
 
