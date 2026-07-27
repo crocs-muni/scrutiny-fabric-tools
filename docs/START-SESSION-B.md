@@ -10,7 +10,8 @@ patch matcher — is the riskiest module in the project and deserves its own ses
 
 ## What is already true — do not redo
 
-- **Spec is at v0.6.0** (`scrutiny-v060`), `~/scrutiny-fabric/docs/protocol-spec.md`, 1364 lines.
+- **Spec is at v0.6.0** (`scrutiny-v060`), `~/scrutiny-fabric/docs/protocol-spec.md`, 1449 lines
+  (up from 1363 at v0.5.9).
 - **134 normative rules**: V=47, A=55, D=31, plus 1 reserved. Appendix F is the flat index.
 - **`tools/extract-rules.mjs`** validates the registry and regenerates `tools/rules.json`. It reports
   0 errors against v0.6.0. Run it if the spec changes; do not hand-edit `rules.json`.
