@@ -52,6 +52,22 @@ export {
   type Validity,
 } from './validate.js'
 
+/**
+ * Chain resolution. Note the applier itself (`patch.ts`) is deliberately **not** exported (D32) —
+ * exposing it invites callers to bypass the T1/T2/T3 determinism gate §5.3 requires. `resolve` is
+ * the supported way to reach patched content.
+ */
+export {
+  resolve,
+  type Annotation,
+  type ChainState,
+  type ForkBranch,
+  type Overlay,
+  type OverlayState,
+  type ResolveOptions,
+  type Resolution,
+} from './resolve.js'
+
 export { hasError, issue, ruleOf, type Issue, type Severity } from './errors.js'
 
 export {

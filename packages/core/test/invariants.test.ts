@@ -2,9 +2,10 @@ import { describe, expect, it } from 'vitest'
 import { issue } from '../src/errors.js'
 import { RULES, RULE_IDS } from '../src/rules.js'
 import { ALL_PATCH_ISSUES } from './_a-patch-coverage.js'
+import { ALL_RESOLVE_ISSUES } from './_a-resolve-coverage.js'
 import { ALL_EMITTED_ISSUES as V_ISSUES } from './_v-coverage.js'
 
-const ALL_EMITTED_ISSUES = [...V_ISSUES, ...ALL_PATCH_ISSUES]
+const ALL_EMITTED_ISSUES = [...V_ISSUES, ...ALL_PATCH_ISSUES, ...ALL_RESOLVE_ISSUES]
 
 describe('structural invariants', () => {
   it('never emits an error citing an A-layer or D-layer rule (TR-1)', () => {

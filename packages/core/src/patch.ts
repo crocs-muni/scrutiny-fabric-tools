@@ -37,12 +37,17 @@ export type HaltReason =
 /** Which ceiling was hit. Never a HALT — see {@link PatchLimit}. */
 export type LimitKind = 'hunks' | 'work'
 
+/** The rule a halt cites alongside H1. Surfaced so a caller need not re-scan {@link Issue}s. */
+export type HaltRule = 'T1' | 'C5' | 'H1'
+
 export interface PatchApplied {
   readonly status: 'applied'
   readonly content: string
   readonly hunksApplied: number
   /** Characters compared, as charged against `maxWork`. */
   readonly work: number
+  /** Always empty. Present on every variant so a caller need not switch on `status` to read it. */
+  readonly issues: readonly Issue[]
 }
 
 export interface PatchNoop {
@@ -51,6 +56,8 @@ export interface PatchNoop {
   readonly content: string
   /** N1 (no fenced block) or N2 (header block, zero hunks). */
   readonly shape: 'prose-only' | 'header-only'
+  /** Always empty; see {@link PatchApplied.issues}. */
+  readonly issues: readonly Issue[]
 }
 
 /**
@@ -63,10 +70,12 @@ export interface PatchNoop {
 export interface PatchHalt {
   readonly status: 'halt'
   readonly reason: HaltReason
+  /** The specific rule cited alongside H1, derived from `reason` — never passed in. */
+  readonly rule: HaltRule
   /** Index of the offending hunk in document order, or `null` if the payload never parsed. */
   readonly hunkIndex: number | null
   readonly detail: string
-  /** One issue citing the specific rule, one citing H1. Both `warning` — see below. */
+  /** One issue citing {@link PatchHalt.rule}, one citing H1. Both `warning` — see below. */
   readonly issues: readonly Issue[]
 }
 
@@ -346,14 +355,17 @@ function spliceAt(lines: readonly string[], hunk: Hunk, at: number): SpliceOutco
  * same failure D35 removes from {@link issue} by looking `layer` and `section` up instead of
  * accepting them. A `malformed-payload` cites H1 alone: there is no more specific rule for it.
  */
-const HALT_RULE: Readonly<Record<HaltReason, 'T1' | 'C5' | 'H1'>> = Object.freeze({
+const HALT_RULE: Readonly<Record<HaltReason, HaltRule>> = Object.freeze({
   'no-match': 'T1',
   'ambiguous-match': 'T1',
   'eof-mismatch': 'C5',
   'malformed-payload': 'H1',
 })
 
-const haltIssues = (code: 'T1' | 'C5' | 'H1', detail: string): readonly Issue[] =>
+/** Empty and shared: every success carries one, and none of them differ. */
+const NO_ISSUES: readonly Issue[] = Object.freeze([])
+
+const haltIssues = (code: HaltRule, detail: string): readonly Issue[] =>
   code === 'H1'
     ? [issue('H1', 'warning', detail)]
     : [
@@ -364,6 +376,7 @@ const haltIssues = (code: 'T1' | 'C5' | 'H1', detail: string): readonly Issue[] 
 const halt = (reason: HaltReason, hunkIndex: number | null, detail: string): PatchHalt => ({
   status: 'halt',
   reason,
+  rule: HALT_RULE[reason],
   hunkIndex,
   detail,
   issues: haltIssues(HALT_RULE[reason], detail),
@@ -405,8 +418,9 @@ export function applyPatchPayload(
   payload: string | undefined,
   options: ApplyOptions = {},
 ): ApplyResult {
-  if (payload === undefined) return { status: 'noop', content, shape: 'prose-only' }
-  if (payload === '') return { status: 'noop', content, shape: 'header-only' }
+  if (payload === undefined)
+    return { status: 'noop', content, shape: 'prose-only', issues: NO_ISSUES }
+  if (payload === '') return { status: 'noop', content, shape: 'header-only', issues: NO_ISSUES }
 
   const maxHunks = options.maxHunks ?? DEFAULT_MAX_HUNKS
   const maxWork = options.maxWork ?? DEFAULT_MAX_WORK
@@ -420,7 +434,8 @@ export function applyPatchPayload(
   }
 
   // N2: a header block with zero hunks is a valid no-op and MUST NOT be rejected as malformed.
-  if (hunks.length === 0) return { status: 'noop', content, shape: 'header-only' }
+  if (hunks.length === 0)
+    return { status: 'noop', content, shape: 'header-only', issues: NO_ISSUES }
 
   if (hunks.length > maxHunks) {
     return limitReached('hunks', hunks.length, maxHunks, `patch carries ${hunks.length} hunks`)
@@ -493,7 +508,13 @@ export function applyPatchPayload(
     lines = spliced.lines
   }
 
-  return { status: 'applied', content: fromLines(lines), hunksApplied: hunks.length, work }
+  return {
+    status: 'applied',
+    content: fromLines(lines),
+    hunksApplied: hunks.length,
+    work,
+    issues: NO_ISSUES,
+  }
 }
 
 /**
