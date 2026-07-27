@@ -14,8 +14,8 @@ Supersedes the previous `IMPLEMENTATION-PLAN.md` (targeted spec v0.5.3, never co
 |---|---|---|
 | — | Spec amended to v0.6.0 | ✅ **done** 2026-07-27 — spec repo `b44dbf1`, **134 rules** (V=47 A=55 D=31 +1 reserved), validator clean |
 | — | Conformance vectors: Appendix G + first vector files | ⛔ **next** — spec repo. See below |
-| 0 | Monorepo scaffold | **ready to start** |
-| 1 | `events`, `validate`, `id` | not started |
+| 0 | Monorepo scaffold | ✅ **done** — `pnpm verify` green; build emits ESM + `.d.ts`, exports ATTW-clean |
+| 1 | `events`, `validate`, `id` | ✅ **done** — 131 tests; 26/47 V rules emit a code, 21 declared not-covered with reasons in `test/_v-coverage.ts` |
 | 2 | `patch` — the T1/T2/T3 matcher | not started |
 | 3 | `resolve` — chain + overlays | not started |
 | 4 | `admit` | not started |
@@ -128,13 +128,13 @@ Rule IDs are from Appendix F. These assignments drive the generated coverage rep
 | Module | Owns | Notes |
 |---|---|---|
 | `events` | TAG-1…5, VER-1…4, IR-1…4, PR-4/5, MD-4/5 | §9 prefix registry is **open data, not an enum** (IR-4). **Never filter by version tag in a relay query** — the dead engine did, silently violating VER-4 |
-| `validate` | PR-1…3, MD-1…3, BD-1…5/10/12, PT-1…4, E1…E6, C1…C4, P1…P3 | Pure, one event in, `Issue[]` out. Endpoint typing (BD-3/4/5) needs the observed set → returns *pending*, resolved by `store` per §3.3 |
+| `validate` | TAG-1…5, VER-1…4, PR-1…5, MD-1…5, BD-1…7/10/12, PT-1…4/7, E1…E6, C1…C4, **C7**, P2, P3, IR-1…4 | Pure, one event in, `Issue[]` out. Endpoint typing (BD-3/4/5) and PT-7 lineage need the observed set → returns *pending*, resolved by `store` per §7.6. **C7 added** — it was dropped in transcription from §6.0's V manifest, which cites it explicitly. **P1 removed** — unsatisfiable at validation time; see `SPEC-FEEDBACK-v0.6.0.md` F1 |
 | `id` | SIG-1 (recompute half) | `serializeForId` delegates to `JSON.stringify` per R11. Hash injected — no crypto in core |
 | `patch` **(internal)** | T1, T2, T3, H1, N1…N3, C5, C6, PB-1/2, E7 | **T1/T2/T3 is hand-written and non-injectable** (D30). No stock applier does the exactly-once check. Normalise jsdiff's two failure channels: returns `false` on context mismatch, *throws* on truncated/swapped hunks |
 | `resolve` | CHN-1…3, RC-1/2, SF-1…6, H1/H2, OV-2/3/4/6/8, DEL-1/2/3/6/7, PT-5/6/8/9, IX-3, BD-9 | **Reads no trust state** (D25). `ChainState.forked` has **no `tipId`** — makes SF-4 unrepresentable |
 | `admit` | TR-2…7, OV-7, DEL-4/5 | Refcounted reason sets. `direct-trust` = Set bit; `binding` = counter guarded by `liveBindings` (D23) |
 | `query` | DQ-1…4, BD-8 | Returns plain NIP-01 filter objects; no transport dependency |
-| `build` | E4 (fence length `max(3, N+1)`), P1…P4 | Emits `{kind, created_at, tags, content}` — **no `id`, `pubkey`, `sig`** (D13) |
+| `build` | E4 (fence length `max(3, N+1)`), P1…P4 | Emits `{kind, created_at, tags, content}` — **no `id`, `pubkey`, `sig`** (D13). Sole enforcement point for P1 and E4, both of which are unfalsifiable on receipt |
 | `store` | UR-1…3, RC-3/4, BD-6/7, DEL-8/9, RL-2/3, SIG-1 (enforcement) | Reducer + `StorageAdapter` port, **not a class** (D15). Three epochs (D24) |
 
 Not owned by any module, by design: IM-1…IM-5 (deferred with `artifacts`, D7), IX-1/2/4 and RL-1
@@ -169,6 +169,15 @@ how T3 sequences hunks against post-prior-hunk content.
 Gate: the property test `applyPatch(a, makePatch(a, b)) === b` survives ≥10k generated cases with
 `fast-check`, including repeated-line content (the case that breaks T1 and that hand-written tests
 rarely produce). Every counterexample found becomes a permanent vector.
+
+Second gate item, carried over from Phase 1: a **grammar-conformance property test for C7**. C7
+obliges a consumer to accept *any* payload matching §5.2's grammar, and Phase 1 covers it with
+fixtures for the shapes that were thought of — which is not the same claim. Build a `fast-check`
+arbitrary that emits from the grammar productions (optional `Index:` preamble, optional
+`diff --git` line, header block, 0..N hunks, arbitrary trailing data) and assert `validateEvent`
+returns no `error`-severity issue for any of them. Seed it with the two shapes most likely to be
+wrongly rejected: the N2 header-only block, and the zero-context hunk. Note that the grammar cannot
+be implemented literally — see `SPEC-FEEDBACK-v0.6.0.md` F3.
 
 ### Phase 3 — `resolve`
 

@@ -3,7 +3,11 @@
   "compilerOptions": {
     "rootDir": "src",
     "outDir": "dist",
-    "tsBuildInfoFile": "dist/.tsbuildinfo"
+    "tsBuildInfoFile": "dist/.tsbuildinfo",
+    // The shipped package is sans-IO and runs in a browser as readily as in Node. Withholding the
+    // Node types means a stray `process`, `Buffer`, or `node:` import fails the build rather than
+    // shipping. Tests get them; src does not.
+    "types": []
   },
   "include": ["src/**/*.ts"]
 }

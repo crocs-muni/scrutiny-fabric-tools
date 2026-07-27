@@ -8,20 +8,57 @@
  *
  * Two structural properties of this package, both load-bearing:
  *
- * - It contains no cryptography and never handles a secret key (D12). Where a hash is needed, the
+ * - It contains no cryptography and never handles a secret key (D12). Where a hash is needed the
  *   caller injects it — see {@link eventIdMatches}.
  * - It performs no IO. Relay access, storage, and signing are the caller's, behind interfaces.
  */
 
-/** The specification version this implementation targets. */
-export const SPEC_VERSION = '0.6.0'
+export { SPEC_VERSION, VERSION_TAG } from './version.js'
 
-/**
- * The version `t` tag this implementation emits (TAG-2, VER-1).
- *
- * The three digits encode MAJOR/MINOR/PATCH, so lexicographic comparison of the suffix coincides
- * with semantic ordering. Note that this is the version we *write*; it is never used to filter
- * events on read, and MUST NOT appear in a relay filter — doing so silently drops every
- * higher-version event, violating VER-4 invisibly.
- */
-export const VERSION_TAG = 'scrutiny-v060'
+export {
+  EVENT_TYPE_TAGS,
+  FABRIC_TAG,
+  INDEXER_PREFIX_PATTERN,
+  VERSION_TAG_PATTERN,
+  compareVersionTags,
+  derivedIndexerKinds,
+  eTags,
+  eTagsWithMarker,
+  indexerKinds,
+  indexers,
+  isScrutinyEvent,
+  parseIndexer,
+  parseVersionTag,
+  scrutinyEventType,
+  tTags,
+  tagValues,
+  versionTag,
+  versionTags,
+  type ETagRef,
+  type Indexer,
+  type NostrEvent,
+  type ProtocolVersion,
+  type ScrutinyEventType,
+  type UnsignedEvent,
+} from './events.js'
+
+export { computeEventId, eventIdMatches, serializeForId, type Sha256Hex } from './id.js'
+
+export {
+  findFencedBlocks,
+  findPatchPayload,
+  validateEvent,
+  type ValidateOptions,
+  type Validity,
+} from './validate.js'
+
+export { hasError, issue, ruleOf, type Issue, type Severity } from './errors.js'
+
+export {
+  RULES,
+  RULE_IDS,
+  isRuleId,
+  type Rule,
+  type RuleId,
+  type RuleLayer,
+} from './rules.js'

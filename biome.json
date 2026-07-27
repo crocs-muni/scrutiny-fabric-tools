@@ -34,18 +34,35 @@
       "recommended": true,
       "style": {
         "useNodejsImportProtocol": "error"
-      },
-      "nursery": {
-        "noRestrictedImports": {
-          "level": "error",
-          "options": {
-            "paths": {
-              "node:crypto": "core is crypto-free (D12). Hash functions are injected by the caller.",
-              "crypto": "core is crypto-free (D12). Hash functions are injected by the caller."
+      }
+    }
+  },
+  "overrides": [
+    {
+      "include": ["**/tsconfig*.json"],
+      "json": {
+        "parser": {
+          "allowComments": true
+        }
+      }
+    },
+    {
+      "include": ["packages/*/src/**"],
+      "linter": {
+        "rules": {
+          "nursery": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "paths": {
+                  "node:crypto": "core is crypto-free (D12). Hash functions are injected by the caller.",
+                  "crypto": "core is crypto-free (D12). Hash functions are injected by the caller."
+                }
+              }
             }
           }
         }
       }
     }
-  }
+  ]
 }
