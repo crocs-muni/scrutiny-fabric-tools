@@ -3,9 +3,15 @@ name: CI
 # Work reaches main only through a pull request (DECISIONS, "Working conventions"),
 # so the pull_request trigger is the gate. The push trigger re-runs the same checks
 # on the merge commit.
+#
+# `pull_request` is deliberately *unfiltered* by base branch. A `branches: [main]`
+# filter looks right and silently skips every stacked PR: phase N+1 opened against
+# phase N's branch gets no checks at all, and retargeting it to main afterwards does
+# not help either, because changing a base emits `pull_request.edited`, which is not
+# in the default trigger types (opened, synchronize, reopened). Observed on PR #2,
+# which had to be closed and reopened to get a single check run.
 on:
   pull_request:
-    branches: [main]
   push:
     branches: [main]
   workflow_dispatch:
