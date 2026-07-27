@@ -24,12 +24,13 @@ interface DiffPort {
 }
 
 applyPatchPayload(content: string, payload: string | undefined, opts?: ApplyOptions): ApplyResult
-makePatch(before: string, after: string): string
+makePatch(before: string, after: string, context = 3): string
 ```
 
 `makePatch` lives here, not in `build.ts`, because the Phase 2 gate
 (`applyPatch(a, makePatch(a, b)) === b`) needs it and `build.ts` is Phase 6. `build.ts` will call
-into it rather than duplicate it.
+into it rather than duplicate it. `context` is a parameter only so the T1 property can ask for the
+zero-context shape (see §8); producers leave the default alone, since three is what P1 asks for.
 
 ### Line representation
 

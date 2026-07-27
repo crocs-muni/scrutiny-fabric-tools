@@ -13,7 +13,8 @@
  */
 
 import { describe, expect, it } from 'vitest'
-import { RULES, RULE_IDS, type RuleId } from '../src/rules.js'
+import { RULES, RULE_IDS } from '../src/rules.js'
+import { itCoversEachRule, itReportsTheSplit } from './_coverage.js'
 import { V_COVERAGE } from './_v-coverage.js'
 
 describe('Phase 1 gate — Validity-layer rule coverage', () => {
@@ -23,29 +24,6 @@ describe('Phase 1 gate — Validity-layer rule coverage', () => {
     expect([...Object.keys(V_COVERAGE)].sort()).toEqual([...vRules].sort())
   })
 
-  it('reports the split', () => {
-    const emittedIds = Object.entries(V_COVERAGE)
-      .filter(([, v]) => v.kind === 'emitted')
-      .map(([k]) => k)
-    const uncovered = vRules.length - emittedIds.length
-    // Surfaced so the ratio is visible in CI output rather than buried in a doc.
-    console.log(
-      `V-layer coverage: ${emittedIds.length}/${vRules.length} emit a rule code; ` +
-        `${uncovered} not test-covered, each with a stated reason.`,
-    )
-    expect(emittedIds.length + uncovered).toBe(vRules.length)
-  })
-
-  for (const [id, entry] of Object.entries(V_COVERAGE)) {
-    if (entry.kind === 'emitted') {
-      it(`${id} is emitted by a real validation`, () => {
-        const codes = entry.issues().map((i) => i.code)
-        expect(codes).toContain(id as RuleId)
-      })
-    } else {
-      it(`${id} is declared not-test-covered with a reason`, () => {
-        expect(entry.reason.length).toBeGreaterThan(40)
-      })
-    }
-  }
+  itReportsTheSplit('V-layer coverage', V_COVERAGE)
+  itCoversEachRule('validation', V_COVERAGE)
 })

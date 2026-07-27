@@ -9,6 +9,7 @@
 import { describe, expect, it } from 'vitest'
 import { RULES, type RuleId } from '../src/rules.js'
 import { A_PATCH_COVERAGE } from './_a-patch-coverage.js'
+import { itCoversEachRule, itReportsTheSplit } from './_coverage.js'
 
 /** From the module-ownership table in `docs/IMPLEMENTATION-PLAN.md`, plus RL-3, which patch emits. */
 const OWNED: readonly RuleId[] = [
@@ -32,14 +33,7 @@ describe('Phase 2 gate — patch-module rule coverage', () => {
     expect([...Object.keys(A_PATCH_COVERAGE)].sort()).toEqual([...OWNED].sort())
   })
 
-  it('reports the split', () => {
-    const emitted = Object.values(A_PATCH_COVERAGE).filter((v) => v.kind === 'emitted').length
-    console.log(
-      `patch-module coverage: ${emitted}/${OWNED.length} emit a rule code; ` +
-        `${OWNED.length - emitted} not test-covered, each with a stated reason.`,
-    )
-    expect(emitted).toBeGreaterThan(0)
-  })
+  itReportsTheSplit('patch-module coverage', A_PATCH_COVERAGE)
 
   it('assigns no V-layer rule to this module', () => {
     // The envelope and grammar (E1–E6, C1–C4) are validate.ts's, and stay there. A V rule
@@ -48,15 +42,5 @@ describe('Phase 2 gate — patch-module rule coverage', () => {
     expect(misplaced).toEqual([])
   })
 
-  for (const [id, entry] of Object.entries(A_PATCH_COVERAGE)) {
-    if (entry.kind === 'emitted') {
-      it(`${id} is emitted by a real application attempt`, () => {
-        expect(entry.issues().map((i) => i.code)).toContain(id as RuleId)
-      })
-    } else {
-      it(`${id} is declared not-test-covered with a reason`, () => {
-        expect(entry.reason.length).toBeGreaterThan(40)
-      })
-    }
-  }
+  itCoversEachRule('application attempt', A_PATCH_COVERAGE)
 })

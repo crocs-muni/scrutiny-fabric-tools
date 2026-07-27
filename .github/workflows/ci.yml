@@ -14,6 +14,9 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+
 jobs:
   verify:
     name: verify (node ${{ matrix.node }}, ${{ matrix.os }})
@@ -35,22 +38,8 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
-      - name: Lint and format check
-        run: pnpm lint
-
-      - name: Typecheck
-        run: pnpm typecheck
-
-      # rules.ts is generated from the spec's Appendix F (D35). CI fails if the
-      # committed copy has drifted from tools/rules.json.
-      - name: Rule registry is in sync
-        run: pnpm rules:check
-
-      - name: Build
-        run: pnpm build
-
-      - name: Exports map is ATTW-clean
-        run: pnpm attw
-
-      - name: Test
-        run: pnpm test
+      # One step, not six: `pnpm verify` is the documented gate, and re-listing its steps here
+      # means a phase that extends it (Phase 7 adds coverage:rules and vectors:verify) passes CI
+      # while the gate itself has grown. It runs lint, typecheck, rules:check, build, attw, test.
+      - name: Verify
+        run: pnpm verify

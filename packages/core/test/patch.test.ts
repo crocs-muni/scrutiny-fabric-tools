@@ -6,27 +6,21 @@
  * `_a-patch-coverage.ts` for the partition that machine-checks that claim.
  */
 
-import { formatPatch, structuredPatch } from 'diff'
 import fc from 'fast-check'
 import { describe, expect, it } from 'vitest'
 import { applyPatchContent, applyPatchPayload, makePatch } from '../src/patch.js'
 import { repeatyContent } from './_generators.js'
+import { body, describeResult, expectApplied, expectHalt } from './_patch.js'
 import { loadVectors } from './_vectors.js'
 import { REGRESSIONS } from './patch-regressions.js'
-
-const body = (...lines: string[]): string => `--- a/content\n+++ b/content\n${lines.join('\n')}\n`
 
 describe('permanent regression corpus', () => {
   for (const c of REGRESSIONS) {
     it(`${c.name} (${c.rule})`, () => {
       const result = applyPatchPayload(c.content, c.payload)
-      expect(result.status, `${c.why}\n→ got ${JSON.stringify(result)}`).toBe(c.expect.status)
-      if (c.expect.status === 'applied' && result.status === 'applied') {
-        expect(result.content).toBe(c.expect.content)
-      }
-      if (c.expect.status === 'halt' && result.status === 'halt') {
-        expect(result.reason).toBe(c.expect.reason)
-      }
+      expect(result.status, `${c.why}\n→ got ${describeResult(result)}`).toBe(c.expect.status)
+      if (c.expect.status === 'applied') expectApplied(result, c.expect.content, c.why)
+      if (c.expect.status === 'halt') expectHalt(result, c.expect.reason, c.why)
     })
   }
 })
@@ -34,11 +28,8 @@ describe('permanent regression corpus', () => {
 describe('T1 — uniqueness across the full content', () => {
   it('counts every occurrence, not just the first two', () => {
     const result = applyPatchPayload('d\nx\nd\nx\nd\n', body('@@ -1,1 +1,1 @@', '-d', '+D'))
-    expect(result.status).toBe('halt')
-    if (result.status === 'halt') {
-      expect(result.reason).toBe('ambiguous-match')
-      expect(result.detail).toContain('3 places')
-    }
+    expectHalt(result, 'ambiguous-match')
+    if (result.status === 'halt') expect(result.detail).toContain('3 places')
   })
 
   it('applies when the pattern is unique, however long the content', () => {
@@ -50,9 +41,7 @@ describe('T1 — uniqueness across the full content', () => {
 
   it('treats a pure-context hunk as subject to T1 even though it changes nothing', () => {
     // No '-' and no '+' lines, but a pattern exists, so it must still be unambiguous.
-    const result = applyPatchPayload('s\ns\n', body('@@ -1,1 +1,1 @@', ' s'))
-    expect(result.status).toBe('halt')
-    if (result.status === 'halt') expect(result.reason).toBe('ambiguous-match')
+    expectHalt(applyPatchPayload('s\ns\n', body('@@ -1,1 +1,1 @@', ' s')), 'ambiguous-match')
   })
 })
 
@@ -63,9 +52,7 @@ describe('T2 — the pure-insertion carve-out', () => {
       ['@@ -1,0 +2,1 @@', 'a\nN\nb\nc\n'],
       ['@@ -3,0 +4,1 @@', 'a\nb\nc\nN\n'],
     ] as const) {
-      const result = applyPatchPayload('a\nb\nc\n', body(header, '+N'))
-      expect(result.status, header).toBe('applied')
-      if (result.status === 'applied') expect(result.content, header).toBe(expected)
+      expectApplied(applyPatchPayload('a\nb\nc\n', body(header, '+N')), expected, header)
     }
   })
 
@@ -83,8 +70,7 @@ describe('T3 — sequencing against the content prior hunks produced', () => {
       'one\ntwo\nthree\nfour\n',
       body('@@ -1,1 +1,1 @@', '-one', '+1', '@@ -3,1 +3,1 @@', '-three', '+3'),
     )
-    expect(result.status).toBe('applied')
-    if (result.status === 'applied') expect(result.content).toBe('1\ntwo\n3\nfour\n')
+    expectApplied(result, '1\ntwo\n3\nfour\n')
   })
 
   it('is atomic — a halt on a later hunk discards the effect of earlier ones', () => {
@@ -131,14 +117,6 @@ describe('no-ops — E7, N1, N2, N3', () => {
     expect(result).toEqual({ status: 'noop', content: 'unchanged\n', shape: 'header-only' })
   })
 
-  it('returns the content unchanged for both shapes (N3)', () => {
-    for (const shape of ['prose only', '```diff\n--- a/content\n+++ b/content\n```']) {
-      const result = applyPatchContent('X\n', shape)
-      expect(result.status).toBe('noop')
-      if (result.status === 'noop') expect(result.content).toBe('X\n')
-    }
-  })
-
   it('locates the payload through E1–E6 rather than re-implementing fence scanning', () => {
     const content = [
       'Prose first.',
@@ -158,9 +136,7 @@ describe('no-ops — E7, N1, N2, N3', () => {
       '+ignored',
       '```',
     ].join('\n')
-    const result = applyPatchContent('old\n', content)
-    expect(result.status).toBe('applied')
-    if (result.status === 'applied') expect(result.content).toBe('new\n')
+    expectApplied(applyPatchContent('old\n', content), 'new\n')
   })
 })
 
@@ -173,24 +149,18 @@ describe('PB-1 / PB-2 — bytes are never normalised', () => {
       ['x', ''],
       ['', '\n'],
     ] as const) {
-      const result = applyPatchPayload(a, makePatch(a, b))
-      expect(result.status, `${JSON.stringify(a)} → ${JSON.stringify(b)}`).toBe('applied')
-      if (result.status === 'applied') {
-        expect(result.content, `${JSON.stringify(a)} → ${JSON.stringify(b)}`).toBe(b)
-      }
+      const ctx = `${JSON.stringify(a)} → ${JSON.stringify(b)}`
+      expectApplied(applyPatchPayload(a, makePatch(a, b)), b, ctx)
     }
   })
 
   it('preserves a BOM and does not strip it', () => {
-    const result = applyPatchPayload('﻿a\nb\n', body('@@ -2,1 +2,1 @@', '-b', '+c'))
-    expect(result.status).toBe('applied')
-    if (result.status === 'applied') expect(result.content).toBe('﻿a\nc\n')
+    expectApplied(applyPatchPayload('﻿a\nb\n', body('@@ -2,1 +2,1 @@', '-b', '+c')), '﻿a\nc\n')
   })
 
   it('matches CRLF content when the payload is CRLF too', () => {
     const result = applyPatchPayload('a\r\nb\r\n', body('@@ -1,1 +1,1 @@', '-a\r', '+z\r'))
-    expect(result.status).toBe('applied')
-    if (result.status === 'applied') expect(result.content).toBe('z\r\nb\r\n')
+    expectApplied(result, 'z\r\nb\r\n')
   })
 })
 
@@ -248,9 +218,7 @@ describe('failure channels are normalised into one rejection signal', () => {
       ' ￿',
     ]
     for (const payload of malformed) {
-      const result = applyPatchPayload('a\n', payload)
-      expect(result.status, JSON.stringify(payload)).toBe('halt')
-      if (result.status === 'halt') expect(result.reason).toBe('malformed-payload')
+      expectHalt(applyPatchPayload('a\n', payload), 'malformed-payload', JSON.stringify(payload))
     }
   })
 
@@ -283,28 +251,14 @@ describe('F5 — a payload with two header blocks', () => {
   it('sequences every parsed hunk under T3 rather than dropping any', () => {
     const payload = `${body('@@ -1,1 +1,1 @@', '-a', '+A')}${body('@@ -2,1 +2,1 @@', '-b', '+B')}`
     const result = applyPatchPayload('a\nb\n', payload)
-    expect(result.status).toBe('applied')
-    if (result.status === 'applied') {
-      expect(result.content).toBe('A\nB\n')
-      expect(result.hunksApplied).toBe(2)
-    }
+    expectApplied(result, 'A\nB\n')
+    if (result.status === 'applied') expect(result.hunksApplied).toBe(2)
   })
 })
 
-/**
- * A patch with `context: 0`, so a hunk's pattern is exactly its removed lines.
- *
- * Built here rather than through `makePatch`, which fixes `context: 3` because that is what P1
- * asks producers for. Zero context is what a hand-written or minimising producer emits, and it is
- * the shape under which T1 ambiguity stops being rare.
- */
-function zeroContextPatch(before: string, after: string): string {
-  const formatted = formatPatch(
-    structuredPatch('a/content', 'b/content', before, after, '', '', { context: 0 }),
-  )
-  return formatted.startsWith('=') ? formatted.slice(formatted.indexOf('\n') + 1) : formatted
-}
-
+// `makePatch(a, b, 0)` gives a hunk whose pattern is exactly its removed lines. Zero context is
+// what a hand-written or minimising producer emits, and the shape under which T1 ambiguity stops
+// being rare — see the comment on the property below.
 describe('T1 under zero-context patches', () => {
   // The round-trip gate barely exercises T1's ambiguous branch: makePatch emits three context
   // lines, and a seven-line pattern almost never repeats — measured at 6 halts per 2000 pairs.
@@ -314,10 +268,10 @@ describe('T1 under zero-context patches', () => {
     const seen = { applied: 0, halt: 0, noop: 0, limit: 0 }
     fc.assert(
       fc.property(repeatyContent, repeatyContent, (a, b) => {
-        const result = applyPatchPayload(a, zeroContextPatch(a, b))
+        const result = applyPatchPayload(a, makePatch(a, b, 0))
         seen[result.status]++
-        if (result.status === 'applied') {
-          expect(result.content, `${JSON.stringify({ a, b })}`).toBe(b)
+        if (result.status === 'applied' && result.content !== b) {
+          expect(result.content, JSON.stringify({ a, b })).toBe(b)
         }
       }),
       { numRuns: 5_000 },

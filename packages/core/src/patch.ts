@@ -253,9 +253,25 @@ function parseHunks(payload: string): Hunk[] {
 // Matching and application
 // ---------------------------------------------------------------------------
 
-/** Every index at which `pattern` occurs in `lines`, counting overlaps independently. */
-function occurrences(lines: readonly string[], pattern: readonly string[]): number[] {
-  const found: number[] = []
+/** Where `pattern` occurs in `lines`. `first`/`second` are `-1` when there is no such match. */
+interface Occurrences {
+  readonly count: number
+  readonly first: number
+  readonly second: number
+}
+
+/**
+ * Count every index at which `pattern` occurs in `lines`, counting overlaps independently.
+ *
+ * The scan is complete and never exits early — the count *is* T1's evidence. Only the first two
+ * indices are retained, because those are all the verdict and its message need: on adversarial
+ * content (every line identical, a one-line pattern) the match list would otherwise grow to the
+ * length of the content, allocating megabytes to describe a failure.
+ */
+function occurrences(lines: readonly string[], pattern: readonly string[]): Occurrences {
+  let count = 0
+  let first = -1
+  let second = -1
   const k = pattern.length
   for (let i = 0; i + k <= lines.length; i++) {
     let match = true
@@ -265,9 +281,12 @@ function occurrences(lines: readonly string[], pattern: readonly string[]): numb
         break
       }
     }
-    if (match) found.push(i)
+    if (!match) continue
+    count++
+    if (first === -1) first = i
+    else if (second === -1) second = i
   }
-  return found
+  return { count, first, second }
 }
 
 type SpliceOutcome = { ok: true; lines: string[] } | { ok: false; detail: string }
@@ -279,13 +298,8 @@ type SpliceOutcome = { ok: true; lines: string[] } | { ok: false; detail: string
  * never itself a line of a diff, `at + |oldPat| === |lines|` holds exactly when the current content
  * has *no* trailing newline and this hunk covers its last line.
  */
-function spliceAt(
-  lines: readonly string[],
-  hunk: Hunk,
-  at: number,
-  patternLength: number,
-): SpliceOutcome {
-  const end = at + patternLength
+function spliceAt(lines: readonly string[], hunk: Hunk, at: number): SpliceOutcome {
+  const end = at + hunk.oldPat.length
   const atEnd = end === lines.length
   const head = lines.slice(0, at)
 
@@ -305,10 +319,11 @@ function spliceAt(
 
   if (hunk.newNoEol) {
     // The new side ends the file without a newline, so the current terminator must be consumed.
-    if (end === lines.length - 1 && lines[lines.length - 1] === '') {
+    // Two ways the match can sit at the end: the pattern already runs to the last element, or it
+    // stops exactly on the trailing `''` that carries the newline bit. Dropping the tail does both.
+    if (atEnd || (end === lines.length - 1 && lines[end] === '')) {
       return { ok: true, lines: [...head, ...hunk.newRep] }
     }
-    if (atEnd) return { ok: true, lines: [...head, ...hunk.newRep] }
     return {
       ok: false,
       detail:
@@ -324,6 +339,20 @@ function spliceAt(
 // Entry points
 // ---------------------------------------------------------------------------
 
+/**
+ * The rule each halt reason cites, alongside H1.
+ *
+ * Derived rather than passed in, so a reason and its rule cannot drift apart at a call site — the
+ * same failure D35 removes from {@link issue} by looking `layer` and `section` up instead of
+ * accepting them. A `malformed-payload` cites H1 alone: there is no more specific rule for it.
+ */
+const HALT_RULE: Readonly<Record<HaltReason, 'T1' | 'C5' | 'H1'>> = Object.freeze({
+  'no-match': 'T1',
+  'ambiguous-match': 'T1',
+  'eof-mismatch': 'C5',
+  'malformed-payload': 'H1',
+})
+
 const haltIssues = (code: 'T1' | 'C5' | 'H1', detail: string): readonly Issue[] =>
   code === 'H1'
     ? [issue('H1', 'warning', detail)]
@@ -332,12 +361,34 @@ const haltIssues = (code: 'T1' | 'C5' | 'H1', detail: string): readonly Issue[] 
         issue('H1', 'warning', `patch application halted: ${detail}`),
       ]
 
-const halt = (
-  reason: HaltReason,
-  hunkIndex: number | null,
-  detail: string,
-  code: 'T1' | 'C5' | 'H1',
-): PatchHalt => ({ status: 'halt', reason, hunkIndex, detail, issues: haltIssues(code, detail) })
+const halt = (reason: HaltReason, hunkIndex: number | null, detail: string): PatchHalt => ({
+  status: 'halt',
+  reason,
+  hunkIndex,
+  detail,
+  issues: haltIssues(HALT_RULE[reason], detail),
+})
+
+/**
+ * A ceiling was hit. Mirrors {@link halt} so the two failure channels stay visibly distinct.
+ *
+ * Always RL-3 and always `warning`: §5.4 is emphatic that a limit is never a HALT and leaves the
+ * event valid, so `observed`/`ceiling` carry the detail and nothing here cites H1.
+ */
+const limitReached = (
+  limit: LimitKind,
+  observed: number,
+  ceiling: number,
+  what: string,
+): PatchLimit => ({
+  status: 'limit',
+  limit,
+  observed,
+  ceiling,
+  issues: [
+    issue('RL-3', 'warning', `${what}, above the configured ceiling of ${ceiling}; ${ABANDONED}`),
+  ],
+})
 
 /**
  * Apply a patch payload to content, enforcing T1, T2 and T3.
@@ -365,26 +416,14 @@ export function applyPatchPayload(
     hunks = parseHunks(payload)
   } catch (error) {
     if (!(error instanceof MalformedPayload)) throw error
-    return halt('malformed-payload', null, error.message, 'H1')
+    return halt('malformed-payload', null, error.message)
   }
 
   // N2: a header block with zero hunks is a valid no-op and MUST NOT be rejected as malformed.
   if (hunks.length === 0) return { status: 'noop', content, shape: 'header-only' }
 
   if (hunks.length > maxHunks) {
-    return {
-      status: 'limit',
-      limit: 'hunks',
-      observed: hunks.length,
-      ceiling: maxHunks,
-      issues: [
-        issue(
-          'RL-3',
-          'warning',
-          `patch carries ${hunks.length} hunks, above the configured ceiling of ${maxHunks}; ${ABANDONED}`,
-        ),
-      ],
-    }
+    return limitReached('hunks', hunks.length, maxHunks, `patch carries ${hunks.length} hunks`)
   }
 
   let work = 0
@@ -398,28 +437,18 @@ export function applyPatchPayload(
   // Recorded as SPEC-FEEDBACK F6.
   let shift = 0
 
-  for (let index = 0; index < hunks.length; index++) {
-    const hunk = hunks[index]
-    if (hunk === undefined) continue
-
+  for (const [index, hunk] of hunks.entries()) {
     // Charge the scan's exact upper bound *before* running it, so an adversarial patch is refused
     // rather than executed and then regretted (RL-2).
     const patternChars = hunk.oldPat.reduce((sum, line) => sum + line.length, 0)
     const cost = lines.length * patternChars
     if (work + cost > maxWork) {
-      return {
-        status: 'limit',
-        limit: 'work',
-        observed: work + cost,
-        ceiling: maxWork,
-        issues: [
-          issue(
-            'RL-3',
-            'warning',
-            `applying this patch would compare at least ${work + cost} characters, above the configured ceiling of ${maxWork}; ${ABANDONED}`,
-          ),
-        ],
-      }
+      return limitReached(
+        'work',
+        work + cost,
+        maxWork,
+        `applying this patch would compare at least ${work + cost} characters`,
+      )
     }
     work += cost
 
@@ -438,28 +467,25 @@ export function applyPatchPayload(
       // `@@` line numbers are not consulted at all, since C6 makes them advisory and the full
       // scan is mandatory regardless.
       const found = occurrences(lines, hunk.oldPat)
-      if (found.length === 0) {
+      if (found.count === 0) {
         return halt(
           'no-match',
           index,
           `hunk ${index + 1} does not match the current content (T1: the pattern must occur exactly once, found none)`,
-          'T1',
         )
       }
-      if (found.length > 1) {
+      if (found.count > 1) {
         return halt(
           'ambiguous-match',
           index,
-          `hunk ${index + 1} matches the current content in ${found.length} places (first at lines ${(found[0] ?? 0) + 1} and ${(found[1] ?? 0) + 1}); T1 requires exactly one, and @@ line numbers may not be used to disambiguate`,
-          'T1',
+          `hunk ${index + 1} matches the current content in ${found.count} places (first at lines ${found.first + 1} and ${found.second + 1}); T1 requires exactly one, and @@ line numbers may not be used to disambiguate`,
         )
       }
-      at = found[0] ?? 0
+      at = found.first
     }
 
-    const spliced = spliceAt(lines, hunk, at, hunk.oldPat.length)
-    if (!spliced.ok)
-      return halt('eof-mismatch', index, `hunk ${index + 1}: ${spliced.detail}`, 'C5')
+    const spliced = spliceAt(lines, hunk, at)
+    if (!spliced.ok) return halt('eof-mismatch', index, `hunk ${index + 1}: ${spliced.detail}`)
 
     // T3 — the next hunk is matched against the content this one produced, not the pre-patch
     // content, and is re-scanned in full because a splice can shift any position.
@@ -490,18 +516,22 @@ export function applyPatchContent(
  * The producer half of D31, and the oracle the Phase 2 gate round-trips against. `build.ts`
  * (Phase 6) will call this rather than duplicate it.
  *
- * `structuredPatch` with names `a/content` / `b/content` satisfies C1, and `context: 3` is P1's
- * enforcement point — P1 is a producer obligation that cannot be checked on receipt (SPEC-FEEDBACK
- * F1), and note that for content shorter than seven lines jsdiff supplies fewer than three context
- * lines because three is a maximum the tool offers where the content affords it.
+ * `structuredPatch` with names `a/content` / `b/content` satisfies C1, and the default `context: 3`
+ * is P1's enforcement point — P1 is a producer obligation that cannot be checked on receipt
+ * (SPEC-FEEDBACK F1), and note that for content shorter than seven lines jsdiff supplies fewer than
+ * three context lines because three is a maximum the tool offers where the content affords it.
+ *
+ * `context` is a parameter only because zero context is a materially different shape to test
+ * against: with three context lines a hunk's pattern is ~7 lines and almost never repeats, so T1's
+ * ambiguous branch is barely reached. Producers should leave the default alone.
  *
  * `formatPatch` prefixes a bare `===…===` separator line. §5.2's `index-preamble` production
  * requires an `Index: content` line *before* that separator, so the separator alone is not
  * grammatical and is stripped here. Recorded as SPEC-FEEDBACK F8.
  */
-export function makePatch(before: string, after: string): string {
+export function makePatch(before: string, after: string, context = 3): string {
   const formatted = formatPatch(
-    structuredPatch('a/content', 'b/content', before, after, '', '', { context: 3 }),
+    structuredPatch('a/content', 'b/content', before, after, '', '', { context }),
   )
   if (!formatted.startsWith('=')) return formatted
   const firstBreak = formatted.indexOf('\n')

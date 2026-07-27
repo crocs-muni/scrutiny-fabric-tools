@@ -20,10 +20,21 @@
 
 import fc from 'fast-check'
 import { describe, expect, it } from 'vitest'
+import type { Issue } from '../src/errors.js'
 import { hasError } from '../src/errors.js'
-import { fenced, issuesOf, lookup, patch, product } from './_fixtures.js'
+import { MINIMAL_PAYLOAD, fenced, issuesOf, lookup, patch, product } from './_fixtures.js'
 
 const ROOT = product()
+/** Hoisted: `lookup` builds a Map and a closure, and the property below runs 10 000 times. */
+const OPTS = lookup(ROOT)
+
+const issuesFor = (payload: string): Issue[] =>
+  issuesOf(patch(ROOT.id, ROOT.id, fenced(payload)), OPTS)
+
+const errorsFor = (payload: string): string[] =>
+  issuesFor(payload)
+    .filter((i) => i.severity === 'error')
+    .map((i) => `${i.code}: ${i.message}`)
 
 /** A line body: any sequence of characters other than LF (F3), including none. */
 const lineBody = fc.oneof(
@@ -91,31 +102,25 @@ const grammarPayload = fc
 /** The two shapes most likely to be wrongly rejected, asserted directly as well as generated. */
 const SEEDS = [
   '--- a/content\n+++ b/content', // N2: header block, zero hunks
-  '--- a/content\n+++ b/content\n@@ -1 +1 @@\n-old\n+new', // zero context (the spec's own example)
+  MINIMAL_PAYLOAD, // zero context (the spec's own example)
 ]
 
 describe('C7 — a conforming consumer accepts any payload matching the §5.2 grammar', () => {
   it('rejects none of the seeded shapes', () => {
     for (const payload of SEEDS) {
-      const issues = issuesOf(patch(ROOT.id, ROOT.id, fenced(payload)), lookup(ROOT))
-      const errors = issues.filter((i) => i.severity === 'error')
-      expect(
-        errors.map((i) => `${i.code}: ${i.message}`),
-        payload,
-      ).toEqual([])
+      expect(errorsFor(payload), payload).toEqual([])
     }
   })
 
   it('rejects no payload the grammar admits', () => {
     fc.assert(
       fc.property(grammarPayload, (payload) => {
-        const issues = issuesOf(patch(ROOT.id, ROOT.id, fenced(payload)), lookup(ROOT))
-        const errors = issues.filter((i) => i.severity === 'error')
+        const issues = issuesFor(payload)
+        if (!hasError(issues)) return
         expect(
-          errors.map((i) => `${i.code}: ${i.message}`),
+          issues.filter((i) => i.severity === 'error').map((i) => `${i.code}: ${i.message}`),
           `C7 requires acceptance of:\n${payload}`,
         ).toEqual([])
-        expect(hasError(issues)).toBe(false)
       }),
       { numRuns: 10_000 },
     )
@@ -130,8 +135,7 @@ describe('C7 — a conforming consumer accepts any payload matching the §5.2 gr
       '--- a/wrong\n+++ b/content',
     ]
     for (const payload of forbidden) {
-      const issues = issuesOf(patch(ROOT.id, ROOT.id, fenced(payload)), lookup(ROOT))
-      expect(hasError(issues), payload).toBe(true)
+      expect(hasError(issuesFor(payload)), payload).toBe(true)
     }
   })
 })

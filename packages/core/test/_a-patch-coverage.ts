@@ -15,14 +15,8 @@
 
 import type { Issue } from '../src/errors.js'
 import { applyPatchPayload } from '../src/patch.js'
-
-type Emitted = { readonly kind: 'emitted'; readonly issues: () => readonly Issue[] }
-type NotCovered = { readonly kind: 'not-covered'; readonly reason: string }
-
-const emitted = (issues: () => readonly Issue[]): Emitted => ({ kind: 'emitted', issues })
-const notCovered = (reason: string): NotCovered => ({ kind: 'not-covered', reason })
-
-const body = (...lines: string[]): string => `--- a/content\n+++ b/content\n${lines.join('\n')}\n`
+import { type CoverageTable, allIssues, emitted, notCovered } from './_coverage.js'
+import { body } from './_patch.js'
 
 const issuesFrom =
   (content: string, payload: string, options = {}) =>
@@ -32,7 +26,7 @@ const issuesFrom =
   }
 
 /** The rules `docs/IMPLEMENTATION-PLAN.md` assigns to the `patch` module, plus RL-3 which it emits. */
-export const A_PATCH_COVERAGE: Readonly<Record<string, Emitted | NotCovered>> = {
+export const A_PATCH_COVERAGE: CoverageTable = {
   T1: emitted(issuesFrom('x\nDUP\ny\nDUP\nz\n', body('@@ -1,1 +1,1 @@', '-DUP', '+CHANGED'))),
 
   T2: notCovered(
@@ -103,6 +97,4 @@ export const A_PATCH_COVERAGE: Readonly<Record<string, Emitted | NotCovered>> = 
 }
 
 /** Every issue this partition produces. Consumed by the gate and invariant suites. */
-export const ALL_PATCH_ISSUES: readonly Issue[] = Object.values(A_PATCH_COVERAGE).flatMap(
-  (entry) => (entry.kind === 'emitted' ? [...entry.issues()] : []),
-)
+export const ALL_PATCH_ISSUES: readonly Issue[] = allIssues(A_PATCH_COVERAGE)

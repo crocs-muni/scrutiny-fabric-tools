@@ -6,5 +6,5 @@
 
 # Conformance vectors are byte-exact by design: PB-1/PB-2 make payload bytes normative, and the
 # corpus deliberately includes CRLF and no-trailing-newline cases. Never let git rewrite them.
-vectors/**    -text
+packages/core/vectors/**    -text
 *.tgz         binary

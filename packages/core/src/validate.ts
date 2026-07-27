@@ -5,7 +5,7 @@
  * applies a patch — trust is a presentation-time concern (TR-7) and application is the A layer.
  */
 
-import { type Issue, issue } from './errors.js'
+import { type Issue, hasError, issue } from './errors.js'
 import {
   EVENT_TYPE_TAGS,
   FABRIC_TAG,
@@ -17,15 +17,20 @@ import {
   derivedIndexerKinds,
   eTagsWithMarker,
   indexerKinds,
+  isScrutinyEvent,
   scrutinyEventType,
   tTags,
   tagValues,
   versionTags,
 } from './events.js'
+import type { RuleId } from './rules.js'
 import { VERSION_TAG } from './version.js'
 
 /** Recommended maximum `i` and `k` tag count (PR-2, PR-3, MD-2, MD-3, IX-2). */
 const MAX_INDEXER_TAGS = 64
+
+/** The event-type `t` tags, as a set, for the TAG-3 count. */
+const TYPE_TAG_SET: ReadonlySet<string> = new Set(Object.values(EVENT_TYPE_TAGS))
 
 export interface ValidateOptions {
   /**
@@ -69,7 +74,7 @@ export type Validity =
  * warnings, because TR-1 forbids rejecting a V-valid event over a D rule.
  */
 export function validateEvent(event: NostrEvent, options: ValidateOptions = {}): Validity {
-  if (!tTags(event).includes(FABRIC_TAG)) return { status: 'not-scrutiny' }
+  if (!isScrutinyEvent(event)) return { status: 'not-scrutiny' }
 
   const issues: Issue[] = []
   checkTags(event, issues)
@@ -93,7 +98,7 @@ export function validateEvent(event: NostrEvent, options: ValidateOptions = {}):
       break
   }
 
-  if (issues.some((i) => i.severity === 'error')) {
+  if (hasError(issues)) {
     return { status: 'invalid', issues }
   }
   if (awaiting.length > 0) {
@@ -127,7 +132,7 @@ function checkTags(event: NostrEvent, issues: Issue[]): void {
     )
   }
 
-  const typeTags = ts.filter((t) => Object.values(EVENT_TYPE_TAGS).includes(t))
+  const typeTags = ts.filter((t) => TYPE_TAG_SET.has(t))
   if (typeTags.length !== 1) {
     issues.push(
       issue(
@@ -177,37 +182,37 @@ function checkTags(event: NostrEvent, issues: Issue[]): void {
 // §4.1 / §4.2 — Product and Metadata
 // ---------------------------------------------------------------------------
 
+/**
+ * §4.1 and §4.2 are the same four checks under different rule ids.
+ *
+ * A table rather than four parallel ternaries, so the Product and Metadata rule sets stay visibly
+ * aligned and a fifth paired rule is a row instead of a fifth conditional.
+ */
+const ROOT_RULES = {
+  product: { content: 'PR-1', i: 'PR-2', k: 'PR-3', set: 'PR-4' },
+  metadata: { content: 'MD-1', i: 'MD-2', k: 'MD-3', set: 'MD-4' },
+} as const satisfies Record<'product' | 'metadata', Record<string, RuleId>>
+
 function checkRootEvent(event: NostrEvent, type: 'product' | 'metadata', issues: Issue[]): void {
-  const contentRule = type === 'product' ? 'PR-1' : 'MD-1'
+  const rules = ROOT_RULES[type]
+
   if (typeof event.content !== 'string') {
-    issues.push(issue(contentRule, 'error', 'content field is required'))
+    issues.push(issue(rules.content, 'error', 'content field is required'))
   }
 
   checkIndexers(event, issues)
 
-  const iCount = tagValues(event, 'i').length
-  const kCount = tagValues(event, 'k').length
-  const iRule = type === 'product' ? 'PR-2' : 'MD-2'
-  const kRule = type === 'product' ? 'PR-3' : 'MD-3'
-  const setRule = type === 'product' ? 'PR-4' : 'MD-4'
-
-  if (iCount > MAX_INDEXER_TAGS) {
-    issues.push(
-      issue(
-        iRule,
-        'warning',
-        `${iCount} i tags exceeds the recommended maximum of ${MAX_INDEXER_TAGS}`,
-      ),
-    )
-  }
-  if (kCount > MAX_INDEXER_TAGS) {
-    issues.push(
-      issue(
-        kRule,
-        'warning',
-        `${kCount} k tags exceeds the recommended maximum of ${MAX_INDEXER_TAGS}`,
-      ),
-    )
+  for (const name of ['i', 'k'] as const) {
+    const count = tagValues(event, name).length
+    if (count > MAX_INDEXER_TAGS) {
+      issues.push(
+        issue(
+          rules[name],
+          'warning',
+          `${count} ${name} tags exceeds the recommended maximum of ${MAX_INDEXER_TAGS}`,
+        ),
+      )
+    }
   }
 
   // A missing k entry costs discoverability through the #k relay filter, never validity — the kind
@@ -217,7 +222,7 @@ function checkRootEvent(event: NostrEvent, type: 'product' | 'metadata', issues:
   if (missing.length > 0) {
     issues.push(
       issue(
-        setRule,
+        rules.set,
         'warning',
         `no k tag for indexer prefix(es) ${missing.join(', ')}; the event stays valid but is less discoverable via #k`,
       ),
@@ -414,8 +419,13 @@ interface FencedBlock {
 
 /** Whether a block's info string marks it as a patch payload (E2). */
 function isPayloadInfo(info: string): boolean {
-  const first = info.trim().split(/\s+/)[0]
-  return first !== undefined && (first.toLowerCase() === 'diff' || first.toLowerCase() === 'patch')
+  const first = info.trim().split(/\s+/)[0]?.toLowerCase()
+  return first === 'diff' || first === 'patch'
+}
+
+/** E2 + E1: only a *backtick*-fenced diff block carries a payload. A tilde-fenced one is ignored. */
+function isPayloadBlock(block: FencedBlock): boolean {
+  return block.fenceChar === '`' && isPayloadInfo(block.info)
 }
 
 /**
@@ -441,7 +451,7 @@ export function findFencedBlocks(content: string): FencedBlock[] {
     if (fence.startsWith('`') && info.includes('`')) continue
 
     const fenceChar = fence[0] === '`' ? '`' : '~'
-    const closer = new RegExp(`^ {0,3}${fenceChar === '`' ? '`' : '~'}{${fence.length},}\\s*$`)
+    const closer = new RegExp(`^ {0,3}${fenceChar}{${fence.length},}\\s*$`)
 
     const body: string[] = []
     let closed = false
@@ -475,8 +485,7 @@ export function findFencedBlocks(content: string): FencedBlock[] {
  * prose (E6, PT-4). This defends against a renderer-quoted example being picked up as the payload.
  */
 export function findPatchPayload(content: string): string | undefined {
-  const match = findFencedBlocks(content).find((b) => b.fenceChar === '`' && isPayloadInfo(b.info))
-  return match?.payload
+  return findFencedBlocks(content).find(isPayloadBlock)?.payload
 }
 
 /**
@@ -509,7 +518,7 @@ function checkPatchPayload(event: NostrEvent, issues: Issue[]): void {
     )
   }
 
-  const payloadBlocks = blocks.filter((b) => b.fenceChar === '`' && isPayloadInfo(b.info))
+  const payloadBlocks = blocks.filter(isPayloadBlock)
   if (payloadBlocks.length === 0) return // E7: a no-op patch. Valid.
 
   if (payloadBlocks.length > 1) {

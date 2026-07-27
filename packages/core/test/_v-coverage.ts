@@ -12,6 +12,7 @@
 
 import type { Issue } from '../src/errors.js'
 import type { RuleId } from '../src/rules.js'
+import { type CoverageTable, allIssues, emitted, notCovered } from './_coverage.js'
 import {
   MINIMAL_PAYLOAD,
   PK_FOREIGN,
@@ -33,17 +34,9 @@ const META = metadata({ pubkey: PK_FOREIGN })
 const OTHER_PRODUCT = product()
 const FOREIGN_PATCH = patch(ROOT.id, ROOT.id, '', { pubkey: PK_FOREIGN })
 
-/** A case that must produce a given rule code. */
-type Emitted = { readonly kind: 'emitted'; readonly issues: () => Issue[] }
-/** A rule with no emission, and why. */
-type NotCovered = { readonly kind: 'not-covered'; readonly reason: string }
-
-const emitted = (issues: () => Issue[]): Emitted => ({ kind: 'emitted', issues })
-const notCovered = (reason: string): NotCovered => ({ kind: 'not-covered', reason })
-
 const patchOf = (content: string) => () => issuesOf(patch(ROOT.id, ROOT.id, content), lookup(ROOT))
 
-export const V_COVERAGE: Readonly<Record<string, Emitted | NotCovered>> = {
+export const V_COVERAGE: CoverageTable = {
   // --- §3 tags and versioning -----------------------------------------------
   'TAG-1': emitted(() =>
     issuesOf(product({ tags: [...baseTags('product'), ['t', 'scrutiny-fabric']] })),
@@ -250,6 +243,4 @@ export const V_COVERAGE: Readonly<Record<string, Emitted | NotCovered>> = {
 }
 
 /** Every issue any coverage case produces. Consumed by the gate and invariant suites. */
-export const ALL_EMITTED_ISSUES: Issue[] = Object.values(V_COVERAGE).flatMap((entry) =>
-  entry.kind === 'emitted' ? entry.issues() : [],
-)
+export const ALL_EMITTED_ISSUES: readonly Issue[] = allIssues(V_COVERAGE)

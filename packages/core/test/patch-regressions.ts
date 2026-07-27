@@ -11,11 +11,13 @@
  */
 
 import type { HaltReason } from '../src/patch.js'
+import type { RuleId } from '../src/rules.js'
+import { body } from './_patch.js'
 
 export interface RegressionCase {
   readonly name: string
-  /** The rule the case pins. */
-  readonly rule: string
+  /** The rule the case pins. Typed so a renamed or misspelled rule fails to compile (D35). */
+  readonly rule: RuleId
   readonly why: string
   readonly content: string
   readonly payload: string
@@ -24,8 +26,6 @@ export interface RegressionCase {
     | { readonly status: 'noop' }
     | { readonly status: 'halt'; readonly reason: HaltReason }
 }
-
-const body = (...lines: string[]): string => `--- a/content\n+++ b/content\n${lines.join('\n')}\n`
 
 export const REGRESSIONS: readonly RegressionCase[] = [
   {

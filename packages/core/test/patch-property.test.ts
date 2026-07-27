@@ -20,28 +20,31 @@ import fc from 'fast-check'
 import { describe, expect, it } from 'vitest'
 import { type ApplyResult, applyPatchPayload, makePatch } from '../src/patch.js'
 import { distinctPair, repeatyContent } from './_generators.js'
+import { describeResult } from './_patch.js'
 
 const roundTrip = (a: string, b: string): ApplyResult => applyPatchPayload(a, makePatch(a, b))
 
-const describeResult = (r: ApplyResult): string =>
-  r.status === 'halt'
-    ? `halt(${r.reason}): ${r.detail}`
-    : r.status === 'limit'
-      ? `limit(${r.limit})`
-      : r.status
+/**
+ * Built only on the failing branch.
+ *
+ * These properties run 18 000 cases between them over inputs of up to 40 lines a side, so
+ * serialising both sides unconditionally to fill in an assertion message that is read only on
+ * failure is the single most expensive thing in the file.
+ */
+const ctx = (a: string, b: string, r: ApplyResult): string =>
+  `${JSON.stringify({ a, b })} → ${describeResult(r)}`
 
 describe('Phase 2 gate — applyPatch(a, makePatch(a, b)) === b', () => {
   it('always applies, and reproduces b exactly, when no line repeats', () => {
     fc.assert(
       fc.property(distinctPair, ({ a, b }) => {
         const result = roundTrip(a, b)
-        const context = `${JSON.stringify({ a, b })} → ${describeResult(result)}`
         if (result.status === 'noop') {
-          expect(a, context).toBe(b)
+          if (a !== b) expect(a, ctx(a, b, result)).toBe(b)
           return
         }
-        expect(result.status, context).toBe('applied')
-        if (result.status === 'applied') expect(result.content, context).toBe(b)
+        if (result.status !== 'applied') expect.fail(ctx(a, b, result))
+        if (result.content !== b) expect(result.content, ctx(a, b, result)).toBe(b)
       }),
       { numRuns: 3_000 },
     )
@@ -51,10 +54,11 @@ describe('Phase 2 gate — applyPatch(a, makePatch(a, b)) === b', () => {
     fc.assert(
       fc.property(repeatyContent, repeatyContent, (a, b) => {
         const result = roundTrip(a, b)
-        const context = `${JSON.stringify({ a, b })} → ${describeResult(result)}`
-        expect(result.status, context).not.toBe('limit')
-        if (result.status === 'applied') expect(result.content, context).toBe(b)
-        if (result.status === 'noop') expect(a, context).toBe(b)
+        if (result.status === 'limit') expect.fail(ctx(a, b, result))
+        if (result.status === 'applied' && result.content !== b) {
+          expect(result.content, ctx(a, b, result)).toBe(b)
+        }
+        if (result.status === 'noop' && a !== b) expect(a, ctx(a, b, result)).toBe(b)
       }),
       { numRuns: 10_000 },
     )
@@ -80,8 +84,8 @@ describe('Phase 2 gate — applyPatch(a, makePatch(a, b)) === b', () => {
     fc.assert(
       fc.property(repeatyContent, (a) => {
         const result = roundTrip(a, a)
-        expect(describeResult(result), JSON.stringify(a)).toBe('noop')
-        if (result.status === 'noop') expect(result.content).toBe(a)
+        if (result.status !== 'noop') expect.fail(ctx(a, a, result))
+        if (result.content !== a) expect(result.content, JSON.stringify(a)).toBe(a)
       }),
       { numRuns: 2_000 },
     )
