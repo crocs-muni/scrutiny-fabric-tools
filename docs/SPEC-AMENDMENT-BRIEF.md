@@ -191,9 +191,9 @@ which makes this a specification gap rather than an implementation bug.
 >
 > | Bound | Recommended | Basis |
 > |---|---|---|
-> | Total event size | ≤ 64 KB; prefer `imeta` above ~30 KB (§4.6) | Common relay maximum |
-> | Tags per event | ≤ 1000 | NIP-11 `max_event_tags`; deployed configurations |
-> | Length of a single tag value | ≤ 1024 bytes | Deployed configurations |
+> | Total event size | ≤ 64 KB; prefer `imeta` above ~30 KB (§4.6) | strfry `maxEventSize = 65536` |
+> | Tags per event | ≤ 1000 | strfry `maxNumTags = 2000`; conservative margin |
+> | Length of a single tag value | ≤ 1024 bytes | strfry `maxTagValSize = 1024` |
 > | Hunks per patch payload | ≤ 64 | T1 cost |
 > | Patches per canonical chain | ≤ 1000 | Chain-resolution cost |
 >
@@ -208,9 +208,9 @@ which makes this a specification gap rather than an implementation bug.
 | RL-2 | A | — | Consumers SHOULD enforce configurable ceilings and MUST fail safely with a protocol error annotation rather than exhausting resources. |
 | RL-3 | A | — | Consumers SHOULD bound total patch-application work (bytes compared), not only hunk or patch counts. |
 
-⚠️ **Verify before publishing.** The 64 KB figure comes from strfry's `maxEventSize = 65536` default
-and the tag figures from its `maxNumTags` / `maxTagValSize`. Confirm against
-`hoytech/strfry/strfry.conf` rather than trusting this brief.
+**Verified 2026-07-27** against `hoytech/strfry/strfry.conf`: `maxEventSize = 65536`,
+`maxNumTags = 2000`, `maxTagValSize = 1024`. The ≤1000 tag recommendation is a deliberate
+conservative margin below the 2000 default, not a transcription of it.
 
 ## A6 — §6: explicit signature and id verification
 
@@ -358,8 +358,11 @@ the publisher sees no error and the events simply are not stored.
 > events whose `created_at` falls outside a bounded window, so backdated events are silently refused.
 > Historical dates belong in `content`.
 
-⚠️ Verify the relay window claim against `strfry.conf` (`rejectEventsOlderThanSeconds`,
-`rejectEventsNewerThanSeconds`) before publishing, and consider citing the actual defaults.
+**Verified 2026-07-27** against `hoytech/strfry/strfry.conf`:
+`rejectEventsOlderThanSeconds = 94608000` — exactly three years — and
+`rejectEventsNewerThanSeconds = 900`. Consider citing these in the note, since a concrete window
+makes the failure mode obvious to a publisher. This is a live problem for the sec-certs corpus:
+Common Criteria certificates dating to the 1990s and 2000s would be refused outright.
 
 ## A12 — Appendix E: verify the citation resolves
 

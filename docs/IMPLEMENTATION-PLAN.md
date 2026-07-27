@@ -12,7 +12,7 @@ Supersedes the previous `IMPLEMENTATION-PLAN.md` (targeted spec v0.5.3, never co
 
 | Phase | Work | State |
 |---|---|---|
-| — | Spec amended to v0.6.0 | ⛔ blocked — `SPEC-AMENDMENT-BRIEF.md` in the spec repo |
+| — | Spec amended to v0.6.0 | ⛔ next — work order in [`SPEC-AMENDMENT-BRIEF.md`](SPEC-AMENDMENT-BRIEF.md) |
 | — | Conformance vector skeletons + validator in the spec repo | ⛔ blocked on the above |
 | 0 | Monorepo scaffold | not started |
 | 1 | `events`, `validate`, `id` | not started |
@@ -102,8 +102,7 @@ export const trustSymbol     = Symbol.for('@scrutiny-fabric/trust')
 | `ScrutinySigner` | `getPublicKey()` · `signEvent(template)` — the NIP-07 shape, so `window.nostr` satisfies it unchanged | app (NIP-07 / NIP-46); CLI for raw keys |
 | `TrustProvider` | `isTrusted(pk): boolean` **synchronous** · `version: number` · `deltaSince(v)` | app |
 
-⚠️ **Correction to DECISIONS D16**, which says "three interfaces, and only three". `TrustProvider`
-(D21) is a fourth. There are four.
+All four are listed in DECISIONS D16 and D21.
 
 Also required at store construction, and not defaulted (D18):
 
@@ -266,6 +265,8 @@ PR. Never commit `.env`, `*.nsec`, `*.key`. `investigations/` stays gitignored *
    future work. Isolate the reachability step to one ~10-line method and comment the dependency.
 4. **All benchmark figures in DECISIONS are synthetic.** Re-measure against the real sec-certs mapping
    before trusting absolutes; the 216 MB eager-materialisation figure was never measured in a browser.
-5. **Verify strfry's timestamp window** before the bulk publish. If `rejectEventsOlderThanSeconds`
-   really defaults to ~3 years, backdating `created_at` to a certificate's issue year means silent
-   rejection of the entire historical corpus.
+5. **The relay timestamp window is confirmed and will bite the bulk publisher.** Verified against
+   `hoytech/strfry/strfry.conf` on 2026-07-27: `rejectEventsOlderThanSeconds = 94608000` (exactly
+   three years) and `rejectEventsNewerThanSeconds = 900`. Setting `created_at` to a certificate's
+   issue year therefore means **silent rejection of the entire historical corpus** — no error, no
+   stored events. `created_at` is publish time; historical dates go in `content` (spec amendment A11).

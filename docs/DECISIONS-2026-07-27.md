@@ -5,7 +5,7 @@ SCRUTINY Fabric. **Append-only.** Supersedes `SESSION-SUMMARY-2026-05-21.md` in 
 investigation conclusions still stand and are cited below.
 
 Target spec version: **v0.6.0** (`scrutiny-v060`), amended from v0.5.9 — see
-`../SPEC-AMENDMENT-BRIEF.md` in the spec repo.
+[`SPEC-AMENDMENT-BRIEF.md`](SPEC-AMENDMENT-BRIEF.md) in this directory.
 
 ---
 
@@ -142,8 +142,8 @@ reimplement BD-5/6/7, DEL-8, DEL-9 and RC-3 from scratch and untested. Shipping 
 replacing it a breaking change to the most-used entry point. Pattern: `automerge-repo` ships
 `StorageAdapterInterface` *and* `NetworkAdapterInterface` injected via config.
 
-**D16 — Three interfaces, and only three: `RelayTransport`, `EventStorage`, `ScrutinySigner`. All
-branded with `Symbol.for()`.** *Rationale:* `Symbol.for` uses a global registry, so two copies of
+**D16 — Four interfaces, and only four: `RelayTransport`, `EventStorage`, `ScrutinySigner`, and
+`TrustProvider` (defined in D21). All branded with `Symbol.for()`.** *Rationale:* `Symbol.for` uses a global registry, so two copies of
 core in one dependency tree still interoperate — a structural fix for NDK #312. libp2p does exactly
 this (`Symbol.for('@libp2p/transport')` plus an `isTransport()` guard). Type-only contracts do not
 survive splitting: unified's declaration-merging contract breaks *silently* when two versions
@@ -443,10 +443,13 @@ private items via NIP-44, NIP-78 kind 30078, npm download counts (nostr-tools ~9
 ~5.9k/wk), NDK's three defects read in a local checkout at commit `4b86acd`, and the availability of
 both the `scrutiny-fabric` name and `@scrutiny-fabric` scope on npm.
 
+**Verified 2026-07-27 against `hoytech/strfry/strfry.conf`** — all four relay limits confirmed:
+`maxEventSize = 65536`, `maxNumTags = 2000`, `maxTagValSize = 1024`,
+`rejectEventsNewerThanSeconds = 900`, `rejectEventsOlderThanSeconds = 94608000` (**exactly three
+years**). The `created_at` hazard is therefore real, not speculative: publishing a Common Criteria
+certificate with `created_at` set to its issue year is silently refused.
+
 **Probable, not established:**
-- strfry's `rejectEventsOlderThanSeconds` default (~3 years) comes from a search summary rather than
-  `strfry.conf`. **Check this first** — if correct it blocks publishing historical CC certificates
-  dated to their issue year (see the amendment brief's `created_at` note).
 - NIP-44 pinning its vectors' SHA-256 in prose.
 - libp2p's subpath-reversal quotation.
 - **All benchmark numbers** (9.1 ms, 0.39 ms, 216 MB, 0.062 ms/patch): synthetic, single-machine,
