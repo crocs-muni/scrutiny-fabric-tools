@@ -1,97 +1,141 @@
 # Spec amendment brief — v0.5.9 → v0.6.0
 
-> [!CAUTION]
-> **DO NOT EXECUTE AS WRITTEN.** An adversarial review against the v0.5.9 specification returned 23
-> findings, including four contradictions with existing normative rules that were confirmed by direct
-> quotation. **A4 needs a substantial rewrite, A3 is blocked on it, and A2/A5/A6/A7/A8/A11 need
-> fixes.** Work through [`AMENDMENT-REVISIONS-REQUIRED.md`](AMENDMENT-REVISIONS-REQUIRED.md) first;
-> it lists every item as a checkbox in execution order. Only A1, A9, A10 and A12 are safe to apply
-> largely as drafted.
+Work order for a session editing `docs/protocol-spec.md`. Nine changes. Each has a plain-language
+motivation, the concrete change, and the rule rows to add or amend.
 
-Self-contained work order for a session editing `docs/protocol-spec.md`. Every amendment below has a
-motivation and, where the wording is settled, proposed prose to insert. Rule-table rows are given in
-the document's existing format.
-
-**Delete this file once the amendments land.** It is an input, not documentation.
+This replaces an earlier 18-item draft. An adversarial review found that draft contained real
+contradictions with the existing spec, and that about half its items were documentation tidiness with
+no effect on behaviour. Those are listed under "Deliberately not doing" at the end so nobody re-raises
+them. **Delete this file once the amendments land.**
 
 ---
 
-## Ground rules for the editing session
+## Ground rules
 
-1. **`docs/protocol-spec.md` is the only normative document.** Do not create parallel specifications.
-2. **Preserve rule-ID stability.** Never renumber or reuse an existing ID. New rules get new IDs; a
-   retired rule becomes a *reserved* cross-reference, as OV-1 already does.
-3. **Every new normative statement gets a rule ID and an Appendix F row.** A MUST/SHOULD/MAY in prose
-   with no registered ID is a defect — v0.5.9's changelog records three such rules being discovered
-   and registered after the fact (DQ-3, DQ-4, DEL-10/11).
-4. **Update the Changelog section** with a v0.6.0 entry in the established style.
-5. **Update every `scrutiny-v059` occurrence** to `scrutiny-v060`, including all examples in §4 and
-   Appendix D.
-6. Prose in this brief is a *draft*. Improve the wording; preserve the normative content.
+1. `docs/protocol-spec.md` is the only normative document.
+2. **Never renumber or reuse a rule ID.** New rules get new IDs. Amending a rule's text keeps its ID.
+3. Every new MUST / SHOULD / MAY in prose gets a rule ID **and** a matching Appendix F row.
+4. **Run `node tools/extract-rules.mjs` after every change.** It exits non-zero if the body rule
+   tables and Appendix F disagree. It also catches a re-tag applied in one place but not the other.
+5. Do not change the rule-table column headers — the extractor matches them exactly and will silently
+   return zero rows.
+6. Prose below is a draft. Improve the wording; keep the normative content.
 
 ## Why v0.6.0 and not v0.5.10
 
-Not a stylistic choice. VER-1 states the three digits of `scrutiny-vMMP` encode MAJOR/MINOR/PATCH,
-and TAG-2 fixes the form as `^scrutiny-v\d{3}$`. `scrutiny-v059` is already patch 9, so there is no
-representable 0.5.10 — `scrutiny-v0510` fails the regex. The only alternative would be changing the
-version-tag scheme itself, which breaks TAG-2, VER-1, and every event already published.
-
-Worth recording in the changelog as a known property: **each MINOR line admits exactly ten PATCH
-revisions.** A future amendment may want to widen the scheme; that is a breaking change and belongs
-in §11.
+`scrutiny-v059` is already patch 9, and the version tag is fixed at three digits encoding
+MAJOR/MINOR/PATCH — there is no `scrutiny-v0510`. Each MINOR line admits exactly ten PATCH revisions,
+which is worth stating in the changelog since it will recur.
 
 ---
 
-# Amendments
+# 1 — A missing `k` tag must not invalidate an event
 
-## A1 — Version bump
+**Why.** A researcher publishes a note about ROCA and tags it `i: cve:CVE-2017-15361` so it can be
+found by CVE. They omit the companion `k: cve` tag, which only restates the *type* of the first tag.
 
-`scrutiny-v059` → `scrutiny-v060` throughout; header to v0.6.0; new changelog entry.
+Today the spec says two different things about that event: §9 says it is fine but less discoverable,
+while PR-4 and MD-4 say the `k` collection **MUST** contain one entry per distinct `i` prefix — and
+those are Validity rules, so "must" means the event is rejected outright. One implementation shows the
+advisory, another discards it. When 6,737 Common Criteria certificates are published, a small
+generator bug in the companion tags means one client shows all of them and another shows none.
 
-## A2 — §6.2: filtering order (settled)
+**Decision: the event is valid.** The `k` value is pure redundancy — derivable from the `i` value by
+splitting on the first colon. Discarding a security advisory over a derivable tag is disproportionate.
 
-**Motivation.** §6.2 currently reads *"Untrusted, unreachable events are filtered out before any
-other processing."* Taken literally this instructs implementations to do the thing §6.0/TR-1 forbids
-— reject a V-valid event on a D-layer ground — and it produces a silent, plausible-looking wrong
-answer. A root admitted via a trusted Binding (TR-4) may have canonical patches authored by a pubkey
-the user does not trust directly; filtering those out before chain construction conceals root
-self-forks (SF-1, SF-3) and HALT conditions (H1), yielding a chain that renders as linear and
-complete when it is neither.
-
-**Replace** that sentence with:
-
-> Untrusted, unreachable events are excluded from the user's view. Filtering is a
-> **presentation-time** operation: it determines what the user is shown, not what the implementation
-> computes. Canonical-chain construction (§5.3), self-fork detection (§7.2), and overlay
-> classification (§7.3) are evaluated over the full set of V-valid observed events without reference
-> to the trust set; the trust set is then applied to the results.
->
-> Implementations MUST NOT filter events by trust before chain construction. Doing so silently
-> conceals root self-forks and HALT conditions in the chain of a root that is admitted via a trusted
-> Binding (§6.4), because that root's own patches may be authored by a pubkey the user does not trust
-> directly — yielding a chain that renders as linear and complete when it is neither. This is also
-> required by §6.0: a V-valid event MUST NOT be rejected by a D rule, and trust admission is a
-> D-layer concern.
-
-**New rule** (new ID; do not fold into TR-2):
+**Change.** Amend PR-4 and MD-4 (same IDs), and re-tag them from **V** to **D** — this is
+discoverability, not admissibility:
 
 | # | Layer | Inherits from | Rule |
 |---|---|---|---|
-| TR-7 | A | — | Trust filtering is applied at presentation time, to the results of chain and overlay computation. Implementations MUST NOT filter by trust before canonical-chain construction, self-fork detection, or overlay classification. |
+| PR-4 | D | NIP-73 | The `k` collection SHOULD contain at minimum one entry per **distinct** `i` prefix kind present in the event. A missing or incomplete `k` collection does NOT invalidate the event; consumers MAY derive the kind from the `i` value's prefix (§9). Consumers MUST treat `k` as a set. |
+| MD-4 | D | NIP-73 | *(identical text)* |
 
-Tagged **A** because the failure mode is an A-layer failure (wrong canonical bytes), even though the
-rule constrains when a D rule may be applied.
+Then align §9's prose to cross-reference PR-4/MD-4 rather than stating the requirement independently,
+and add one sentence: "Because the kind is derivable from the `i` value's prefix, a missing `k` tag
+reduces discoverability via the `#k` relay filter but does not affect validity."
 
-## A3 — §10: Binding deletion revokes admission (settled)
+⚠️ This changes two rules from V to D. Update both the §4.1/§4.2 tables **and** Appendix F, or the
+extractor will fail. Also check §6.0's V bullet list, which mentions the `i` tag value grammar.
 
-**Motivation.** The current sentence — *"Its endpoints remain valid independently; retracting a
-binding does not affect the Product or Metadata it connected"* — uses a V-layer word ("valid") in
-D-layer prose, leaving it genuinely ambiguous whether a deleted Binding still confers TR-4 admission.
-Two implementations will visibly disagree. The reading below is chosen because the alternative makes
-admission monotone in Bindings, which lets a compromised key permanently inject events into a user's
-view, and makes admission depend on arrival order.
+---
 
-**Replace** the "Binding events" bullet with:
+# 2 — Patches that arrive before the thing they patch
+
+**Why.** Infineon publishes a chip description. Later they publish a correction. You are connected to
+two relays: relay B hands you the correction, relay A has the original. **The correction arrives
+first**, pointing at an event you have never seen.
+
+Throw it away and you show the uncorrected description **forever** — even after the original arrives,
+because you never revisit the correction. The spec explicitly says "hold it" for Bindings whose
+endpoints haven't arrived (BD-6) and for deletions whose target hasn't arrived (DEL-8), but says
+nothing for patches. So one implementation holds and another drops, and they display different text
+for the same product.
+
+**Scope note.** An earlier draft tried to generalise this into one mechanism covering Bindings,
+deletions and patches. That overreached: it contradicted the existing α/β rule in §10, which already
+says an annotation whose target hasn't been gossiped yet should be *rendered* in a degraded form. The
+genuine gap is narrower — it is specifically that a patch whose **root** is unobserved cannot be
+classified at all, because deciding whether a patch is the author's own or a third party's requires
+knowing the root's author.
+
+**Change.** Insert as a new **§7.6** (adjacent to the chain and overlay machinery it concerns — *not*
+§3, which is versioning and event identification):
+
+> ### 7.6 Unresolved references
+>
+> Under the eventual-consistency model of §3.2, an event may be observed before the events it
+> references. Bindings whose endpoints are unobserved are covered by §4.3; deletions whose target is
+> unobserved by §10; annotations whose target is unobserved by §10's α/β rule.
+>
+> A Patch whose `e root` target has not been observed cannot be classified: the root-author versus
+> foreign distinction (§4.4) requires the root event's `pubkey`. Such a Patch MUST be retained and
+> re-evaluated when the root is observed. It does not participate in the canonical chain until then.
+> Its rendering, if any, is governed by §10's α/β rule, not by this section.
+>
+> Whatever the mechanism, the requirement is the same in every case: **ingestion is confluent.** The
+> state an implementation reaches MUST depend only on the *set* of events it has observed, never on
+> the order in which they arrived. Discarding a referencing event whose target has not yet arrived
+> violates this, because the same event set then yields different state depending on delivery order.
+>
+> A classification MAY be cached as permanent only when no further observation could change it. A
+> Binding's endpoint typing cannot change once observed, so BD-7's cached rejection is safe. A Patch's
+> authorship class can change when its root arrives, so it MUST NOT be cached as invalid while the
+> root is unobserved.
+
+| # | Layer | Inherits from | Rule |
+|---|---|---|---|
+| UR-1 | A | — | Ingestion MUST be confluent: the state an implementation reaches depends only on the set of events observed, never on arrival order. |
+| UR-2 | A | — | A Patch whose `e root` is unobserved MUST be retained and re-evaluated on the root's arrival. It does not participate in the canonical chain until then. |
+| UR-3 | D | — | A classification MAY be cached as permanent only when no further observation could change it. A Patch's authorship class MUST NOT be cached while its root is unobserved. |
+
+**Do not** touch PT-6. A root-author patch replying to a foreign patch is *ignored for chain
+construction*, which is an Application-layer outcome — not invalidity. Conflating the two would reject
+a valid event on the wrong grounds.
+
+Add a forward reference from **§5.3 step 1** ("walk root-author patches … from the root forward") to
+§7.6, since that step is where the gap actually bites.
+
+---
+
+# 3 — Deleting a link removes the connection
+
+**Why.** A researcher publishes "this chip is affected by ROCA", then separately publishes a **link**
+joining that note to the chip. You trust the researcher, so you see both. The researcher then deletes
+just the link.
+
+Do you still see the note attached to the chip? The spec does not clearly say — §10 says the link is
+"hidden from default views" and that "its endpoints remain valid independently," which uses a
+validity word to answer a visibility question.
+
+It is not cosmetic. If links keep working after deletion, anyone who steals a key can attach content
+to a product **permanently**: publish a link, the content becomes visible, delete the link, the
+content stays. That defeats §6.3's guarantee that untrusted actors cannot extend a trusted user's
+graph.
+
+**Decision: deleting the link removes the connection.**
+
+**Change 3a.** Replace §10's "Binding events" bullet:
 
 > **Binding events:** **edge retraction.** The Binding event is hidden from default views, and it
 > ceases to confer admission on its endpoints (§6.4). Its endpoints remain *valid* SCRUTINY events —
@@ -100,320 +144,262 @@ view, and makes admission depend on arrival order.
 > reachable, and leaves the default view together with its canonical chain. An endpoint admitted by
 > any surviving path, whether direct trust or another admitted Binding, is unaffected.
 >
-> The asymmetry with root deletion is deliberate. A retracted root hides one author's own statement
-> while preserving everyone else's assertions about it. A retracted Binding withdraws the *edge* that
-> made an otherwise-untrusted endpoint visible, and admission MUST NOT outlive the assertion that
-> produced it: were it to persist, a compromised key could permanently insert events into a user's
-> view by publishing a Binding and then deleting it, defeating §6.3's guarantee that untrusted actors
-> cannot extend a trusted user's graph. It would also make admission depend on arrival order —
-> whether the deletion was observed before or after the endpoint — which §7.1's eventual-consistency
-> model does not permit.
-
-**Amend DEL-5** (same ID, revised text):
+> Admission MUST NOT outlive the assertion that produced it. Were it to persist, a compromised key
+> could permanently insert events into a user's view by publishing a Binding and then deleting it,
+> defeating §6.3's guarantee that untrusted actors cannot extend a trusted user's graph.
+>
+> A foreign overlay that is independently admitted (§6, OV-7) but whose target has left the default
+> view by this rule is rendered per §10's α/β degradation rule, as though its target were
+> unobtainable. It is not silently dropped (DEL-4).
 
 | # | Layer | Inherits from | Rule |
 |---|---|---|---|
-| DEL-5 | D | — | Deletion of a Binding hides the edge from default views **and revokes the TR-4 admission it conferred**. Endpoints remain V-valid and are never cascade-deleted; an endpoint with no surviving admission path leaves the default view along with its canonical chain. |
+| DEL-5 | D | — | Deletion of a Binding hides the edge from default views **and revokes the admission it conferred** (TR-4). Endpoints remain V-valid and are never cascade-deleted; an endpoint with no surviving admission path leaves the default view along with its canonical chain. An independently-admitted overlay whose target has left the view renders per the α/β rule, not dropped. |
 
-## A4 — New §3.3: unresolved references under eventual consistency
+**Change 3b — TR-4 and TR-5 currently contradict this.** TR-4 says admission is unconditional ("When
+a Binding is admitted, both of its endpoints … are admitted"). Amending §10 alone leaves two rules
+with opposite readings, which is the ambiguity this change exists to remove. Add to both TR-4 and
+TR-5, and to §6.4's prose: "…for as long as the Binding is not retracted (§10, DEL-5)."
 
-**Motivation.** The spec solves the same problem twice and omits it once:
+**Change 3c — this is unimplementable without amending DQ-2 and §8.2.** DQ-2 requires polling for
+deletions only for "every chain root and every patch they cache." Bindings are absent. A client
+following DQ-2 literally never learns a Binding was retracted and shows a de-admitted endpoint
+indefinitely. Add "and every Binding" to DQ-2 and to §8.2's deletion-query prose.
 
-| Case | Current rule |
-|---|---|
-| Binding with unobserved endpoints | BD-6, BD-7 |
-| Kind 5 whose target has not arrived | DEL-8 |
-| **Patch whose `e root` or `e reply` target has not arrived** | **none** |
+---
 
-§5.3 step 1 says to walk patches "from the root forward" — but if the root is absent there is nothing
-to walk from, and no rule says what becomes of the orphan patch. One implementation drops it, another
-holds it; identical event sets then produce different content, which breaks OV-4's determinism
-requirement. Under a multi-relay mesh this is routine, not exotic: a patch fetched from relay B whose
-root lives on relay A.
+# 4 — A hostile event must not be able to freeze a client
 
-Generalising is the better fix than patching one rule: it makes the spec **shorter**, replacing two
-special cases and a gap with one rule the three cases cite.
+**Why.** Anyone can publish anything; that is the point. So someone publishes a product description
+with a 50 MB body and 10,000 changes. A client computing the current text locks up.
 
-**Insert as a new §3.3**, after §3.2 (inherited semantics) and before §4:
+The spec bounds only `i` and `k` tag counts. Real relays bound more — strfry, the most widely deployed,
+caps events at 64 KB — but a library has to defend itself regardless. The expensive operation is the
+uniqueness check in §5.3: proving a change's context appears exactly once means scanning the whole
+document for each change, so cost scales with document size × number of changes.
 
-> ### 3.3 Unresolved references under eventual consistency
+**Change.** Insert as a new **§5.4**, immediately after the application rules it concerns:
+
+> ### 5.4 Resource limits
 >
-> Several SCRUTINY constructs reference other events by id: a Binding references its two endpoints
-> (§4.3), a Patch references its root and its reply target (§4.4), and a kind 5 deletion references
-> its target (§10). Under the eventual-consistency model inherited from Nostr (§3.2) a referencing
-> event may be observed before the event it references, or the referenced event may never arrive at
-> all.
+> SCRUTINY is permissionless, so implementations process adversarial input by default. The determinism
+> check of §5.3 (T1) is the most expensive operation: establishing that a hunk's context occurs exactly
+> once requires scanning the full target content for each hunk, so cost scales with the product of
+> content length and hunk count.
 >
-> Implementations MUST resolve such references lazily rather than discarding the referencing event.
-> An event with one or more unobserved references is held **pending**: admitted to local storage, not
-> rendered, and re-evaluated whenever a referenced event is observed. On resolution the event
-> transitions either to admitted or to **permanently invalid**, according to the rules of its own
-> event type. A permanently-invalid classification SHOULD be cached so that the event is not
-> re-evaluated on every change to the observed set.
->
-> The consequence that matters for interoperability is that **ingestion MUST be confluent**: the
-> state an implementation reaches MUST depend only on the *set* of events it has observed, never on
-> the order in which they arrived. Discarding a referencing event whose target has not yet arrived
-> violates this, because the same event set then yields different state depending on delivery order.
->
-> Per-type resolution rules are given in §4.3 (Binding endpoints), §4.4 (Patch lineage), and §10
-> (kind 5 targets).
-
-| # | Layer | Inherits from | Rule |
-|---|---|---|---|
-| UR-1 | A | — | An event with unobserved references MUST be held pending — admitted to local storage, not rendered — and re-evaluated when a referenced event is observed. It MUST NOT be discarded. |
-| UR-2 | A | — | Ingestion MUST be confluent: the state reached depends only on the observed event set, never on arrival order. |
-| UR-3 | D | — | A permanently-invalid classification SHOULD be cached to avoid re-evaluation on every observed-set change. |
-
-**Then, in §4.4**, add to the append-only paragraph:
-
-> A Patch whose `e root` or `e reply` target has not been observed is held pending per §3.3. It does
-> not enter the canonical chain and is not rendered until its lineage resolves. A Patch whose
-> `e reply` target is observed and is not a permitted target for its authorship class (PT-6, PT-7)
-> is permanently invalid.
-
-Cross-reference §3.3 from BD-6/BD-7 and DEL-8 rather than duplicating the mechanism.
-
-## A5 — New §3.4: resource limits
-
-**Motivation.** The specification bounds `i` tags (IX-2, a SHOULD) and nothing else. There is no
-limit on `content` size, hunks per patch, patches per chain, or Bindings per event. On a permissionless
-protocol every implementation processes adversarial input by default, and T1's uniqueness check is
-inherently expensive — proving a hunk's context occurs exactly once means scanning the full content
-per hunk. A hostile publisher can therefore construct a chain that stalls any *conformant* client,
-which makes this a specification gap rather than an implementation bug.
-
-**Insert as a new §3.4:**
-
-> ### 3.4 Resource limits
->
-> SCRUTINY is permissionless: any pubkey may publish any well-formed event, so implementations
-> process adversarial input by default. Several operations have costs an adversary can inflate. The
-> determinism check of §5.3 (T1) is the most significant: establishing that a hunk's context occurs
-> exactly once requires scanning the full target content for each hunk, so cost scales with the
-> product of content length and hunk count.
->
-> Producers SHOULD respect the following bounds, which reflect limits deployed relays enforce in
-> practice. An event exceeding them is not thereby invalid (§6.0), but it may be refused by relays or
-> by consumers.
+> Producers SHOULD respect the following bounds, which reflect limits deployed relays enforce.
 >
 > | Bound | Recommended | Basis |
 > |---|---|---|
 > | Total event size | ≤ 64 KB; prefer `imeta` above ~30 KB (§4.6) | strfry `maxEventSize = 65536` |
-> | Tags per event | ≤ 1000 | strfry `maxNumTags = 2000`; conservative margin |
 > | Length of a single tag value | ≤ 1024 bytes | strfry `maxTagValSize = 1024` |
 > | Hunks per patch payload | ≤ 64 | T1 cost |
 > | Patches per canonical chain | ≤ 1000 | Chain-resolution cost |
 >
-> Consumers SHOULD enforce configurable ceilings and MUST fail safely — surfacing a protocol error
-> annotation (H2) rather than exhausting memory or blocking indefinitely. Because an adversary
-> optimises against whichever unit is counted, consumers SHOULD additionally bound the *total work*
-> of patch application, measured in bytes compared, rather than relying on hunk or patch counts alone.
+> Consumers SHOULD enforce configurable ceilings. Because an adversary optimises against whichever
+> unit is counted, consumers SHOULD additionally bound the *total work* of patch application, measured
+> in bytes compared, rather than relying on hunk or patch counts alone.
+>
+> An event exceeding a consumer's ceiling remains valid (§6.0) and MUST NOT be treated as invalid.
+> Exceeding a ceiling aborts *application* and MUST be surfaced as a distinct **resource-limit
+> exceeded** annotation — never as HALT (§5.3 H1), which denotes a patch that genuinely failed to
+> apply. Because ceilings are local, content whose computation was abandoned for resource reasons MUST
+> NOT be served or cached as canonical bytes (§7.1 RC-3).
 
 | # | Layer | Inherits from | Rule |
 |---|---|---|---|
-| RL-1 | D | — | Producers SHOULD respect the recommended bounds of §3.4. |
-| RL-2 | A | — | Consumers SHOULD enforce configurable ceilings and MUST fail safely with a protocol error annotation rather than exhausting resources. |
-| RL-3 | A | — | Consumers SHOULD bound total patch-application work (bytes compared), not only hunk or patch counts. |
+| RL-1 | D | — | Producers SHOULD respect the recommended bounds of §5.4. |
+| RL-2 | A | — | Consumers SHOULD enforce configurable ceilings and SHOULD bound total patch-application work (bytes compared), not only hunk or patch counts. |
+| RL-3 | A | — | Exceeding a ceiling aborts application and MUST be surfaced as a distinct resource-limit-exceeded annotation, never as HALT. The event remains V-valid. |
+| RL-4 | A | — | Content abandoned for resource reasons MUST NOT be served or cached as canonical bytes. |
 
-**Verified 2026-07-27** against `hoytech/strfry/strfry.conf`: `maxEventSize = 65536`,
-`maxNumTags = 2000`, `maxTagValSize = 1024`. The ≤1000 tag recommendation is a deliberate
-conservative margin below the 2000 default, not a transcription of it.
-
-## A6 — §6: explicit signature and id verification
-
-**Motivation.** §3.2 assigns signature verification to NIP-01, and BD-12 requires trust decisions to
-be based on "the actual event pubkey, verified from the Nostr event signature" — but no rule states
-the verification obligation itself, and NIP-01 defines the computation while remaining silent on
-whether clients must perform it. §7.5 states relays MAY be malicious, which makes an unverified event
-from a relay untrusted input.
-
-The gap has a sharp edge: the signature commits to the **`id`**, which is a hash. A relay can alter
-`content` or `tags` while retaining the original `id` and `sig`, and a signature-only check still
-passes. Only recomputing the id and comparing catches it. This is not hypothetical — of five surveyed
-TypeScript Nostr libraries, one widely-used client library performs the signature check without the
-id comparison.
-
-**Insert** at the head of §6.2, before the admission conditions:
-
-> **Signature and identifier verification.** Before an event enters SCRUTINY processing,
-> implementations MUST verify both that its `sig` is a valid Schnorr signature for its `pubkey` over
-> its `id`, and that its `id` equals the SHA-256 of its NIP-01 canonical serialization. Verifying the
-> signature alone is insufficient: the signature commits to the `id`, so an event whose `content` or
-> `tags` were altered while retaining the original `id` and `sig` still passes a signature-only check.
-> Relays are not trusted to have performed either check (§7.5). An event failing either check is not a
-> SCRUTINY event and MUST NOT be processed or rendered.
-
-| # | Layer | Inherits from | Rule |
-|---|---|---|---|
-| SIG-1 | V | NIP-01 | Implementations MUST verify the event signature **and** that `id` equals the SHA-256 of the NIP-01 canonical serialization, before SCRUTINY processing. A signature-only check is insufficient. |
-
-## A7 — New §6.5: portable trust, relay, and settings lists (non-normative)
-
-**Motivation.** §6.1 leaves the trust mechanism out of scope, correctly. But without a convention,
-each client invents its own storage key and a user's curated trust set is stranded per application —
-which for a decentralised protocol defeats the point. The `d` values must be **protocol-scoped**, not
-application-scoped, or portability is lost. Marked non-normative so it does not contradict §6.1.
-
-**Insert as §6.5:**
-
-> ### 6.5 Portable trust, relay, and settings lists (non-normative)
->
-> §6.1 leaves the trust mechanism out of scope. This subsection records a storage convention so that
-> a user's curated trust set is portable between SCRUTINY-aware clients rather than re-curated in each
-> one.
->
-> | Purpose | Kind | Payload | `d` tag |
-> |---|---|---|---|
-> | Trusted pubkeys | 30000 — NIP-51 follow set | `p` tags | `scrutiny-fabric:trusted-pubkeys` |
-> | Relay set | 30002 — NIP-51 relay set | `relay` tags | `scrutiny-fabric:relays` |
-> | Application settings | 30078 — NIP-78 app data | JSON in `content` | `scrutiny-fabric:settings` |
->
-> The `d` values are deliberately protocol-scoped rather than application-scoped: a list written by
-> one client is readable by every other. Clients SHOULD use these `d` values when persisting a user's
-> SCRUTINY trust set or relay preferences to Nostr.
->
-> NIP-51 permits **private** list entries — encrypted to the author's own key with NIP-44 and carried
-> in `content` rather than `tags`. Because trusting a pubkey can be a politically consequential signal
-> in a security-metadata context, clients SHOULD support private entries and SHOULD NOT publish a
-> trust set with public entries by default.
->
-> NIP-78 offers no encryption guidance. Clients MUST NOT place credentials or other secrets in a kind
-> 30078 event without encrypting them.
-
-Non-normative, so no Appendix F rows — except the final MUST NOT, which should be registered if kept
-as a MUST.
-
-## A8 — New Appendix G: conformance vectors
-
-**Motivation.** §11 lists test vectors as future work. They are now a deliverable, and the format
-matters: the existing `docs/test-vectors.md` (removed in the 2026-07-27 cleanup, recoverable from git
-history) demonstrated why prose-embedded vectors fail — its first vector's input JSON was
-syntactically invalid, and it described patches diffing `a/i`/`b/i`, which C1 and IX-3 forbid.
-Markdown also cannot carry byte-exact vectors when PB-1/PB-2 make byte-exactness normative
-(no-trailing-newline, CRLF, BOM). NIP-44's model — separate JSON, grouped by category, digest pinned
-in prose — fits, and unlike CommonMark's uniform examples, SCRUTINY's vectors have four distinct
-shapes.
-
-**Insert as Appendix G:**
-
-> ## Appendix G — Conformance vectors
->
-> Machine-readable conformance vectors accompany this specification as JSON files under
-> `docs/vectors/`, grouped by category. Their SHA-256 digests are pinned below; an implementation
-> SHOULD validate the digest before trusting a local copy.
->
-> | File | Shape |
-> |---|---|
-> | `validity.json` | event → `{admitted, ruleIds[]}` |
-> | `application.json` | `{root, patches[], deletions[]}` → `{canonicalBytes, haltAt, annotations[], overlays[]}` |
-> | `discovery.json` | `{events[], trustedPubkeys[]}` → `admittedIds[]` |
-> | `serialization.json` | event → canonical serialization bytes |
->
-> Every vector carries the Appendix F rule ID it exercises. Vectors are **not normative** — the prose
-> in the cited section remains authoritative — but a conforming implementation SHOULD pass all of
-> them, and any divergence between a vector and the prose is a specification defect to be reported.
->
-> Vectors are versioned with this specification. Implementations SHOULD record the vector release they
-> were last verified against.
-
-Then remove "**Test vectors.** Companion document…" from §11.
-
-**Practical note for the editing session:** build the extraction/validation tooling and the file
-skeletons, but author vectors *incrementally as rules are implemented*. Attempting all ~123 up front
-is how this stalls. Expect roughly 60 static-vector, 25 harness-only (behavioural D-rules such as
-BD-8 relay fallback and DQ-2 periodic polling), and 15 not-testable.
-
-## A9 — §4.4: cycle impossibility (non-normative note)
-
-**Motivation.** A real structural guarantee that every implementer would otherwise waste effort
-defending against.
-
-**Add** to §4.4, near the append-only paragraph:
-
-> **Note (non-normative).** Patch lineage cannot contain cycles. A patch's `e reply` tag commits to
-> its parent's event id, and an event's id is a hash over its own tags (NIP-01); constructing two
-> patches that reference each other would require knowing each event's id before creating it.
-> Implementations therefore do not need cycle detection when walking a chain. They SHOULD still bound
-> traversal depth as a defence against unbounded chains (§3.4).
-
-## A10 — §4.6: streaming-verification caveat
-
-**Motivation.** IM-1 requires verifying the `x` hash "by streaming the artifact contents". On the web
-platform this is not achievable with the obvious API — `crypto.subtle.digest` accepts only a complete
-buffer and cannot hash incrementally. With the sec-certs corpus at roughly 11 GB of PDFs, buffering is
-not an option.
-
-**Add** after the IM-1 prose:
-
-> **Note on streaming.** IM-1's streaming requirement bounds memory; it does not mandate a particular
-> API. Implementations targeting the web platform should note that `crypto.subtle.digest` accepts only
-> a complete buffer and cannot hash incrementally, so verifying large artifacts without buffering them
-> entirely requires an incremental SHA-256 implementation.
-
-## A11 — §4.1: `created_at` is publish time, not the historical date
-
-**Motivation.** The intuitive mapping for a historical record — a Common Criteria certificate issued
-in 2012, say — is to set `created_at` to the issue date. Deployed relays commonly reject events
-outside a bounded timestamp window, so those events are silently refused. The failure is invisible:
-the publisher sees no error and the events simply are not stored.
-
-**Add** as a note in §4.1 (applies equally to §4.2):
-
-> **Note on `created_at`.** `created_at` is the time the *event* was created, not the time of the fact
-> it describes. Publishers mapping historical records — certification dates, disclosure dates, release
-> dates — MUST NOT backdate `created_at` to the historical date: deployed relays commonly reject
-> events whose `created_at` falls outside a bounded window, so backdated events are silently refused.
-> Historical dates belong in `content`.
-
-**Verified 2026-07-27** against `hoytech/strfry/strfry.conf`:
-`rejectEventsOlderThanSeconds = 94608000` — exactly three years — and
-`rejectEventsNewerThanSeconds = 900`. Consider citing these in the note, since a concrete window
-makes the failure mode obvious to a publisher. This is a live problem for the sec-certs corpus:
-Common Criteria certificates dating to the 1990s and 2000s would be refused outright.
-
-## A12 — Appendix E: verify the citation resolves
-
-Appendix E cites `scrutiny-fabric-tools/investigations/diff-parity/REPORT.md`. That directory was
-gitignored, so the path did not resolve for any reader. Fixed on 2026-07-27 (commit `98a3755` in the
-tools repo). **Confirm the path in Appendix E matches the committed location** and consider adding the
-sec-certs mapping report alongside it, since it now exists publicly too.
+The relay figures are **verified** against `hoytech/strfry/strfry.conf`: `maxEventSize = 65536`,
+`maxNumTags = 2000`, `maxTagValSize = 1024`. No need to re-check. Note the tag-count bound is omitted
+from the table above because §4.1/§4.2's ≤64 `i` + ≤64 `k` ceilings already bind well below it.
 
 ---
 
-# Explicitly NOT changing
+# 5 — Verify every event, including deletions
 
-Recorded so a future session does not re-derive these. All three were investigated and rejected.
+**Why.** A signature in Nostr signs the event's **id**, which is a hash of its contents. So checking
+only the signature does not protect the contents: a relay can alter the body while keeping the
+original id and signature, and a signature-only check still passes. Only recomputing the id and
+comparing catches it. Of five widely-used TypeScript Nostr libraries surveyed, one performs the
+signature check without the id comparison.
 
-**The NIP-01 serialization rule is not a gap.** Its seven short escapes plus "all other characters
-verbatim" is a precise rule that exists to defeat encoder-specific escaping — Go's `encoding/json`
-HTML-escapes by default; .NET escapes all non-ASCII. `JSON.stringify` complies with every clause that
-matters, and `nostr-tools`' `serializeEvent` *is* `JSON.stringify`, making it correct by ecosystem
-convention. Sub-0x20 control characters are escaped identically by every standard encoder; lone
-surrogates are a real but obscure JS↔Go asymmetry, not a protocol defect. **No amendment.** (A6
-stands on entirely separate grounds.)
+**And the sharper point:** deletions are their own kind of event and are explicitly *not* SCRUTINY
+events. So a rule phrased as "verify SCRUTINY events" leaves deletions unverified — meaning a hostile
+relay can hand you a **forged deletion** and your implementation will honour it, wiping a product's
+revision history and everything downstream. That is the most consequential gap here.
 
-**NIP-11's `max_content_length: 8196` does not contradict §4.6's ~30 KB advice.** That value is an
-illustrative example in the NIP document, not a deployed default. strfry uses
-`maxEventSize = 65536`, against which §4.6 is sound. **No amendment** — A5 adopts the real numbers.
+**Change.** Insert in **§3** (event identification — *not* §6.2, which is about trust):
 
-**Indexer prefix additions are deferred.** `cc-cert-id`, `cc-scheme`, `cc-eal`, `cc-sar` (from the
-sec-certs mapping) and `pp`, `vendor`, `scheme` (used by an existing client) are not being registered
-in §9 yet. Note two things for whoever picks this up: IR-4 already makes unknown prefixes valid, so
-nothing is blocked; but `i` tags are **immutable after publication** (IX-3), so publishing a large
-corpus under a prefix that is later renamed is unfixable except by republishing everything. Settle the
-vocabulary **before** any bulk publish.
+> **Signature and identifier verification.** Before processing any event, implementations MUST verify
+> both that its `sig` is a valid Schnorr signature for its `pubkey` over its `id`, and that its `id`
+> equals the SHA-256 of its NIP-01 canonical serialization. Verifying the signature alone is
+> insufficient: the signature commits to the `id`, so an event whose `content` or `tags` were altered
+> while retaining the original `id` and `sig` still passes a signature-only check.
+>
+> This applies to **every event an implementation consumes**, including kind 5 deletions (§10) and
+> kind 1040 attestations (§3.1) — not only events carrying a `scrutiny-fabric` tag. An unverified
+> deletion is indistinguishable from a forged one, and honouring a forged deletion removes canonical
+> history (§10 DEL-2). Relays are not trusted to have performed either check (§7.5). An event failing
+> either check MUST NOT be processed or rendered.
+
+| # | Layer | Inherits from | Rule |
+|---|---|---|---|
+| SIG-1 | V | NIP-01 | Before processing any event — including kind 5 deletions and kind 1040 attestations — implementations MUST verify the signature **and** that `id` equals the SHA-256 of the NIP-01 canonical serialization. A signature-only check is insufficient. |
+
+**Also amend §3.2's inherited-semantics table.** Its first row assigns signature verification and id
+derivation to NIP-01, under a preamble requiring implementations to "defer to the base-layer
+specification rather than re-derive semantics." As written, a reader can cite §3.2 to argue SIG-1 is
+out of scope. Change that row to: "NIP-01 defines the signature scheme and id derivation; SCRUTINY
+requires that both be *performed* before processing (SIG-1)." §3.2's closing paragraph already permits
+SCRUTINY-specific restrictions.
+
+**Ordering note:** SIG-1 requires hashing the whole event, so it runs before any size ceiling from
+§5.4. State that the total-size bound is enforceable at ingest or transport *before* SIG-1, and that
+declining to verify an oversized event does not make it V-invalid.
+
+---
+
+# 6 — A do-nothing patch is currently both valid and invalid
+
+**Why.** `git diff` outputs nothing when two files are identical; `jsdiff` outputs a header with no
+changes. §5.2 says **both** are valid "nothing changed" patches, and N2 says consumers "MUST NOT
+reject this shape as malformed." But §5.2's own grammar line requires at least one change block:
+
+```
+patch-payload = [ index-preamble ] [ diff-git-line ] header-block [ hunk-block ]+
+```
+
+`[ x ]+` is also not valid ABNF — ABNF uses prefix repetition (`*x`, `1*x`); postfix `+` is regex.
+
+**Change.** `header-block *hunk-block`. Register the grammar block's existing "a conforming consumer
+MUST accept" obligation (§5.2, above the grammar) as a rule, since nothing in the registry currently
+constrains it.
+
+---
+
+# 7 — "Filter by trust first" appears twice and breaks chain resolution
+
+**Why.** §6.2 says untrusted events are "filtered out **before any other processing**." Taken
+literally that produces a silent, plausible-looking wrong answer: a product you can only see because
+you trust *someone else's* link to it may have corrections authored by a key you don't trust
+directly. Filter those out first and you conceal both conflicting-edit conditions and stopped chains
+— the text renders as complete and linear when it is neither.
+
+**Change 7a.** Replace that sentence in §6.2:
+
+> Untrusted, unreachable events are excluded from the user's view. Filtering is a
+> **presentation-time** operation: it determines what the user is shown, not what the implementation
+> computes. Canonical-chain construction (§5.3), self-fork detection (§7.2), and overlay
+> classification (§7.3) are evaluated over the full set of V-valid observed events without reference
+> to the trust set; the trust set is then applied to the results.
+>
+> Implementations MUST NOT filter events by trust before chain construction. Doing so silently
+> conceals root self-forks and HALT conditions in the chain of a root admitted via a trusted Binding
+> (§6.4), because that root's own patches may be authored by a pubkey the user does not trust
+> directly. This also follows from §6.0: a V-valid event MUST NOT be rejected by a D rule.
+
+| # | Layer | Inherits from | Rule |
+|---|---|---|---|
+| TR-7 | D | — | Trust filtering is applied at presentation time, to the results of chain and overlay computation. Implementations MUST NOT filter by trust before canonical-chain construction, self-fork detection, or overlay classification. |
+
+Tagged **D**: §6.0 partitions rules by *subject*, and this rule's subject is when a visibility gate
+may be applied. Every other TR-* rule is D.
+
+**Change 7b — the same instruction appears a second time.** §7.5's "Users" paragraph repeats it:
+"untrusted events are filtered out before any other processing occurs (§6)." Rewrite it to match 7a.
+
+**Change 7c — §7.4 step 5 contradicts TR-7 directly.** It currently reads "For each foreign patch
+**admitted under §6**, classify against its `e reply` target's resolved content" — trust before
+classification, exactly what TR-7 forbids. Change to: "For each foreign patch, classify against its
+`e reply` target's resolved content per §7.3; trust gating (OV-7) is applied to the results at
+presentation time."
+
+**Change 7d.** Extend §6.0's enumeration `TR-2..TR-6` to include TR-7.
+
+---
+
+# 8 — Version bump to v0.6.0
+
+Header, changelog entry, and `scrutiny-v059` → `scrutiny-v060` in §3, all §4 examples, and Appendix D.
+
+⚠️ **Do not blanket-replace `scrutiny-v059`.** The changelog's v0.5.9 entry legitimately contains
+"Version tag `scrutiny-v058` → `scrutiny-v059`", and the new v0.6.0 entry must contain
+"`scrutiny-v059` → `scrutiny-v060`". A global replace corrupts the changelog.
+
+Two collateral edits:
+
+- **Appendix B**'s "NOT borrowed" list says "**merges** (planned for v060)". False once v0.6.0 ships
+  without them — §11 still lists merges as future work. Change to "a future version".
+- **§3's forward-compatibility prose** uses "a v0.5.9 implementation encountering `scrutiny-v060`" as
+  its higher-version example, and "violates a v0.5.9 Validity invariant". Re-version both.
+
+---
+
+# 9 — `created_at` is publish time, not the historical date
+
+**Why.** Mapping a Common Criteria certificate issued in 2012, the intuitive move is to set
+`created_at` to the issue date. **Verified:** strfry defaults to
+`rejectEventsOlderThanSeconds = 94608000` — exactly three years — and
+`rejectEventsNewerThanSeconds = 900`. So backdated events are **silently refused**: no error, nothing
+stored. Publishing the sec-certs corpus this way would appear to succeed and store nothing.
+
+**Change.** Add to the **§4 preamble** (which already carries statements common to §4.1–§4.6), rather
+than duplicating a note in §4.1 and §4.2:
+
+> **`created_at` semantics.** `created_at` is the time the *event* was created, not the time of the
+> fact it describes. Publishers mapping historical records — certification dates, disclosure dates,
+> release dates — MUST NOT backdate `created_at` to the historical date. Deployed relays commonly
+> reject events whose `created_at` falls outside a bounded window (commonly a few minutes ahead and
+> one to three years behind), so backdated events are silently refused. Historical dates belong in
+> `content`.
+
+| # | Layer | Inherits from | Rule |
+|---|---|---|---|
+| CA-1 | D | — | Publishers MUST NOT backdate `created_at` to a historical date the event describes. Deployed relays reject events outside a bounded timestamp window; historical dates belong in `content`. |
+
+Also reword §7.5's "Publishers MAY lie about `created_at` timestamps" to "cannot be prevented from
+setting an arbitrary `created_at`", so the threat-model sentence and CA-1 don't read as contradictory.
+
+---
+
+# Deliberately not doing
+
+Considered and dropped. All are documentation tidiness with no effect on behaviour; re-raising them
+costs churn and citation instability.
+
+- **Registering the twelve normative statements that live in prose but not in a rule table.** Genuine
+  finding, no behavioural consequence. §3.2, §7.5, §8.0, §8.1 and §8.2 have no rule tables at all.
+  Worth doing eventually; not now.
+- **Restoring MUST wording in four registry summaries** (SF-5, RC-2, OV-8). The prose is authoritative
+  and unambiguous; the summary table is an index.
+- **Normalising the split rule-ID grammar** (`BD-3` vs bare `T1`). Renaming breaks every citation.
+- **Nine of the twelve cross-references** an earlier draft proposed adding for the unresolved-reference
+  section. More cross-links do not make a spec clearer. Two are kept: §5.3 step 1 → §7.6, and §7.6 →
+  §10's α/β rule.
+- **§6.0's layer manifest being incomplete** (it cites 14 of 47 Validity rules, and TR-1 and IR-4
+  appear in no bullet). One genuine error there is worth the one-line fix while editing: its V bullet
+  cites "§5.2 E\*", which sweeps in E7 — tagged A, and correctly listed in the A bullet too. Change to
+  `E1–E6`.
+- **Appendix F's section-granularity skew** (TR-* cited as §6 though the table is under §6.4; DQ-* as
+  §8 though under §8.3). The extractor reports these as informational, not errors.
 
 ---
 
 # Verification checklist
 
-- [ ] No occurrence of `scrutiny-v059` remains
-- [ ] Header, changelog, and every §4 / Appendix D example show v0.6.0
-- [ ] Every new MUST/SHOULD/MAY has a rule ID **and** an Appendix F row
-- [ ] Appendix F row count matches the number of rule-table rows in the body
-- [ ] No existing rule ID renumbered or reused; DEL-5's text amended in both §10 and Appendix F
-- [ ] §3.3 is cross-referenced from §4.3, §4.4 and §10 rather than duplicated
-- [ ] §11 no longer lists test vectors as future work
-- [ ] strfry-derived numbers in A5 and A11 verified against `strfry.conf`
-- [ ] Appendix E's cited path resolves in the public tools repo
+- [ ] `node tools/extract-rules.mjs` exits 0
+- [ ] Rule count is 123 + 10 new (UR-1..3, RL-1..4, SIG-1, TR-7, CA-1) = **133**; layer tallies updated
+- [ ] PR-4 and MD-4 re-tagged V → D in **both** their §4 tables and Appendix F
+- [ ] Every new rule appears in its section table **and** Appendix F with identical layer and inheritance
+- [ ] No rule ID renumbered or reused
+- [ ] Header, changelog, §3, §4 examples and Appendix D show v0.6.0 — changelog history intact
+- [ ] Appendix B no longer says merges are planned for v060
+- [ ] §7.4 step 5, §7.5 and §6.2 all agree on filtering order
+- [ ] TR-4, TR-5, §6.4, DQ-2 and §8.2 all reflect the Binding-deletion change
+- [ ] §5.2's grammar reads `*hunk-block`
+- [ ] §6.0 cites `E1–E6` and includes TR-7
+- [ ] Appendix E's two path prefixes are consistent, and the cited path resolves in the public tools repo
