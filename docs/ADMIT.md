@@ -505,7 +505,14 @@ strong as what its generator actually reaches. Bias toward: a Binding observed b
 endpoint (BD-6), the same delta redelivered adjacently and non-adjacently in a sequence, a pubkey
 trusted then untrusted then retrusted within one sequence, two Bindings crediting the same endpoint
 and only one revoked, a root that loses its last reason while its patches are still arriving, and a
-self-fork where only one sibling's author is independently trusted. Log the outcome mix (admitted /
+self-fork chain admitted **only** through a Binding, with the root author's own pubkey untrusted —
+so both siblings carry `root-chain:<rootId>` but never `direct-trust`. (An earlier draft of this
+bullet asked for "a self-fork where only one sibling's author is independently trusted" — found
+unreachable during Phase 4's own review, not by the gate: TR-6 requires a self-fork's siblings to
+share the root's `pubkey`, and TR-2's direct-trust is a per-pubkey predicate, so two same-pubkey
+siblings can never diverge on it. Corrected to the shape above, which exercises the same underlying
+concern — that root-chain propagation doesn't secretly lean on the shared author's own trust —
+without describing a state the code can never produce.) Log the outcome mix (admitted /
 not-admitted, by reason kind) and assert a floor under multi-reason overlap and under
 revoke-after-redundant-observe, so neither can silently stop being exercised.
 

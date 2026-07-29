@@ -82,7 +82,12 @@ export const isAdmitted = (index: AdmissionIndex, eventId: string): boolean =>
  * already a BD-2/BD-10/BD-5 validity concern enforced by `validate.ts` before an event would ever
  * reach this module in a real pipeline; `admit` does not re-derive that rejection.
  */
-function bindingEndpoints(binding: NostrEvent): { rootId: string; linkId: string } | undefined {
+export interface BindingEndpoints {
+  readonly rootId: string
+  readonly linkId: string
+}
+
+function bindingEndpoints(binding: NostrEvent): BindingEndpoints | undefined {
   const roots = eTagsWithMarker(binding, 'root')
   const links = eTagsWithMarker(binding, 'link')
   if (roots.length !== 1 || links.length !== 1) return undefined
@@ -268,9 +273,7 @@ export function visibleOverlays(
  */
 export interface AdmitState {
   readonly reasons: Readonly<Record<string, readonly Reason[]>>
-  readonly liveBindings: Readonly<
-    Record<string, { readonly rootId: string; readonly linkId: string }>
-  >
+  readonly liveBindings: Readonly<Record<string, BindingEndpoints>>
   readonly trusted: readonly string[]
   readonly observedById: Readonly<Record<string, NostrEvent>>
 }
@@ -332,7 +335,7 @@ export function invertDelta(delta: ForwardDelta): AdmissionDelta {
 
 interface Working {
   readonly reasons: Map<string, Set<Reason>>
-  readonly liveBindings: Map<string, { rootId: string; linkId: string }>
+  readonly liveBindings: Map<string, BindingEndpoints>
   readonly trusted: Set<string>
   readonly observedById: Map<string, NostrEvent>
 }
@@ -340,7 +343,7 @@ interface Working {
 function fromState(state: AdmitState): Working {
   const reasons = new Map<string, Set<Reason>>()
   for (const [id, list] of Object.entries(state.reasons)) reasons.set(id, new Set(list))
-  const liveBindings = new Map<string, { rootId: string; linkId: string }>()
+  const liveBindings = new Map<string, BindingEndpoints>()
   for (const [id, endpoints] of Object.entries(state.liveBindings)) liveBindings.set(id, endpoints)
   return {
     reasons,
@@ -353,7 +356,7 @@ function fromState(state: AdmitState): Working {
 function toState(w: Working): AdmitState {
   const reasons: Record<string, readonly Reason[]> = {}
   for (const [id, set] of w.reasons) if (set.size > 0) reasons[id] = [...set].sort()
-  const liveBindings: Record<string, { rootId: string; linkId: string }> = {}
+  const liveBindings: Record<string, BindingEndpoints> = {}
   for (const [id, endpoints] of w.liveBindings) liveBindings[id] = endpoints
   return {
     reasons,
