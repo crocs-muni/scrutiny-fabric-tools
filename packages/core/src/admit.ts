@@ -16,7 +16,14 @@
  * walk and why a foreign patch's reason set is provably a singleton, is in `docs/ADMIT.md`.
  */
 
-import { type NostrEvent, eTags, eTagsWithMarker, scrutinyEventType } from './events.js'
+import {
+  type NostrEvent,
+  dedupeById,
+  eTags,
+  eTagsWithMarker,
+  rootTarget,
+  scrutinyEventType,
+} from './events.js'
 import type { TrustProvider } from './interfaces.js'
 import type { Overlay } from './resolve.js'
 
@@ -104,8 +111,6 @@ export function isDefaultViewRetracted(
   return isHonouredDeletion(event.id, event.pubkey, deletions)
 }
 
-const rootTarget = (event: NostrEvent): string | undefined => eTagsWithMarker(event, 'root')[0]?.id
-
 /**
  * TR-5's reachable set for `root` — every root-author patch and every root-author kind-5 event
  * targeting the root or one of those patches. Deliberately not `resolve.ts`'s canonical-chain
@@ -160,9 +165,7 @@ export function computeAdmission(
   events: readonly NostrEvent[],
   trust: TrustProvider,
 ): AdmissionIndex {
-  const byId = new Map<string, NostrEvent>()
-  for (const event of events) if (!byId.has(event.id)) byId.set(event.id, event)
-  const all = [...byId.values()]
+  const all = [...dedupeById(events).values()]
 
   const kind5s = all.filter((e) => e.kind === 5)
   const bindingEvents = all.filter((e) => scrutinyEventType(e) === 'binding')
@@ -247,13 +250,21 @@ export function visibleOverlays(
 }
 
 // ---------------------------------------------------------------------------
-// Incremental state (D24's cheap path)
+// Incremental state
 // ---------------------------------------------------------------------------
 
 /**
- * Plain data threaded through {@link applyDelta}. `liveBindings` is the D23 guard: a Binding's
- * contribution to its endpoints is applied at most once, no matter how many times the same
- * live/dead transition is (redundantly) delivered — see `docs/ADMIT.md` §5.
+ * Plain data threaded through {@link applyDelta}. This is the correctness-oriented shape D24
+ * ultimately wants an incremental path *for* — reasons accumulate against the guard tables below
+ * rather than every delta re-deriving them from nothing — but `resync` (further down) re-derives
+ * Binding liveness and root-chain membership over the *entire* observed set on every call, which
+ * is not the scoped, cost-bounded invalidation D24's epochs describe. That is `store`'s (Phase 5)
+ * to build; this phase only had to get the bookkeeping *correct* (AG1/AG2), never fast, and it
+ * should not be read as delivering D24's promised cost reduction on its own.
+ *
+ * `liveBindings` is the D23 guard: a Binding's contribution to its endpoints is applied at most
+ * once, no matter how many times the same live/dead transition is (redundantly) delivered — see
+ * `docs/ADMIT.md` §5.
  */
 export interface AdmitState {
   readonly reasons: Readonly<Record<string, readonly Reason[]>>
@@ -366,9 +377,8 @@ function isAdmittedIn(w: Working, id: string): boolean {
   return (w.reasons.get(id)?.size ?? 0) > 0
 }
 
-function bindingIsLive(w: Working, binding: NostrEvent): boolean {
+function bindingIsLive(w: Working, binding: NostrEvent, kind5s: readonly NostrEvent[]): boolean {
   if (!w.reasons.get(binding.id)?.has('direct-trust')) return false
-  const kind5s = [...w.observedById.values()].filter((e) => e.kind === 5)
   return !isHonouredDeletion(binding.id, binding.pubkey, kind5s)
 }
 
@@ -393,8 +403,8 @@ function deactivateBinding(w: Working, bindingId: string): void {
  * no-op — so redelivering the same "binding is live" fact never double-credits, and the matching
  * single "binding is dead" transition undoes exactly what one activation credited.
  */
-function resyncBinding(w: Working, binding: NostrEvent): void {
-  const shouldBeLive = bindingIsLive(w, binding)
+function resyncBinding(w: Working, binding: NostrEvent, kind5s: readonly NostrEvent[]): void {
+  const shouldBeLive = bindingIsLive(w, binding, kind5s)
   const isLive = w.liveBindings.has(binding.id)
   if (shouldBeLive && !isLive) activateBinding(w, binding)
   else if (!shouldBeLive && isLive) deactivateBinding(w, binding.id)
@@ -407,20 +417,30 @@ function resyncBinding(w: Working, binding: NostrEvent): void {
  * a Set bit, and re-affirming it changes nothing for members already credited while still
  * picking up members newly observed since the last call.
  */
-function resyncRootChain(w: Working, root: NostrEvent): void {
+function resyncRootChain(
+  w: Working,
+  root: NostrEvent,
+  patches: readonly NostrEvent[],
+  kind5s: readonly NostrEvent[],
+): void {
   const admitted = isAdmittedIn(w, root.id)
-  const patches = [...w.observedById.values()].filter((e) => scrutinyEventType(e) === 'patch')
-  const kind5s = [...w.observedById.values()].filter((e) => e.kind === 5)
   for (const memberId of rootChainMembers(root, patches, kind5s)) {
     if (admitted) credit(w, memberId, rootChainReason(root.id))
     else uncredit(w, memberId, rootChainReason(root.id))
   }
 }
 
+/**
+ * `patches`/`kind5s` are computed once here and threaded through, rather than each of
+ * `resyncBinding`/`resyncRootChain` re-filtering `observedById` for every binding/root in scope —
+ * the same two arrays `computeAdmission` (the oracle) already computes once per call.
+ */
 function resync(w: Working): void {
-  for (const e of w.observedById.values())
-    if (scrutinyEventType(e) === 'binding') resyncBinding(w, e)
-  for (const e of w.observedById.values()) if (isRoot(e)) resyncRootChain(w, e)
+  const all = [...w.observedById.values()]
+  const patches = all.filter((e) => scrutinyEventType(e) === 'patch')
+  const kind5s = all.filter((e) => e.kind === 5)
+  for (const e of all) if (scrutinyEventType(e) === 'binding') resyncBinding(w, e, kind5s)
+  for (const e of all) if (isRoot(e)) resyncRootChain(w, e, patches, kind5s)
 }
 
 /**
@@ -445,7 +465,12 @@ export function applyDelta(state: AdmitState, delta: AdmissionDelta): AdmitState
       }
       break
 
-    case 'unobserve':
+    case 'unobserve': {
+      // Snapshotted once for the whole delta, not per id: an uncredit against a member already
+      // removed by an earlier id in this same delta is a harmless no-op (nothing left to delete),
+      // so a slightly stale snapshot costs nothing and saves re-filtering `observedById` per id.
+      const patches = [...w.observedById.values()].filter((x) => scrutinyEventType(x) === 'patch')
+      const kind5s = [...w.observedById.values()].filter((x) => x.kind === 5)
       for (const id of delta.eventIds) {
         const e = w.observedById.get(id)
         if (e === undefined) continue
@@ -453,10 +478,6 @@ export function applyDelta(state: AdmitState, delta: AdmissionDelta): AdmitState
         if (isRoot(e) && isAdmittedIn(w, id)) {
           // un-cascade the membership *this* root conferred on others, while it can still be
           // computed (rootChainMembers needs the root object, about to disappear below).
-          const patches = [...w.observedById.values()].filter(
-            (x) => scrutinyEventType(x) === 'patch',
-          )
-          const kind5s = [...w.observedById.values()].filter((x) => x.kind === 5)
           for (const memberId of rootChainMembers(e, patches, kind5s)) {
             uncredit(w, memberId, rootChainReason(id))
           }
@@ -473,6 +494,7 @@ export function applyDelta(state: AdmitState, delta: AdmissionDelta): AdmitState
         w.observedById.delete(id)
       }
       break
+    }
 
     case 'trust': {
       const newly = delta.pubkeys.filter((pk) => !w.trusted.has(pk))

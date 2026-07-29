@@ -13,7 +13,7 @@
 
 import { expect, it } from 'vitest'
 import type { Issue } from '../src/errors.js'
-import type { RuleId } from '../src/rules.js'
+import { RULES, type RuleId } from '../src/rules.js'
 
 /** A case that must produce a given rule code. */
 export type Emitted = { readonly kind: 'emitted'; readonly issues: () => readonly Issue[] }
@@ -40,13 +40,16 @@ export function allIssues(table: CoverageTable): readonly Issue[] {
 /**
  * Surface the ratio in CI output rather than burying it in a doc.
  *
- * `minEmitted` defaults to 1 — every prior partition (V, patch, resolve) has at least one rule
- * with a real rejection/HALT/limit disposition, so a table reporting zero would signal the
- * harness silently losing coverage. Pass `0` for a module whose owned rules are exhaustively
- * non-rejecting by construction (D-layer rules per §6.0) — `admit`'s partition is the first such
- * case; see `docs/ADMIT.md` §10 (AG3).
+ * Every prior partition (V, patch, resolve) has at least one rule with a real rejection/HALT/limit
+ * disposition, so a table reporting zero would normally signal the harness silently losing
+ * coverage — except when *no* rule in the table could ever have one to lose. §6.0 draws that line
+ * exactly at the D layer: D rules "are not admission criteria for the event itself," so a table
+ * whose every entry is D-layer (`admit`'s is the first such case; see `docs/ADMIT.md` §10, AG3) is
+ * legitimately all-`not-covered`, and the zero-emission assertion below is derived from that fact
+ * rather than passed in by the caller — a future all-D-layer table gets this for free, and a table
+ * mixing in a V/A rule that stops emitting still fails, because `allNonRejecting` is false for it.
  */
-export function itReportsTheSplit(label: string, table: CoverageTable, minEmitted = 1): void {
+export function itReportsTheSplit(label: string, table: CoverageTable): void {
   it('reports the split', () => {
     const entries = entriesOf(table)
     const emittedCount = entries.filter(([, e]) => e.kind === 'emitted').length
@@ -54,7 +57,8 @@ export function itReportsTheSplit(label: string, table: CoverageTable, minEmitte
       `${label}: ${emittedCount}/${entries.length} emit a rule code; ` +
         `${entries.length - emittedCount} not test-covered, each with a stated reason.`,
     )
-    expect(emittedCount).toBeGreaterThanOrEqual(minEmitted)
+    const allNonRejecting = entries.every(([id]) => RULES[id].layer === 'D')
+    expect(emittedCount > 0 || allNonRejecting).toBe(true)
   })
 }
 

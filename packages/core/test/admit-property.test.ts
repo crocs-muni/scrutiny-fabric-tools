@@ -225,37 +225,30 @@ describe('AG2 regression — unobserving a root-chain member must strip its root
 })
 
 describe('D23 regression — sticky admission after revocation', () => {
-  it('a Binding delivered twice, then revoked once, does not leave its endpoints stuck admitted', () => {
-    const r = product('sticky-root')
-    const m = metadata('sticky-link', { pubkey: PK_FOREIGN })
-    const b = bindingEvent('sticky-binding', r.id, m.id, { pubkey: PK_OTHER })
-    const revoke = deletion('sticky-revoke', [b.id], PK_OTHER)
+  it.each(['observe', 'trust'] as const)(
+    'redundant delivery via a repeated %s delta does not leave the endpoint stuck admitted',
+    (redundancy) => {
+      const r = product(`sticky-root-${redundancy}`)
+      const m = metadata(`sticky-link-${redundancy}`, { pubkey: PK_FOREIGN })
+      const b = bindingEvent(`sticky-binding-${redundancy}`, r.id, m.id, { pubkey: PK_OTHER })
+      const revoke = deletion(`sticky-revoke-${redundancy}`, [b.id], PK_OTHER)
 
-    let state = EMPTY_ADMIT_STATE
-    state = applyDelta(state, { kind: 'trust', pubkeys: [PK_OTHER] })
-    // The redundant re-delivery: the same Binding, observed twice.
-    state = applyDelta(state, { kind: 'observe', events: [r, m, b] })
-    state = applyDelta(state, { kind: 'observe', events: [r, m, b] })
-    expect(isAdmitted(toIndex(state), m.id)).toBe(true)
+      let state = EMPTY_ADMIT_STATE
+      if (redundancy === 'observe') {
+        state = applyDelta(state, { kind: 'trust', pubkeys: [PK_OTHER] })
+        // The redundant re-delivery: the same Binding, observed twice.
+        state = applyDelta(state, { kind: 'observe', events: [r, m, b] })
+        state = applyDelta(state, { kind: 'observe', events: [r, m, b] })
+      } else {
+        state = applyDelta(state, { kind: 'observe', events: [r, m, b] })
+        state = applyDelta(state, { kind: 'trust', pubkeys: [PK_OTHER] })
+        state = applyDelta(state, { kind: 'trust', pubkeys: [PK_OTHER] }) // redundant — already trusted
+      }
+      expect(isAdmitted(toIndex(state), m.id)).toBe(true)
 
-    state = applyDelta(state, { kind: 'observe', events: [revoke] })
-    expect(isAdmitted(toIndex(state), m.id)).toBe(false)
-    expect(isAdmitted(toIndex(state), r.id)).toBe(false)
-  })
-
-  it('the same effect holds when the redundancy is a repeated trust delta instead', () => {
-    const r = product('sticky-root-2')
-    const m = metadata('sticky-link-2', { pubkey: PK_FOREIGN })
-    const b = bindingEvent('sticky-binding-2', r.id, m.id, { pubkey: PK_OTHER })
-    const revoke = deletion('sticky-revoke-2', [b.id], PK_OTHER)
-
-    let state = EMPTY_ADMIT_STATE
-    state = applyDelta(state, { kind: 'observe', events: [r, m, b] })
-    state = applyDelta(state, { kind: 'trust', pubkeys: [PK_OTHER] })
-    state = applyDelta(state, { kind: 'trust', pubkeys: [PK_OTHER] }) // redundant — already trusted
-    expect(isAdmitted(toIndex(state), m.id)).toBe(true)
-
-    state = applyDelta(state, { kind: 'observe', events: [revoke] })
-    expect(isAdmitted(toIndex(state), m.id)).toBe(false)
-  })
+      state = applyDelta(state, { kind: 'observe', events: [revoke] })
+      expect(isAdmitted(toIndex(state), m.id)).toBe(false)
+      expect(isAdmitted(toIndex(state), r.id)).toBe(false)
+    },
+  )
 })

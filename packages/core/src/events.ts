@@ -107,6 +107,25 @@ export function eTagsWithMarker(event: NostrEvent, marker: string): ETagRef[] {
   return eTags(event).filter((e) => e.marker === marker)
 }
 
+/** The id an event's `e root` marker points at, if any. Shared by `resolve.ts` and `admit.ts`. */
+export function rootTarget(event: NostrEvent): string | undefined {
+  return eTagsWithMarker(event, 'root')[0]?.id
+}
+
+/**
+ * Deduplicate events by id, first occurrence wins.
+ *
+ * Nostr ids are content hashes, so two events sharing an id are byte-identical (D18) — "first
+ * observed wins" and "any observed wins" agree. Shared by `resolve.ts` and `admit.ts`, both of
+ * which need this as the entry point to a pure function over an "observed set" modelled as an
+ * array (see either module's own doc comment for why the parameter is an array, not a `Set`).
+ */
+export function dedupeById(events: readonly NostrEvent[]): Map<string, NostrEvent> {
+  const byId = new Map<string, NostrEvent>()
+  for (const event of events) if (!byId.has(event.id)) byId.set(event.id, event)
+  return byId
+}
+
 /**
  * Whether the event presents itself as a SCRUTINY event.
  *

@@ -10,7 +10,14 @@
  */
 
 import { type Issue, issue } from './errors.js'
-import { type NostrEvent, eTags, eTagsWithMarker, scrutinyEventType } from './events.js'
+import {
+  type NostrEvent,
+  dedupeById,
+  eTags,
+  eTagsWithMarker,
+  rootTarget,
+  scrutinyEventType,
+} from './events.js'
 import { type ApplyOptions, type HaltReason, type LimitKind, applyPatchContent } from './patch.js'
 
 // ---------------------------------------------------------------------------
@@ -152,8 +159,6 @@ export interface ResolveOptions {
 const replyTarget = (event: NostrEvent): string | undefined =>
   eTagsWithMarker(event, 'reply')[0]?.id
 
-const rootTarget = (event: NostrEvent): string | undefined => eTagsWithMarker(event, 'root')[0]?.id
-
 const byIdAsc = (a: string, b: string): number => (a < b ? -1 : a > b ? 1 : 0)
 
 /**
@@ -220,8 +225,7 @@ export function resolve(
   events: readonly NostrEvent[],
   options: ResolveOptions = {},
 ): Resolution {
-  const byId = new Map<string, NostrEvent>()
-  for (const event of events) if (!byId.has(event.id)) byId.set(event.id, event)
+  const byId = dedupeById(events)
 
   const patches: NostrEvent[] = []
   const deletions: NostrEvent[] = []

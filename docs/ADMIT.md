@@ -344,9 +344,15 @@ transition, and the transition itself does not need to know which one fired.
 ## 9. Incremental application, and the invertibility the gate demands
 
 `computeAdmission` (§0) is the oracle — a full fold with no history. The incremental path exists so
-a future `store` (Phase 5) is not forced to re-scan the whole observed set on every new event or
-every `trustEpoch` bump (D24: a `trustEpoch` change must perform zero `applyPatch` calls, and by the
-same logic should not force an admission rescan either).
+a future `store` (Phase 5) has correctness-oriented bookkeeping (the guard tables in §5, and the
+delta shape below) to build a *scoped* rescan against — D24's actual cost target (zero `applyPatch`
+calls on a `trustEpoch` bump, by the same logic no full admission rescan either) is not delivered by
+this phase. `resync` (§5) re-derives Binding liveness and root-chain membership over the *entire*
+observed set on every `applyDelta` call, which the property gate (AG1/AG2) never measures cost on —
+only correctness. Getting the refcount arithmetic right first, and leaving real cost-scoping
+(indices from root → members, binding → kind5s, per-epoch dirty-tracking) to Phase 5, is a
+deliberate sequencing, not an oversight — but it means Phase 5 inherits no performance head start
+from this shape, only a correctness-verified one.
 
 ```ts
 export interface AdmitState {
@@ -413,8 +419,12 @@ gate ran; the third was found by the gate itself:**
    last reason disappears (`untrust`, or the root itself is `unobserve`d), every member of
    `candidatePatches(root) ∪ candidateDeletions(root)` (§4) must lose `root-chain:<root.id>`.
    There is no reverse index from root to members to maintain — recomputing that member set fresh
-   from `observedById` at the moment the root's admitted-boolean flips is both correct and cheap
-   (§4's reachability step is already two flat filter passes, not a traversal), and is what makes
+   from `observedById` is correct without one (§4's reachability step is a flat filter, not a
+   traversal, so there is nothing to get wrong by recomputing rather than indexing). "Cheap" here
+   means "cheap enough not to need the index for Phase 4's own gate," not "as cheap as a real
+   scoped invalidation would be" — `resync` still re-filters the whole observed set once per call
+   rather than touching only what a specific delta could have affected; that gap is Phase 5's to
+   close, not this one's. Recomputing the member set fresh is nonetheless what makes
    this safe to do unconditionally on every delta rather than only on a detected flip: recomputing
    membership for a root that is *still* admitted is a no-op (`credit`/`uncredit` on a `Set` are
    idempotent), so there is nothing to gate the way §5 gates a Binding's counter. `unobserve` of a

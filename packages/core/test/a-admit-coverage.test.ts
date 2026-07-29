@@ -35,6 +35,6 @@ describe('Phase 4 gate — admit-module rule coverage', () => {
     expect(OWNED.filter((id) => RULES[id].layer !== 'D')).toEqual([])
   })
 
-  itReportsTheSplit('admit-module coverage', A_ADMIT_COVERAGE, 0)
+  itReportsTheSplit('admit-module coverage', A_ADMIT_COVERAGE)
   itCoversEachRule('admission', A_ADMIT_COVERAGE)
 })
