@@ -11,8 +11,9 @@
  * The generator is biased toward the shapes AG4 names: a Binding observed before either endpoint
  * (BD-6), the same delta redelivered adjacently and non-adjacently, a pubkey trusted then
  * untrusted then retrusted within one sequence, two Bindings crediting the same endpoint with only
- * one revoked, a self-fork where only one sibling's author is independently trusted, and a root
- * losing its last admission reason while its patches are still being delivered.
+ * one revoked, a self-fork chain admitted only through a Binding with the root author's own pubkey
+ * untrusted, and a root losing its last admission reason while its patches are still being
+ * delivered.
  */
 
 import fc from 'fast-check'
@@ -25,6 +26,8 @@ import {
   computeAdmission,
   invertDelta,
   isAdmitted,
+  reasonKind,
+  rootChainReason,
   toIndex,
 } from '../src/admit.js'
 import type { NostrEvent } from '../src/events.js'
@@ -47,21 +50,27 @@ import { PK_FOREIGN, PK_OTHER, PK_ROOT } from './_fixtures.js'
 const root = product('root')
 const link = metadata('link', { pubkey: PK_FOREIGN })
 const binding = bindingEvent('binding', root.id, link.id, { pubkey: PK_OTHER })
+// A second, independent Binding crediting the same two endpoints — lets the generator reach
+// "two Bindings crediting the same endpoint, only one revoked" (AG4).
+const binding2 = bindingEvent('binding2', root.id, link.id, { pubkey: PK_OTHER })
 const left = rootPatch('left', root.id, root.id) // self-fork sibling 1
 const right = rootPatch('right', root.id, root.id) // self-fork sibling 2
 const overlay = foreignPatch('overlay', root.id, root.id)
 const deleteLeft = deletion('delete-left', [left.id], PK_ROOT)
 const deleteBinding = deletion('delete-binding', [binding.id], PK_OTHER)
+const deleteBinding2 = deletion('delete-binding2', [binding2.id], PK_OTHER)
 
 const FIXED_EVENTS: readonly NostrEvent[] = [
   root,
   link,
   binding,
+  binding2,
   left,
   right,
   overlay,
   deleteLeft,
   deleteBinding,
+  deleteBinding2,
 ]
 const PUBKEYS = [PK_ROOT, PK_FOREIGN, PK_OTHER]
 
@@ -153,10 +162,35 @@ describe('AG1 — incremental admission ≡ full recompute, after every prefix',
     )
   })
 
+  /**
+   * A pubkey trusted more than once, then later untrusted in the same sequence — the exact D23
+   * shape ("a revocation following a redundant re-application") ADMIT.md §10 names, distinct from
+   * `redundantObserve` below, which counts any repeated action regardless of whether it is ever
+   * revoked.
+   */
+  function hasRevokeAfterRedundantTrust(actions: readonly Action[]): boolean {
+    const trustCounts = new Map<string, number>()
+    for (const a of actions) {
+      if (a.kind === 'trust') trustCounts.set(a.pk, (trustCounts.get(a.pk) ?? 0) + 1)
+      else if (a.kind === 'untrust' && (trustCounts.get(a.pk) ?? 0) >= 2) return true
+    }
+    return false
+  }
+
   it('reaches the hard shapes often enough for the property above to mean something', () => {
     let redundantObserve = 0
     let retrustChurn = 0
     let multiReasonOverlap = 0
+    let twoBindingsOneRevoked = 0
+    let selfForkRootChainOnly = 0
+    let revokeAfterRedundantObserve = 0
+    let admittedCount = 0
+    let notAdmittedCount = 0
+    const kindCounts: Record<'direct-trust' | 'binding' | 'root-chain', number> = {
+      'direct-trust': 0,
+      binding: 0,
+      'root-chain': 0,
+    }
     fc.assert(
       fc.property(sequenceArb, (actions) => {
         const seen = new Set<string>()
@@ -167,24 +201,170 @@ describe('AG1 — incremental admission ≡ full recompute, after every prefix',
         }
         const trustFlips = actions.filter((a) => a.kind !== 'observe').length
         if (trustFlips >= 3) retrustChurn++
+        if (hasRevokeAfterRedundantTrust(actions)) revokeAfterRedundantObserve++
 
         const deltas = actions.map(toDelta)
         const { events, trusted } = replay(deltas)
         const index = computeAdmission(events, fakeTrust(trusted))
-        for (const reasons of Object.values(index.reasons))
+        const observedIds = new Set(events.map((e) => e.id))
+
+        for (const reasons of Object.values(index.reasons)) {
           if (reasons.length > 1) multiReasonOverlap++
+          for (const r of reasons) kindCounts[reasonKind(r)]++
+        }
+        for (const e of events) {
+          if (isAdmitted(index, e.id)) admittedCount++
+          else notAdmittedCount++
+        }
+
+        const bothBindingsObserved = observedIds.has(binding.id) && observedIds.has(binding2.id)
+        const exactlyOneRevoked =
+          observedIds.has(deleteBinding.id) !== observedIds.has(deleteBinding2.id)
+        if (bothBindingsObserved && exactlyOneRevoked && trusted.includes(PK_OTHER)) {
+          twoBindingsOneRevoked++
+        }
+
+        const selfForkObserved =
+          observedIds.has(root.id) && observedIds.has(left.id) && observedIds.has(right.id)
+        const leftReasons = index.reasons[left.id] ?? []
+        const rightReasons = index.reasons[right.id] ?? []
+        if (
+          selfForkObserved &&
+          !trusted.includes(PK_ROOT) &&
+          leftReasons.includes(rootChainReason(root.id)) &&
+          rightReasons.includes(rootChainReason(root.id)) &&
+          !leftReasons.includes('direct-trust') &&
+          !rightReasons.includes('direct-trust')
+        ) {
+          selfForkRootChainOnly++
+        }
       }),
       { numRuns: 3_000 },
     )
     console.log(
       `admit generator mix: redundantActions=${redundantObserve} retrustChurn=${retrustChurn} ` +
-        `multiReasonOverlap=${multiReasonOverlap}`,
+        `multiReasonOverlap=${multiReasonOverlap} twoBindingsOneRevoked=${twoBindingsOneRevoked} ` +
+        `selfForkRootChainOnly=${selfForkRootChainOnly} ` +
+        `revokeAfterRedundantObserve=${revokeAfterRedundantObserve}`,
+    )
+    console.log(
+      `admit outcome mix: admitted=${admittedCount} notAdmitted=${notAdmittedCount} ` +
+        `directTrust=${kindCounts['direct-trust']} binding=${kindCounts.binding} ` +
+        `rootChain=${kindCounts['root-chain']}`,
     )
     expect(redundantObserve, 'redundant/duplicate actions').toBeGreaterThan(200)
     expect(retrustChurn, 'sequences with real trust churn').toBeGreaterThan(50)
     expect(multiReasonOverlap, 'events admitted by more than one reason at once').toBeGreaterThan(
       20,
     )
+    expect(
+      revokeAfterRedundantObserve,
+      'a pubkey redundantly trusted then later untrusted in the same sequence',
+    ).toBeGreaterThan(20)
+    // twoBindingsOneRevoked and selfForkRootChainOnly are logged, not gated here: both need
+    // several specific ids observed together, which the uniform generator above only reaches by
+    // chance (twoBindingsOneRevoked swung 5-13 per 3_000 runs across repeated local runs with no
+    // fixed seed — too flaky for a floor; selfForkRootChainOnly scored 0). The dedicated, biased
+    // generators below carry each shape's floor instead.
+  })
+})
+
+describe('AG4 — two Bindings credit the same endpoint, only one revoked', () => {
+  /** Guarantees both Bindings are live, then lets the generator choose whether/which to revoke —
+   * the natural rate of this combination in the uniform generator above was too low (5-13 per
+   * 3_000 runs, no fixed seed) to make a stable floor. */
+  const guaranteedPrefix: readonly Action[] = [
+    { kind: 'trust', pk: PK_OTHER },
+    { kind: 'observe', index: FIXED_EVENTS.indexOf(binding) },
+    { kind: 'observe', index: FIXED_EVENTS.indexOf(binding2) },
+  ]
+
+  const revocationChoiceArb: fc.Arbitrary<readonly Action[]> = fc.oneof(
+    fc.constant([{ kind: 'observe' as const, index: FIXED_EVENTS.indexOf(deleteBinding) }]),
+    fc.constant([{ kind: 'observe' as const, index: FIXED_EVENTS.indexOf(deleteBinding2) }]),
+    fc.constant([]),
+  )
+
+  const twoBindingsSequenceArb: fc.Arbitrary<readonly Action[]> = revocationChoiceArb.map(
+    (revocation) => [...guaranteedPrefix, ...revocation],
+  )
+
+  it('reaches the shape ADMIT.md §10 names, with a floor', () => {
+    let hits = 0
+    fc.assert(
+      fc.property(twoBindingsSequenceArb, (actions) => {
+        const deltas = actions.map(toDelta)
+        const { events, trusted } = replay(deltas)
+        const observedIds = new Set(events.map((e) => e.id))
+        const exactlyOneRevoked =
+          observedIds.has(deleteBinding.id) !== observedIds.has(deleteBinding2.id)
+        if (exactlyOneRevoked && trusted.includes(PK_OTHER)) hits++
+      }),
+      { numRuns: 300 },
+    )
+    expect(hits, 'two Bindings credit the same endpoint, only one revoked').toBeGreaterThan(50)
+  })
+})
+
+describe('AG4 — self-fork admitted via root-chain only, root author untrusted', () => {
+  /**
+   * The uniform generator above almost never reaches this shape (it requires five conditions at
+   * once: root, both self-fork siblings, and a live Binding all observed, while the root author's
+   * own pubkey is never trusted for the whole sequence) — the same lesson Phase 2's zero-context
+   * generator names: a property is only as strong as its generator's bias. This one guarantees the
+   * shape's prefix and only adds noise that cannot undo it (no action here ever names `PK_ROOT` or
+   * touches `binding`'s liveness).
+   */
+  const guaranteedPrefix: readonly Action[] = [
+    { kind: 'trust', pk: PK_OTHER },
+    { kind: 'observe', index: FIXED_EVENTS.indexOf(root) },
+    { kind: 'observe', index: FIXED_EVENTS.indexOf(binding) },
+    { kind: 'observe', index: FIXED_EVENTS.indexOf(left) },
+    { kind: 'observe', index: FIXED_EVENTS.indexOf(right) },
+  ]
+
+  const harmlessNoiseArb: fc.Arbitrary<Action> = fc.oneof(
+    fc.record({
+      kind: fc.constant('observe' as const),
+      index: fc.constantFrom(
+        FIXED_EVENTS.indexOf(link),
+        FIXED_EVENTS.indexOf(binding2),
+        FIXED_EVENTS.indexOf(overlay),
+      ),
+    }),
+    fc.record({ kind: fc.constant('trust' as const), pk: fc.constant(PK_FOREIGN) }),
+    fc.record({ kind: fc.constant('untrust' as const), pk: fc.constant(PK_FOREIGN) }),
+  )
+
+  const rootChainOnlySequenceArb: fc.Arbitrary<readonly Action[]> = fc
+    .array(harmlessNoiseArb, { maxLength: 15 })
+    .map((noise) => [...guaranteedPrefix, ...noise])
+
+  it('reaches the shape ADMIT.md §10 names, with a floor', () => {
+    let hits = 0
+    fc.assert(
+      fc.property(rootChainOnlySequenceArb, (actions) => {
+        const deltas = actions.map(toDelta)
+        const { events, trusted } = replay(deltas)
+        const index = computeAdmission(events, fakeTrust(trusted))
+        const leftReasons = index.reasons[left.id] ?? []
+        const rightReasons = index.reasons[right.id] ?? []
+        if (
+          !trusted.includes(PK_ROOT) &&
+          leftReasons.includes(rootChainReason(root.id)) &&
+          rightReasons.includes(rootChainReason(root.id)) &&
+          !leftReasons.includes('direct-trust') &&
+          !rightReasons.includes('direct-trust')
+        ) {
+          hits++
+        }
+      }),
+      { numRuns: 1_000 },
+    )
+    expect(
+      hits,
+      'self-fork siblings admitted via root-chain only, root author untrusted',
+    ).toBeGreaterThan(500)
   })
 })
 
