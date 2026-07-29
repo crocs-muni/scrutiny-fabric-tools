@@ -203,6 +203,27 @@ describe('AG2 — apply-then-invert ≡ exact initial state', () => {
   })
 })
 
+describe('AG2 regression — unobserving a root-chain member must strip its root-chain reason too', () => {
+  it('pinned counterexample: trust(root author), observe(root), observe(root-chain member), invert', () => {
+    // Shrunk from AG2's fast-check failure. Forward: trust(PK_ROOT) credits nothing yet (nothing
+    // observed); observe(root) credits root's own direct-trust; observe(left) credits left's own
+    // direct-trust *and*, via resync, left's root-chain:<root.id> (left qualifies as a root-chain
+    // member of root). The bug: undoing observe(left) via unobserve stripped only direct-trust,
+    // leaving root-chain:<root.id> stranded on `left` forever, since once `left` is removed from
+    // observedById nothing will ever revisit it to clean the reason up.
+    const state0 = EMPTY_ADMIT_STATE
+    const forward: readonly ForwardDelta[] = [
+      { kind: 'trust', pubkeys: [PK_ROOT] },
+      { kind: 'observe', events: [root] },
+      { kind: 'observe', events: [left] },
+    ]
+    const inverses = [...forward].reverse().map(invertDelta)
+    let state = state0
+    for (const d of [...forward, ...inverses]) state = applyDelta(state, d)
+    expect(state).toEqual(state0)
+  })
+})
+
 describe('D23 regression — sticky admission after revocation', () => {
   it('a Binding delivered twice, then revoked once, does not leave its endpoints stuck admitted', () => {
     const r = product('sticky-root')
