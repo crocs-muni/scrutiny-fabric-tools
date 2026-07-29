@@ -37,8 +37,16 @@ export function allIssues(table: CoverageTable): readonly Issue[] {
   return entriesOf(table).flatMap(([, e]) => (e.kind === 'emitted' ? [...e.issues()] : []))
 }
 
-/** Surface the ratio in CI output rather than burying it in a doc. */
-export function itReportsTheSplit(label: string, table: CoverageTable): void {
+/**
+ * Surface the ratio in CI output rather than burying it in a doc.
+ *
+ * `minEmitted` defaults to 1 — every prior partition (V, patch, resolve) has at least one rule
+ * with a real rejection/HALT/limit disposition, so a table reporting zero would signal the
+ * harness silently losing coverage. Pass `0` for a module whose owned rules are exhaustively
+ * non-rejecting by construction (D-layer rules per §6.0) — `admit`'s partition is the first such
+ * case; see `docs/ADMIT.md` §10 (AG3).
+ */
+export function itReportsTheSplit(label: string, table: CoverageTable, minEmitted = 1): void {
   it('reports the split', () => {
     const entries = entriesOf(table)
     const emittedCount = entries.filter(([, e]) => e.kind === 'emitted').length
@@ -46,7 +54,7 @@ export function itReportsTheSplit(label: string, table: CoverageTable): void {
       `${label}: ${emittedCount}/${entries.length} emit a rule code; ` +
         `${entries.length - emittedCount} not test-covered, each with a stated reason.`,
     )
-    expect(emittedCount).toBeGreaterThan(0)
+    expect(emittedCount).toBeGreaterThanOrEqual(minEmitted)
   })
 }
 

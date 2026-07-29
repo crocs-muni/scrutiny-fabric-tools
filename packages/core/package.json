@@ -37,6 +37,10 @@
       "types": "./dist/resolve.d.ts",
       "default": "./dist/resolve.js"
     },
+    "./admit.js": {
+      "types": "./dist/admit.d.ts",
+      "default": "./dist/admit.js"
+    },
     "./id.js": {
       "types": "./dist/id.d.ts",
       "default": "./dist/id.js"

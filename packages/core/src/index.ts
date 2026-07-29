@@ -70,6 +70,35 @@ export {
 
 export { hasError, issue, ruleOf, type Issue, type Severity } from './errors.js'
 
+/**
+ * Trust admission — reason sets, refcounting, and the `TrustedView`/`OpenView` distinction (D22).
+ * `TrustProvider` (D21) is re-exported here rather than from its own subpath: it is one of D16's
+ * four extension interfaces, not a rule-bearing module, so it has no `exports` entry of its own.
+ */
+export {
+  EMPTY_ADMIT_STATE,
+  applyDelta,
+  bindingReason,
+  computeAdmission,
+  invertDelta,
+  isAdmitted,
+  isDefaultViewRetracted,
+  openView,
+  reasonKind,
+  rootChainReason,
+  toIndex,
+  trustedView,
+  visibleOverlays,
+  type AdmissionDelta,
+  type AdmissionIndex,
+  type AdmissionView,
+  type AdmitState,
+  type ForwardDelta,
+  type Reason,
+} from './admit.js'
+
+export { trustSymbol, type TrustProvider } from './interfaces.js'
+
 export {
   RULES,
   RULE_IDS,
