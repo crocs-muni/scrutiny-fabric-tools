@@ -18,7 +18,7 @@ Supersedes the previous `IMPLEMENTATION-PLAN.md` (targeted spec v0.5.3, never co
 | 1 | `events`, `validate`, `id` | ✅ **done** — 131 tests; 26/47 V rules emit a code, 21 declared not-covered with reasons in `test/_v-coverage.ts` |
 | 2 | `patch` — the T1/T2/T3 matcher | ✅ **done** — 209 tests; gate green over 10k round-trip and 5k zero-context cases. Mini-spec in [`PATCH-MATCHER.md`](PATCH-MATCHER.md). Found SPEC-FEEDBACK F5–F9 and correction C1 to D31 |
 | 3 | `resolve` — chain + overlays | ✅ **done** — 285 tests; G1 green over 10k permutations, G2 over 4k, 3/32 rules emit a code and 29 declared not-covered. Mini-spec in [`RESOLVE.md`](RESOLVE.md). Found SPEC-FEEDBACK F10–F11 |
-| 4 | `admit` | not started |
+| 4 | `admit` | ✅ **done** — 325 tests repo-wide (37 admit-specific); AG1 green over 10k prefix-checked sequences, AG2 over 10k apply-then-invert round-trips, 0/9 rules emit a code and 9 declared not-covered (all D-layer, no rejection disposition exists to emit). Mini-spec in [`ADMIT.md`](ADMIT.md). AG2's property test found and fixed a real invertibility gap in the design before any code shipped against it |
 | 5 | `store` — reducer + ports + epochs | not started |
 | 6 | `query`, `build` | not started |
 | 7 | Coverage tooling, adapters, docs | not started |
@@ -265,7 +265,28 @@ not — do not assume it.
 
 Reason sets, refcounting, `TrustedView` / `OpenView` (D22).
 
-Gate: `discovery.json` vectors pass, plus the two adversarial property tests below.
+`discovery.json` does not exist, for the same reason `application.json` didn't at Phase 3 — see
+that phase's note. Substitute gate, defined in [`ADMIT.md`](ADMIT.md) §10 in the same spirit:
+
+- **AG1 — incremental admission ≡ full recompute, for every trust set**, checked after every
+  prefix of a delta sequence rather than only at the end, since D23's sticky-admission bug only
+  appears after a revocation *following* a redundant re-application.
+- **AG2 — apply-then-invert any delta sequence ≡ exact initial state.** Found a real design gap
+  before any code shipped against it: the original `ForwardDelta` also included `untrust`, and a
+  standalone `untrust(pk)` for a never-trusted `pk` is a legitimate no-op whose syntactic inverse
+  (`trust(pk)`) is not — `ForwardDelta` was narrowed to `observe | trust` in response (§9).
+- **AG3 — a rule-coverage partition** over admit's rules (TR-2…7, OV-7, DEL-4, DEL-5), reusing
+  `test/_coverage.ts`. All nine land in `not-covered`: no rule this module owns has a rejection or
+  annotation disposition to emit (§6.0 — D rules are not admission criteria for the event itself).
+- **AG4 — generator bias and floors** over the hard shapes: a Binding observed before either
+  endpoint (BD-6), the same delta redelivered adjacently and non-adjacently, retrust churn, and
+  multi-reason overlap.
+
+Gate: green over 10k AG1 sequences and 10k AG2 sequences. AG1 passed clean on the first
+implementation attempt; AG2 found the `ForwardDelta` gap above and a second bug — `unobserve` was
+stripping only `direct-trust` from a removed root-chain *member*, leaving a stranded
+`root-chain:*` reason nothing would ever revisit — both fixed, the second pinned as a permanent
+regression case in `test/admit-property.test.ts`.
 
 ### Phase 5 — `store`
 
