@@ -7,6 +7,7 @@ import { describe, expect, it } from 'vitest'
 import {
   EMPTY_STORE_STATE,
   applyStoreDelta,
+  createInMemoryEventStorage,
   createResolveMemo,
   createStore,
   resolveRoot,
@@ -195,5 +196,23 @@ describe('the default in-memory EventStorage adapter', () => {
     // Exercised indirectly: getState() reflects what put() received, since the default adapter and
     // the reducer are fed the same accepted batch.
     expect(store.getState().admit.observedById[r.id]?.id).toBe(r.id)
+  })
+
+  it('query()/get() work directly against a standalone instance (ids, kinds, and a tag filter)', async () => {
+    const storage = createInMemoryEventStorage()
+    const r = root(A, 'storage-query-root')
+    const p = diffPatch('storage-query-patch', r.id, r.id, A, AB)
+    await storage.put([r, p])
+
+    expect([...(await storage.get([r.id, 'not-observed']))].map(([id]) => id)).toEqual([r.id])
+
+    const byId = await storage.query([{ ids: [p.id] }])
+    expect(byId.map((e) => e.id)).toEqual([p.id])
+
+    const byKind = await storage.query([{ kinds: [5] }])
+    expect(byKind).toEqual([])
+
+    const byRootTag = await storage.query([{ tags: { '#e': [r.id] } }])
+    expect(byRootTag.map((e) => e.id)).toEqual([p.id]) // only the patch carries an `e` tag to r.id
   })
 })

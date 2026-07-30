@@ -114,6 +114,7 @@ export {
   EMPTY_STORE_STATE,
   applyStoreDelta,
   bindingRejectionIssue,
+  createInMemoryEventStorage,
   createResolveMemo,
   createStore,
   resolveRoot,

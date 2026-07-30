@@ -15,17 +15,36 @@ import { PK_ROOT } from './_fixtures.js'
 import { deletion, diffPatch, root } from './_resolve.js'
 import { bindingAt, forged, genuine, metadataAt } from './_store.js'
 
+/** Outcome-mix bookkeeping the property assertions read floors from — one field per named bias. */
+export interface ScenarioMix {
+  readonly bindingsWellTyped: number
+  readonly bindingsMisTyped: number
+  readonly bindingEndpointsNonAdjacent: number
+  readonly dedupRaces: number
+  readonly trustThenObserveSameTick: number
+}
+
+export const emptyMix = (): ScenarioMix => ({
+  bindingsWellTyped: 0,
+  bindingsMisTyped: 0,
+  bindingEndpointsNonAdjacent: 0,
+  dedupRaces: 0,
+  trustThenObserveSameTick: 0,
+})
+
+/** Field-wise sum — the property test accumulates one `ScenarioMix` per generated scenario into a running total this way. */
+export const addMix = (a: ScenarioMix, b: ScenarioMix): ScenarioMix => ({
+  bindingsWellTyped: a.bindingsWellTyped + b.bindingsWellTyped,
+  bindingsMisTyped: a.bindingsMisTyped + b.bindingsMisTyped,
+  bindingEndpointsNonAdjacent: a.bindingEndpointsNonAdjacent + b.bindingEndpointsNonAdjacent,
+  dedupRaces: a.dedupRaces + b.dedupRaces,
+  trustThenObserveSameTick: a.trustThenObserveSameTick + b.trustThenObserveSameTick,
+})
+
 export interface StoreScenario {
   readonly deltas: readonly StoreDelta[]
   readonly rootIds: readonly string[]
-  /** Outcome-mix bookkeeping the property assertions read floors from. */
-  readonly mix: {
-    readonly bindingsWellTyped: number
-    readonly bindingsMisTyped: number
-    readonly bindingEndpointsNonAdjacent: number
-    readonly dedupRaces: number
-    readonly trustThenObserveSameTick: number
-  }
+  readonly mix: ScenarioMix
 }
 
 const observe = (event: NostrEvent): StoreDelta => ({ kind: 'observe', events: [event] })
@@ -71,13 +90,7 @@ function build(s: {
   const tag = `s${scenarioCounter}`
   const deltas: StoreDelta[] = []
   const rootIds: string[] = []
-  const mix = {
-    bindingsWellTyped: 0,
-    bindingsMisTyped: 0,
-    bindingEndpointsNonAdjacent: 0,
-    dedupRaces: 0,
-    trustThenObserveSameTick: 0,
-  }
+  const mix = { ...emptyMix() }
 
   const r = genuine(root('a\n', `${tag}-root`))
   rootIds.push(r.id)

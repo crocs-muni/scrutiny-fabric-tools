@@ -17,12 +17,14 @@ import {
   type AdmitState,
   EMPTY_ADMIT_STATE,
   applyDelta as applyAdmitDelta,
+  bindingEndpoints,
   toIndex,
 } from './admit.js'
 import { type Issue, issue } from './errors.js'
-import { type NostrEvent, eTags, eTagsWithMarker, rootTarget, scrutinyEventType } from './events.js'
+import { type NostrEvent, eTags, rootTarget, scrutinyEventType, tagValues } from './events.js'
 import type { EventFilter, EventStorage } from './interfaces.js'
 import { storageSymbol } from './interfaces.js'
+import type { ApplyOptions } from './patch.js'
 import { type Resolution, type ResolveOptions, resolve } from './resolve.js'
 
 // ---------------------------------------------------------------------------
@@ -90,26 +92,9 @@ export function toStoreView(state: StoreState): StoreView {
 // BD-3/BD-4/BD-7 — Binding endpoint typing
 // ---------------------------------------------------------------------------
 
-interface BindingEndpoints {
-  readonly rootId: string
-  readonly linkId: string
-}
-
-/**
- * Restated locally rather than imported from `admit.ts`, which does not export its own version —
- * same discipline `admit.ts` itself uses for `isHonouredDeletion` rather than depending on
- * `resolve.ts`. A malformed Binding (wrong marker cardinality) is `validate.ts`'s concern; this
- * treats `undefined` as "nothing to check yet" rather than re-deriving that rejection.
- */
-function bindingEndpoints(binding: NostrEvent): BindingEndpoints | undefined {
-  const roots = eTagsWithMarker(binding, 'root')
-  const links = eTagsWithMarker(binding, 'link')
-  if (roots.length !== 1 || links.length !== 1) return undefined
-  const rootRef = roots[0]
-  const linkRef = links[0]
-  if (rootRef === undefined || linkRef === undefined) return undefined
-  return { rootId: rootRef.id, linkId: linkRef.id }
-}
+// `bindingEndpoints`/`BindingEndpoints` come from admit.ts (see its own comment on why this is
+// imported rather than restated — store already depends on admit directly, unlike resolve.ts's
+// deliberate independence from it).
 
 function addAwaiting(
   awaiting: Map<string, Set<string>>,
@@ -193,7 +178,37 @@ function bump(epochs: Map<string, number>, id: string): void {
   epochs.set(id, (epochs.get(id) ?? 0) + 1)
 }
 
-/** The per-event chain-epoch/chainMembership bookkeeping table in STORE.md §3, plus BD-7's check. */
+/**
+ * STORE.md §3's per-event chain-epoch table: which root id(s) does this event's own arrival *or*
+ * removal affect. Shared by `processObservedEvent` (observe) and the `unobserve` loop below, which
+ * previously hand-duplicated this dispatch — the one real asymmetry between the two callers is
+ * *how* a kind-5 deletion's target resolves to an owning root (a live `chainMembership` Map being
+ * built during observe vs. the frozen `state.chainMembership` snapshot during unobserve), which is
+ * why that lookup is the one thing parameterised rather than shared outright.
+ */
+function chainEpochTargets(
+  event: NostrEvent,
+  lookupOwningRoot: (id: string) => string | undefined,
+): readonly string[] {
+  const type = scrutinyEventType(event)
+  if (type === 'product' || type === 'metadata') return [event.id]
+  if (type === 'patch') {
+    const root = rootTarget(event)
+    return root !== undefined ? [root] : []
+  }
+  if (event.kind === 5) {
+    const targets: string[] = []
+    for (const ref of eTags(event)) {
+      const owningRoot = lookupOwningRoot(ref.id)
+      if (owningRoot !== undefined) targets.push(owningRoot)
+      targets.push(ref.id) // unconditional — covers target-is-itself-a-root (DEL-4)
+    }
+    return targets
+  }
+  return []
+}
+
+/** The per-event chainMembership/chainEpoch bookkeeping in STORE.md §3, plus BD-7's check. */
 function processObservedEvent(
   event: NostrEvent,
   observedById: Readonly<Record<string, NostrEvent>>,
@@ -204,22 +219,15 @@ function processObservedEvent(
 ): void {
   const type = scrutinyEventType(event)
 
-  if (type === 'product' || type === 'metadata') {
-    bump(chainEpoch, event.id)
-  } else if (type === 'patch') {
+  if (type === 'patch') {
     const root = rootTarget(event)
-    if (root !== undefined) {
-      chainMembership.set(event.id, root)
-      bump(chainEpoch, root)
-    }
-  } else if (event.kind === 5) {
-    for (const ref of eTags(event)) {
-      const owningRoot = chainMembership.get(ref.id)
-      if (owningRoot !== undefined) bump(chainEpoch, owningRoot)
-      bump(chainEpoch, ref.id) // unconditional — covers target-is-itself-a-root (DEL-4)
-    }
+    if (root !== undefined) chainMembership.set(event.id, root)
   } else if (type === 'binding') {
     checkBindingTyping(event, observedById, bindingsAwaiting, rejectedBindings)
+  }
+
+  for (const id of chainEpochTargets(event, (refId) => chainMembership.get(refId))) {
+    bump(chainEpoch, id)
   }
 
   // This event's own id may be an endpoint some other (already-observed) Binding is still awaiting.
@@ -244,7 +252,7 @@ function recordToSetMap(
   return new Map(Object.entries(record).map(([k, v]) => [k, new Set(v)]))
 }
 
-function mapToSortedRecord<T>(map: ReadonlyMap<string, T>): Record<string, T> {
+function mapToRecord<T>(map: ReadonlyMap<string, T>): Record<string, T> {
   return Object.fromEntries(map)
 }
 
@@ -262,7 +270,12 @@ export function applyStoreDelta(state: StoreState, delta: StoreDelta): StoreStat
   switch (delta.kind) {
     case 'observe': {
       if (delta.events.length === 0) return state
-      const alreadyKnown = new Set(Object.keys(state.admit.observedById))
+      const priorObserved = state.admit.observedById
+      // Only tracks ids newly seen *within this batch* — membership against everything already
+      // observed is a direct lookup on `priorObserved` instead of first materialising every prior
+      // id into a Set, which would cost O(total observed) on every single call regardless of how
+      // small the incoming batch is.
+      const newlySeen = new Set<string>()
       const admitAfter = applyAdmitDelta(state.admit, { kind: 'observe', events: delta.events })
 
       const chainMembership = recordToMap(state.chainMembership)
@@ -271,8 +284,8 @@ export function applyStoreDelta(state: StoreState, delta: StoreDelta): StoreStat
       const rejectedBindings = new Set(state.rejectedBindings)
 
       for (const event of delta.events) {
-        if (alreadyKnown.has(event.id)) continue
-        alreadyKnown.add(event.id)
+        if (Object.hasOwn(priorObserved, event.id) || newlySeen.has(event.id)) continue
+        newlySeen.add(event.id)
         processObservedEvent(
           event,
           admitAfter.observedById,
@@ -286,11 +299,11 @@ export function applyStoreDelta(state: StoreState, delta: StoreDelta): StoreStat
       return {
         admit: admitAfter,
         rejectedBindings: [...rejectedBindings].sort(),
-        chainMembership: mapToSortedRecord(chainMembership),
+        chainMembership: mapToRecord(chainMembership),
         bindingsAwaiting: setMapToSortedRecord(bindingsAwaiting),
         trustEpoch: state.trustEpoch,
         observedEpoch: state.observedEpoch + 1,
-        chainEpoch: mapToSortedRecord(chainEpoch),
+        chainEpoch: mapToRecord(chainEpoch),
       }
     }
 
@@ -316,18 +329,8 @@ export function applyStoreDelta(state: StoreState, delta: StoreDelta): StoreStat
 
         // Symmetric to observe (STORE.md §3): removing an event can affect a root's resolve()
         // output too, so the same epoch(s) that would have been bumped on arrival bump on removal.
-        const type = scrutinyEventType(event)
-        if (type === 'product' || type === 'metadata') {
-          bump(chainEpoch, id)
-        } else if (type === 'patch') {
-          const root = state.chainMembership[id]
-          if (root !== undefined) bump(chainEpoch, root)
-        } else if (event.kind === 5) {
-          for (const ref of eTags(event)) {
-            const owningRoot = state.chainMembership[ref.id]
-            if (owningRoot !== undefined) bump(chainEpoch, owningRoot)
-            bump(chainEpoch, ref.id)
-          }
+        for (const target of chainEpochTargets(event, (refId) => state.chainMembership[refId])) {
+          bump(chainEpoch, target)
         }
       }
 
@@ -343,7 +346,7 @@ export function applyStoreDelta(state: StoreState, delta: StoreDelta): StoreStat
         bindingsAwaiting: setMapToSortedRecord(bindingsAwaiting),
         trustEpoch: state.trustEpoch,
         observedEpoch: state.observedEpoch + 1,
-        chainEpoch: mapToSortedRecord(chainEpoch),
+        chainEpoch: mapToRecord(chainEpoch),
       }
     }
 
@@ -380,6 +383,17 @@ interface MemoEntry {
 /** Opaque to callers beyond `createResolveMemo`/`resolveRoot` — never compared for confluence. */
 export interface ResolveMemo {
   readonly entries: Map<string, MemoEntry>
+  /**
+   * The materialised event array shares across every root as long as `observedById` hasn't changed
+   * — `applyStoreDelta` always produces a fresh `admit`/`observedById` object per `observe`/
+   * `unobserve` delta (never mutated in place), so identity comparison is exactly "has anything been
+   * observed or unobserved since this array was built." Without this, resolving R roots after one
+   * ingest batch would re-materialise the same, unchanged observed set R times over.
+   */
+  eventsCache?: {
+    readonly observedById: Readonly<Record<string, NostrEvent>>
+    readonly events: readonly NostrEvent[]
+  }
 }
 
 export function createResolveMemo(): ResolveMemo {
@@ -410,8 +424,13 @@ export function resolveRoot(
     return cached.resolution
   }
 
-  const events = Object.values(state.admit.observedById)
-  const resolution = resolve(rootId, events, options)
+  if (memo.eventsCache?.observedById !== state.admit.observedById) {
+    memo.eventsCache = {
+      observedById: state.admit.observedById,
+      events: Object.values(state.admit.observedById),
+    }
+  }
+  const resolution = resolve(rootId, memo.eventsCache.events, options)
   memo.entries.set(rootId, { epoch, optionsKey, resolution })
   return resolution
 }
@@ -426,7 +445,7 @@ export interface CreateStoreOptions {
   /** D37: in-memory default when omitted. */
   readonly storage?: EventStorage
   /** RL-2's configuration half — threaded to every internal `resolve()` call. */
-  readonly applyOptions?: { readonly maxHunks?: number; readonly maxWork?: number }
+  readonly applyOptions?: ApplyOptions
 }
 
 export interface IngestMeta {
@@ -469,7 +488,12 @@ export interface Store {
   getState(): StoreState
 }
 
-function defaultInMemoryStorage(): EventStorage {
+/**
+ * The in-memory default (D37) — exported so it's independently constructible (a consumer wiring an
+ * app together explicitly, or a test exercising `query`/`get` directly) rather than reachable only
+ * as `createStore`'s invisible fallback.
+ */
+export function createInMemoryEventStorage(): EventStorage {
   const byId = new Map<string, NostrEvent>()
   return {
     [storageSymbol]: true,
@@ -500,10 +524,7 @@ function matchesFilter(event: NostrEvent, filter: EventFilter): boolean {
   if (filter.tags !== undefined) {
     for (const [tagName, values] of Object.entries(filter.tags)) {
       const letter = tagName.startsWith('#') ? tagName.slice(1) : tagName
-      const present = event.tags.some(
-        (t) => t[0] === letter && t[1] !== undefined && values.includes(t[1]),
-      )
-      if (!present) return false
+      if (!tagValues(event, letter).some((v) => values.includes(v))) return false
     }
   }
   return true
@@ -516,7 +537,7 @@ function matchesFilter(event: NostrEvent, filter: EventFilter): boolean {
  * change to this signature.
  */
 export function createStore(options: CreateStoreOptions): Store {
-  const storage = options.storage ?? defaultInMemoryStorage()
+  const storage = options.storage ?? createInMemoryEventStorage()
   let state = EMPTY_STORE_STATE
   const memo = createResolveMemo()
 
@@ -532,12 +553,17 @@ export function createStore(options: CreateStoreOptions): Store {
     }
 
     if (accepted.length > 0) {
-      await storage.put(accepted)
-      const before = state.rejectedBindings
+      // Persisting the raw batch and folding it into the reducer are independent (the reducer never
+      // reads `storage`), so the storage adapter's I/O wait can overlap with the reducer step
+      // instead of strictly preceding it — a real overlap once a genuinely async adapter is wired
+      // in, and a same-tick no-op for the synchronous in-memory default.
+      const putDone = storage.put(accepted)
+      const beforeRejected = new Set(state.rejectedBindings)
       state = applyStoreDelta(state, { kind: 'observe', events: accepted })
       for (const id of state.rejectedBindings) {
-        if (!before.includes(id)) rejected.push(bindingRejection(state, id))
+        if (!beforeRejected.has(id)) rejected.push(bindingRejection(state, id))
       }
+      await putDone
     }
 
     return { accepted: accepted.map((e) => e.id), rejected }
@@ -563,9 +589,9 @@ export function createStore(options: CreateStoreOptions): Store {
   }
 
   function resolveRootBound(rootId: string, resolveOptions?: ResolveOptions): Resolution {
-    const merged: ResolveOptions =
+    const effectiveOptions: ResolveOptions =
       resolveOptions ?? (options.applyOptions ? { apply: options.applyOptions } : {})
-    return resolveRoot(state, rootId, memo, merged)
+    return resolveRoot(state, rootId, memo, effectiveOptions)
   }
 
   return {

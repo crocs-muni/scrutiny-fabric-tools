@@ -8,6 +8,7 @@
 
 import fc from 'fast-check'
 import { describe, expect, it } from 'vitest'
+import type { NostrEvent } from '../src/events.js'
 import {
   EMPTY_STORE_STATE,
   type StoreDelta,
@@ -18,8 +19,21 @@ import {
   toStoreView,
 } from '../src/store.js'
 import { root } from './_resolve.js'
-import { storeScenario, storeScenarioAndPermutation } from './_store-generators.js'
+import {
+  addMix,
+  emptyMix,
+  storeScenario,
+  storeScenarioAndPermutation,
+} from './_store-generators.js'
 import { forged, genuine, verifyBySig } from './_store.js'
+
+/** Every `observe` delta's events, filtered through the verify gate — the one thing every fold below shares. */
+function gatedObserveEvents(deltas: readonly StoreDelta[]): NostrEvent[] {
+  return deltas
+    .filter((d) => d.kind === 'observe')
+    .flatMap((d) => d.events)
+    .filter(verifyBySig)
+}
 
 /**
  * `applyStoreDelta` assumes its `observe` events already passed the verify gate (STORE.md §5) —
@@ -66,10 +80,7 @@ describe('SG1 — confluence, store-level (UR-1)', () => {
     // otherwise slip through every other property here.
     fc.assert(
       fc.property(storeScenario, (s) => {
-        const events = s.deltas
-          .filter((d) => d.kind === 'observe')
-          .flatMap((d) => d.events)
-          .filter(verifyBySig)
+        const events = gatedObserveEvents(s.deltas)
         const nonObserve = s.deltas.filter((d) => d.kind !== 'observe')
 
         const perEvent = foldGated(s.deltas)
@@ -130,16 +141,10 @@ describe('SG3 — dedup-after-verification is not bypassable (D20)', () => {
         const genuineEvent = genuine(root('a\n', `race-${forgedFirst}-${singleCall}`))
         const forgedEvent = forged(genuineEvent, 'FORGED-CONTENT')
 
-        let state = EMPTY_STORE_STATE
         const order = forgedFirst ? [forgedEvent, genuineEvent] : [genuineEvent, forgedEvent]
-
-        for (const raw of order) {
-          const passes = verifyBySig(raw)
-          if (passes) state = applyStoreDelta(state, { kind: 'observe', events: [raw] })
-          // A failing submission never reaches applyStoreDelta at all — this is the gate itself
-          // (createStore's `add`), reproduced directly here since applyStoreDelta assumes the
-          // gate already ran (STORE.md §5).
-        }
+        // Each arrival is its own delta (mirroring "across two add() calls"); foldGated is the gate
+        // itself (STORE.md §5) — a failing submission never reaches applyStoreDelta at all.
+        const state = foldGated(order.map((event) => ({ kind: 'observe', events: [event] })))
 
         const stored = state.admit.observedById[genuineEvent.id]
         expect(stored, 'the genuine copy must be present regardless of arrival order').toBeDefined()
@@ -153,22 +158,12 @@ describe('SG3 — dedup-after-verification is not bypassable (D20)', () => {
 
 describe('SG5 — generator bias and floors', () => {
   it('reaches every named shape often enough for SG1/SG3 to mean something', () => {
-    const mix = {
-      bindingsWellTyped: 0,
-      bindingsMisTyped: 0,
-      bindingEndpointsNonAdjacent: 0,
-      dedupRaces: 0,
-      trustThenObserveSameTick: 0,
-    }
+    let mix = emptyMix()
     let totalRejectedBindings = 0
 
     fc.assert(
       fc.property(storeScenario, (s) => {
-        mix.bindingsWellTyped += s.mix.bindingsWellTyped
-        mix.bindingsMisTyped += s.mix.bindingsMisTyped
-        mix.bindingEndpointsNonAdjacent += s.mix.bindingEndpointsNonAdjacent
-        mix.dedupRaces += s.mix.dedupRaces
-        mix.trustThenObserveSameTick += s.mix.trustThenObserveSameTick
+        mix = addMix(mix, s.mix)
 
         const state = foldGated(s.deltas)
         totalRejectedBindings += state.rejectedBindings.length

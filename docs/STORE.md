@@ -346,7 +346,7 @@ export interface EventStorage {
   readonly [storageSymbol]: true
   put(events: readonly NostrEvent[]): Promise<void> | void
   query(
-    filters: readonly NostrFilter[],
+    filters: readonly EventFilter[],
     options?: { readonly includeDeleted?: boolean },
   ): Promise<readonly NostrEvent[]> | readonly NostrEvent[]
   get(ids: readonly string[]): Promise<ReadonlyMap<string, NostrEvent>> | ReadonlyMap<string, NostrEvent>

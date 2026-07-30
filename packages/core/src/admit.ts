@@ -81,13 +81,18 @@ export const isAdmitted = (index: AdmissionIndex, eventId: string): boolean =>
  * A malformed Binding (zero or several `root`/`link` markers, or an endpoint typed wrong) is
  * already a BD-2/BD-10/BD-5 validity concern enforced by `validate.ts` before an event would ever
  * reach this module in a real pipeline; `admit` does not re-derive that rejection.
+ *
+ * Exported (not just `BindingEndpoints`) because `store.ts` needs the identical extraction for its
+ * own BD-7 typing check — unlike `resolve.ts`'s independence from `admit.ts` (D29's oracle-vs-
+ * incremental split), `store` already depends on this module directly, so there is no independence
+ * to protect by restating this logic a second time.
  */
 export interface BindingEndpoints {
   readonly rootId: string
   readonly linkId: string
 }
 
-function bindingEndpoints(binding: NostrEvent): BindingEndpoints | undefined {
+export function bindingEndpoints(binding: NostrEvent): BindingEndpoints | undefined {
   const roots = eTagsWithMarker(binding, 'root')
   const links = eTagsWithMarker(binding, 'link')
   if (roots.length !== 1 || links.length !== 1) return undefined

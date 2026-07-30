@@ -11,34 +11,35 @@ import type { NostrEvent } from '../src/events.js'
 import { PK_FOREIGN, PK_ROOT, baseTags } from './_fixtures.js'
 import { idOf } from './_resolve.js'
 
-/** A Metadata event with a deterministic id — `_resolve.ts` only builds Product roots. */
-export function metadataAt(label: string, content: string): NostrEvent {
+/** The skeleton shared by `metadataAt`/`bindingAt` — `_resolve.ts`'s own `event()` isn't exported. */
+function baseEvent(label: string, tags: string[][], content: string): NostrEvent {
   return {
     id: idOf(label),
     pubkey: PK_ROOT,
     created_at: 1_714_000_000,
     kind: 1,
     content,
-    tags: baseTags('metadata'),
+    tags,
     sig: '0'.repeat(128),
   }
 }
 
+/** A Metadata event with a deterministic id — `_resolve.ts` only builds Product roots. */
+export function metadataAt(label: string, content: string): NostrEvent {
+  return baseEvent(label, baseTags('metadata'), content)
+}
+
 /** A Binding with deterministic, labelled ids — `_fixtures.ts`'s `binding()` uses a shared counter. */
 export function bindingAt(label: string, rootId: string, linkId: string): NostrEvent {
-  return {
-    id: idOf(label),
-    pubkey: PK_ROOT,
-    created_at: 1_714_000_000,
-    kind: 1,
-    content: 'An edge.',
-    tags: [
+  return baseEvent(
+    label,
+    [
       ...baseTags('binding'),
       ['e', rootId, '', 'root', PK_ROOT],
       ['e', linkId, '', 'link', PK_FOREIGN],
     ],
-    sig: '0'.repeat(128),
-  }
+    'An edge.',
+  )
 }
 
 /**
