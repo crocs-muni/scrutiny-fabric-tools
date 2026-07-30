@@ -37,6 +37,7 @@ export {
   versionTags,
   type ETagRef,
   type Indexer,
+  type IndexedEventType,
   type NostrEvent,
   type ProtocolVersion,
   type ScrutinyEventType,

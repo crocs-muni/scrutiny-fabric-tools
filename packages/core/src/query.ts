@@ -9,7 +9,7 @@
  */
 
 import { EVENT_TYPE_TAGS, FABRIC_TAG, SCRUTINY_KIND, eTags, scrutinyEventType } from './events.js'
-import type { NostrEvent, ScrutinyEventType } from './events.js'
+import type { IndexedEventType, NostrEvent, ScrutinyEventType } from './events.js'
 import type { EventFilter } from './interfaces.js'
 
 /** NIP-09 kind 5 deletions (§10). */
@@ -48,7 +48,7 @@ export function searchFilter(query: string): EventFilter {
  * is known. Bindings and Patches are intentionally unreachable here — they carry no `i` tags, so a
  * full scan is not how they are discovered (§8.1's own text).
  */
-export function fullScanFilter(types?: readonly ('product' | 'metadata')[]): EventFilter {
+export function fullScanFilter(types?: readonly IndexedEventType[]): EventFilter {
   const selected =
     types !== undefined && types.length > 0 ? types : (['product', 'metadata'] as const)
   return {
@@ -94,19 +94,24 @@ export interface RoleMatch {
  * DQ-4 — classify `{"#e": [anchorId]}` traversal results by role.
  *
  * Stated once in the general form, since §8.2's Binding examples (`root`/`link`) and a Patch's own
- * `root`/`reply` markers are the same shape: filter by the expected `scrutiny-*` type (kind 1 alone
- * does not distinguish a Binding from a Patch), then report which marker each surviving event's `e`
- * tag naming `anchorId` carries. An unmarked `e` tag naming the anchor is excluded — DQ-4 asks for a
- * *role*, and an unmarked tag carries none.
+ * `root`/`reply` markers are the same shape: filter by the expected `scrutiny-*` type, then report
+ * which marker each surviving event's `e` tag naming `anchorId` carries. An unmarked `e` tag naming
+ * the anchor is excluded — DQ-4 asks for a *role*, and an unmarked tag carries none.
+ *
+ * `expectedType` is required, not optional: DQ-4's own text is a MUST ("results MUST be filtered for
+ * the expected `scrutiny-*` event-type `t` tag"), and every §8.2 traversal filter this module builds
+ * already implies one — `bindingsReferencing` implies `'binding'`, a Patch traversal implies
+ * `'patch'`. Making it optional would let a caller skip the MUST by omission; a required parameter
+ * makes that unrepresentable instead.
  */
 export function classifyByRole(
   events: readonly NostrEvent[],
   anchorId: string,
-  expectedType?: ScrutinyEventType,
+  expectedType: ScrutinyEventType,
 ): RoleMatch[] {
   const out: RoleMatch[] = []
   for (const event of events) {
-    if (expectedType !== undefined && scrutinyEventType(event) !== expectedType) continue
+    if (scrutinyEventType(event) !== expectedType) continue
     const match = eTags(event).find((tag) => tag.id === anchorId && tag.marker !== undefined)
     if (match?.marker !== undefined) out.push({ event, marker: match.marker })
   }

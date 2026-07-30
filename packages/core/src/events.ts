@@ -32,6 +32,12 @@ export interface UnsignedEvent {
 /** The four SCRUTINY event types (§3). */
 export type ScrutinyEventType = 'product' | 'metadata' | 'binding' | 'patch'
 
+/**
+ * The two event types that carry `i`/`k` indexers — derived from {@link ScrutinyEventType} rather
+ * than hand-typed, so a future addition to that union cannot silently drift out of sync here.
+ */
+export type IndexedEventType = Extract<ScrutinyEventType, 'product' | 'metadata'>
+
 /** The `t` tag identifying each event type. */
 export const EVENT_TYPE_TAGS: Readonly<Record<ScrutinyEventType, string>> = Object.freeze({
   product: 'scrutiny-product',

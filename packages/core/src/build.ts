@@ -9,7 +9,7 @@
 
 import { type Issue, issue } from './errors.js'
 import { EVENT_TYPE_TAGS, FABRIC_TAG, SCRUTINY_KIND, parseIndexer } from './events.js'
-import type { UnsignedEvent } from './events.js'
+import type { IndexedEventType, ScrutinyEventType, UnsignedEvent } from './events.js'
 import { applyPatchContent, makePatch } from './patch.js'
 import { VERSION_TAG } from './version.js'
 
@@ -21,7 +21,7 @@ export interface BuildResult {
 
 const NO_ISSUES: readonly Issue[] = Object.freeze([])
 
-function baseTags(type: 'product' | 'metadata' | 'binding' | 'patch'): string[][] {
+function baseTags(type: ScrutinyEventType): string[][] {
   return [
     ['t', FABRIC_TAG],
     ['t', VERSION_TAG],
@@ -45,7 +45,7 @@ function indexerTags(indexers: readonly string[]): string[][] {
 }
 
 function buildIndexedEvent(
-  type: 'product' | 'metadata',
+  type: IndexedEventType,
   content: string,
   createdAt: number,
   indexers: readonly string[],

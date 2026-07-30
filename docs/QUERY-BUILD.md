@@ -53,7 +53,7 @@ indexer) are the same filter shape with different indexer specificity, which is 
 ```ts
 indexerFilter(indexer: string | readonly string[]): EventFilter
 searchFilter(query: string): EventFilter                        // DQ-3, step 3
-fullScanFilter(types?: readonly ('product' | 'metadata')[]): EventFilter  // step 4
+fullScanFilter(types?: readonly IndexedEventType[]): EventFilter  // step 4
 ```
 
 `indexerFilter` always includes `#t: ['scrutiny-fabric']` (DQ-1) and accepts one or several `#i`
@@ -64,9 +64,11 @@ objects, which is why the parameter is `readonly string[]`, not `readonly EventF
 `fullScanFilter` defaults to both `scrutiny-product` and `scrutiny-metadata` when no `types` are
 given, narrowing to whichever subset the caller names otherwise — §8.1's own text: "Narrow the filter
 ... when the target type is known. Bindings and patches are excluded — they do not carry `i` tags."
-The type is restricted to `'product' | 'metadata'` rather than the full `ScrutinyEventType`, because
-that exclusion is the point of this specific filter, not an oversight a caller should be able to work
-around by passing `'binding'`.
+The type is restricted to `IndexedEventType` (`events.ts`, `Extract<ScrutinyEventType, 'product' |
+'metadata'>`) rather than the full `ScrutinyEventType`, because that exclusion is the point of this
+specific filter, not an oversight a caller should be able to work around by passing `'binding'` — and
+because it is *derived* from `ScrutinyEventType` rather than a fresh hand-typed literal union, a fifth
+event type added there can't silently leave this filter's restriction out of sync.
 
 `searchFilter` builds the filter only. §8.1 step 3's second sentence — "Client MUST verify returned
 events carry valid `scrutiny-fabric` tags and match the user's intent" — is a check over *results*,
@@ -79,7 +81,7 @@ tool a consumer already has for the tag half; this module does not wrap them a s
 ```ts
 bindingsReferencing(eventId: string): EventFilter        // Product↔Metadata, either direction
 deletionsFor(eventId: string): EventFilter                // DQ-2
-classifyByRole(events, anchorId, expectedType?): RoleMatch[]   // DQ-4
+classifyByRole(events, anchorId, expectedType): RoleMatch[]   // DQ-4
 ```
 
 **`bindingsReferencing`** is one function, not two, because §8.2's "Product → Bound Metadata" and
@@ -97,12 +99,17 @@ strictly worse failure than an unfiltered result a consumer has to sift.
 **`classifyByRole`** is intentionally general rather than Binding-specific: DQ-4's text ("results MUST
 be filtered for the expected `scrutiny-*` event-type `t` tag, and the `e` tag markers ... MUST be
 inspected") is stated once, for "traversing `e`-tag references" generally, and the same shape applies
-to a Patch's `root`/`reply` markers as much as a Binding's `root`/`link`. It filters by an optional
-`expectedType` (the `#t` half DQ-4 asks for — filtering by *type*, not merely by kind, since kind 1
-alone does not distinguish a Binding from a Patch) and reports, per matching event, which marker its
-`e` tag naming `anchorId` carries (the role half). A result with a marker of `undefined` (an unmarked
-`e` tag happening to name the anchor) is excluded — DQ-4 asks for a *role*, and an unmarked tag
-carries none.
+to a Patch's `root`/`reply` markers as much as a Binding's `root`/`link`. `expectedType` is a
+**required** parameter, not optional — DQ-4's own text is a MUST, and every §8.2 traversal filter this
+module builds already implies a type (`bindingsReferencing`'s caller is always expecting `'binding'`
+results; a Patch traversal always expects `'patch'`), so there is no legitimate call site that could
+omit it. Making it optional would let a caller silently skip the MUST; requiring it makes that
+unrepresentable instead of merely undocumented — the same move `ChainState.forked`'s missing `tipId`
+makes for SF-1. It filters by that type (the `#t` half DQ-4 asks for — filtering by *type*, not merely
+by kind, since kind 1 alone does not distinguish a Binding from a Patch) and reports, per matching
+event, which marker its `e` tag naming `anchorId` carries (the role half). A result with a marker of
+`undefined` (an unmarked `e` tag happening to name the anchor) is excluded — DQ-4 asks for a *role*,
+and an unmarked tag carries none.
 
 ### 1.4 Rules not enforceable structurally here
 

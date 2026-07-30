@@ -91,7 +91,7 @@ describe('BQ-2 — classifyByRole', () => {
     const asSomethingElse = binding(other.id, anchor.id) // anchor is the `link`, not the `root`
     const unrelated = binding(other.id, link.id)
 
-    const results = classifyByRole([asRoot, asSomethingElse, unrelated], anchor.id)
+    const results = classifyByRole([asRoot, asSomethingElse, unrelated], anchor.id, 'binding')
 
     expect(results).toHaveLength(2)
     expect(results.find((r) => r.event.id === asRoot.id)?.marker).toBe('root')
@@ -113,6 +113,6 @@ describe('BQ-2 — classifyByRole', () => {
     const anchor = product()
     const unmarked = binding(product().id, product().id, [['e', anchor.id, '', '', '']])
 
-    expect(classifyByRole([unmarked], anchor.id)).toEqual([])
+    expect(classifyByRole([unmarked], anchor.id, 'binding')).toEqual([])
   })
 })
