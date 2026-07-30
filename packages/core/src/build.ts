@@ -176,9 +176,8 @@ export function buildPatch(
   }
 
   const check = applyPatchContent(before, content)
-  const reproduced =
-    check.status === 'applied' || check.status === 'noop' ? check.content : undefined
-  if (reproduced === after) return { template, issues: NO_ISSUES }
+  const settled = check.status === 'applied' || check.status === 'noop'
+  if (settled && check.content === after) return { template, issues: NO_ISSUES }
 
   return {
     template,
@@ -186,7 +185,7 @@ export function buildPatch(
       issue(
         'P4',
         'warning',
-        `self-verification failed before publishing: applying the built patch against the given "before" content produced ${check.status === 'applied' || check.status === 'noop' ? 'different content' : `a ${check.status}`} rather than the given "after" content`,
+        `self-verification failed before publishing: applying the built patch against the given "before" content produced ${settled ? 'different content' : `a ${check.status}`} rather than the given "after" content`,
       ),
     ],
   }
