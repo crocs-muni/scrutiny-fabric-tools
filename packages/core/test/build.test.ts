@@ -15,6 +15,7 @@ import {
 } from '../src/build.js'
 import { applyPatchContent } from '../src/patch.js'
 import { findFencedBlocks } from '../src/validate.js'
+import { ambiguousPatchPair } from './_a-build-coverage.js'
 import { distinctPair, repeatyContent } from './_generators.js'
 
 const ROOT: import('../src/build.js').EndpointRef = { id: 'a'.repeat(64) }
@@ -40,9 +41,10 @@ describe('buildProduct / buildMetadata', () => {
   })
 
   it('derives k tags from the distinct i-tag prefixes, never hand-supplied separately (PR-4/MD-4)', () => {
-    const { template } = buildMetadata('CVE-2017-15361 (ROCA).', 1714000010, {
-      indexers: ['cve:CVE-2017-15361', 'cwe:CWE-310'],
-    })
+    const { template } = buildMetadata('CVE-2017-15361 (ROCA).', 1714000010, [
+      'cve:CVE-2017-15361',
+      'cwe:CWE-310',
+    ])
     expect(template.tags).toEqual([
       ['t', 'scrutiny-fabric'],
       ['t', 'scrutiny-v061'],
@@ -55,7 +57,7 @@ describe('buildProduct / buildMetadata', () => {
   })
 
   it('a malformed indexer is still tagged as i, but derives no k for it', () => {
-    const { template } = buildProduct('x', 1, { indexers: ['not-a-valid-indexer'] })
+    const { template } = buildProduct('x', 1, ['not-a-valid-indexer'])
     expect(template.tags).toEqual([
       ['t', 'scrutiny-fabric'],
       ['t', 'scrutiny-v061'],
@@ -145,16 +147,9 @@ describe('BQ-4/BQ-5 — buildPatch’s P4 self-check and round trip', () => {
   })
 
   it('reports a P4 warning, built directly, when the hunk is genuinely ambiguous in "before"', () => {
-    // Three repeats of a/b/c/d; the second repeat's "c" changes to "C". The context+removed pattern
-    // (d,a,b,c,d,a,b) recurs at another repeat boundary, so T1 can never disambiguate it — verified
-    // directly against patch.ts before writing this case, not sampled.
-    const lines: string[] = []
-    for (let i = 0; i < 4; i++) lines.push('a', 'b', 'c', 'd')
-    const before = `${lines.join('\n')}\n`
-    const beforeLines = before.split('\n')
-    beforeLines[6] = 'C'
-    const after = beforeLines.join('\n')
-
+    // ambiguousPatchPair (shared with _a-build-coverage.ts's own P4 emission) is built directly, not
+    // sampled — verified against patch.ts before this case existed, per its own doc comment.
+    const { before, after } = ambiguousPatchPair()
     const { template, issues } = buildPatch(ROOT, REPLY, before, after, 1)
     expect(issues).toHaveLength(1)
     expect(issues[0]?.code).toBe('P4')
@@ -173,10 +168,8 @@ describe('BQ-4/BQ-5 — buildPatch’s P4 self-check and round trip', () => {
     )
   })
 
-  it('threads the context option through to makePatch (P1)', () => {
-    const { template } = buildPatch(ROOT, REPLY, 'a\nb\nc\nd\ne\n', 'a\nb\nC\nd\ne\n', 1, {
-      context: 0,
-    })
+  it('threads the context parameter through to makePatch (P1)', () => {
+    const { template } = buildPatch(ROOT, REPLY, 'a\nb\nc\nd\ne\n', 'a\nb\nC\nd\ne\n', 1, 0)
     expect(template.content).toContain('-c')
     expect(template.content).toContain('+C')
     // Zero context: no unchanged lines carried alongside the hunk.

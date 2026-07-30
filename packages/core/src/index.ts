@@ -19,6 +19,7 @@ export {
   EVENT_TYPE_TAGS,
   FABRIC_TAG,
   INDEXER_PREFIX_PATTERN,
+  SCRUTINY_KIND,
   VERSION_TAG_PATTERN,
   compareVersionTags,
   derivedIndexerKinds,
@@ -165,8 +166,6 @@ export {
   buildProduct,
   fenceLength,
   fencePatchPayload,
-  type BuildIndexedOptions,
-  type BuildPatchOptions,
   type BuildResult,
   type EndpointRef,
 } from './build.js'

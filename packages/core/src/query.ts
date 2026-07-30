@@ -8,12 +8,9 @@
  * AG3 partition).
  */
 
-import { EVENT_TYPE_TAGS, FABRIC_TAG, eTags, scrutinyEventType } from './events.js'
+import { EVENT_TYPE_TAGS, FABRIC_TAG, SCRUTINY_KIND, eTags, scrutinyEventType } from './events.js'
 import type { NostrEvent, ScrutinyEventType } from './events.js'
 import type { EventFilter } from './interfaces.js'
-
-/** Every SCRUTINY event uses this Nostr kind (§3). */
-const SCRUTINY_KIND = 1
 
 /** NIP-09 kind 5 deletions (§10). */
 const DELETION_KIND = 5

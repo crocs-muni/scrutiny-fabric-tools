@@ -8,13 +8,10 @@
  */
 
 import { type Issue, issue } from './errors.js'
-import { EVENT_TYPE_TAGS, FABRIC_TAG, parseIndexer } from './events.js'
+import { EVENT_TYPE_TAGS, FABRIC_TAG, SCRUTINY_KIND, parseIndexer } from './events.js'
 import type { UnsignedEvent } from './events.js'
 import { applyPatchContent, makePatch } from './patch.js'
 import { VERSION_TAG } from './version.js'
-
-/** Every SCRUTINY event uses this Nostr kind (§3). */
-const SCRUTINY_KIND = 1
 
 /** The result of every builder in this module. `issues` is always present (see the module doc). */
 export interface BuildResult {
@@ -36,11 +33,6 @@ function baseTags(type: 'product' | 'metadata' | 'binding' | 'patch'): string[][
 // Product / Metadata
 // ---------------------------------------------------------------------------
 
-export interface BuildIndexedOptions {
-  /** Raw `i`-tag values, e.g. `"cpe:2.3:h:infineon:m7794a12:-:*:*:*:*:*:*:*"`. */
-  readonly indexers?: readonly string[]
-}
-
 /** `k` tags derived from `indexers`' distinct prefixes (PR-4/MD-4) — never hand-supplied separately. */
 function indexerTags(indexers: readonly string[]): string[][] {
   const iTags = indexers.map((raw) => ['i', raw])
@@ -56,33 +48,35 @@ function buildIndexedEvent(
   type: 'product' | 'metadata',
   content: string,
   createdAt: number,
-  options: BuildIndexedOptions,
+  indexers: readonly string[],
 ): BuildResult {
   return {
     template: {
       kind: SCRUTINY_KIND,
       created_at: createdAt,
-      tags: [...baseTags(type), ...indexerTags(options.indexers ?? [])],
+      tags: [...baseTags(type), ...indexerTags(indexers)],
       content,
     },
     issues: NO_ISSUES,
   }
 }
 
+/** `indexers` are raw `i`-tag values, e.g. `"cpe:2.3:h:infineon:m7794a12:-:*:*:*:*:*:*:*"`. */
 export function buildProduct(
   content: string,
   createdAt: number,
-  options: BuildIndexedOptions = {},
+  indexers: readonly string[] = [],
 ): BuildResult {
-  return buildIndexedEvent('product', content, createdAt, options)
+  return buildIndexedEvent('product', content, createdAt, indexers)
 }
 
+/** `indexers` are raw `i`-tag values, e.g. `"cve:CVE-2017-15361"`. */
 export function buildMetadata(
   content: string,
   createdAt: number,
-  options: BuildIndexedOptions = {},
+  indexers: readonly string[] = [],
 ): BuildResult {
-  return buildIndexedEvent('metadata', content, createdAt, options)
+  return buildIndexedEvent('metadata', content, createdAt, indexers)
 }
 
 // ---------------------------------------------------------------------------
@@ -149,17 +143,12 @@ export function fencePatchPayload(payload: string, info = 'diff'): string {
   return `${fence}${info}\n${payload}${fence}\n`
 }
 
-export interface BuildPatchOptions {
-  /**
-   * Context lines for `makePatch` (P1). Default 3 is P1's own enforcement point — leave it alone
-   * except to exercise the zero-context shape in a test, exactly as `patch.ts`'s own `context`
-   * parameter exists for.
-   */
-  readonly context?: number
-}
-
 /**
  * Build a Patch template carrying the unified diff from `before` to `after`.
+ *
+ * `context` (P1) is threaded straight through to `makePatch`, which already defaults it to 3 — its
+ * own enforcement point for P1. Leave it alone except to exercise the zero-context shape in a test,
+ * exactly as `patch.ts`'s own `context` parameter exists for.
  *
  * P4 (self-verification): after assembling `template.content`, this re-applies it via the same
  * fence-lookup-then-apply path a real consumer uses (`applyPatchContent`) and compares the result
@@ -175,9 +164,9 @@ export function buildPatch(
   before: string,
   after: string,
   createdAt: number,
-  options: BuildPatchOptions = {},
+  context = 3,
 ): BuildResult {
-  const payload = makePatch(before, after, options.context ?? 3)
+  const payload = makePatch(before, after, context)
   const content = fencePatchPayload(payload)
   const template: UnsignedEvent = {
     kind: SCRUTINY_KIND,

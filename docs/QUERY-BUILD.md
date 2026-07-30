@@ -145,18 +145,23 @@ caller need not switch on status" discipline (`patch.ts`'s own doc comment). `te
 `id`, `pubkey`, or `sig` (D13) — those three are the injected signer's job.
 
 ```ts
-buildProduct(content: string, createdAt: number, options?: { indexers?: readonly string[] }): BuildResult
-buildMetadata(content: string, createdAt: number, options?: { indexers?: readonly string[] }): BuildResult
+buildProduct(content: string, createdAt: number, indexers?: readonly string[]): BuildResult
+buildMetadata(content: string, createdAt: number, indexers?: readonly string[]): BuildResult
 buildBinding(root: EndpointRef, link: EndpointRef, content: string, createdAt: number): BuildResult
-buildPatch(root: EndpointRef, reply: EndpointRef, before: string, after: string, createdAt: number, options?: { context?: number }): BuildResult
+buildPatch(root: EndpointRef, reply: EndpointRef, before: string, after: string, createdAt: number, context?: number): BuildResult
 ```
+
+Both optional trailing parameters are plain positional defaults, not options objects — each builder
+has exactly one optional knob, and `patch.ts`'s own `makePatch(before, after, context = 3)` is already
+the precedent for that shape in this codebase; an options object would only add a destructuring layer
+for no gain.
 
 `createdAt` is a required parameter, not computed internally (no `Date.now()` anywhere in `core`,
 matching every other module's purity) — CA-1's own warning that backdating `created_at` to a
 historical fact silently loses events to a relay's timestamp window is exactly the failure mode a
 caller, not this module, is positioned to get right; `build.ts` just refuses to guess.
 
-`options.indexers` accepts raw `i`-tag values (`"cpe:2.3:h:..."`) and *derives* the `k` tags via
+`indexers` accepts raw `i`-tag values (`"cpe:2.3:h:..."`) and *derives* the `k` tags via
 `parseIndexer` (already in `events.ts`) rather than accepting a second, separately-specified `k`
 list — MD-4/PR-4 ask for "at minimum one entry per distinct `i` prefix kind," which a derived set
 satisfies by construction and a hand-supplied second list could drift from. `imeta` attachments are
@@ -220,10 +225,10 @@ a different tool) needs correct fencing without being forced through `makePatch`
 ### 2.4 P1, P3, P4 — producer obligations
 
 **P1 (context lines)** is satisfied transitively: `buildPatch` calls `makePatch(before, after,
-options?.context ?? 3)`, and `patch.ts`'s own doc comment already states its default `context: 3` is
-P1's enforcement point. `build.ts` does not re-derive this; the `context` option exists only because
-`patch.ts` itself exposes one (for testing zero-context shapes), with the same "leave the default
-alone" caveat repeated here.
+context)`, defaulted to `3`, and `patch.ts`'s own doc comment already states its default `context: 3`
+is P1's enforcement point. `build.ts` does not re-derive this; the `context` parameter exists only
+because `patch.ts` itself exposes one (for testing zero-context shapes), with the same "leave the
+default alone" caveat repeated here.
 
 **P3 (UTF-8, LF)** is satisfied because `makePatch`'s output is a JS string containing only `\n`
 (never `\r\n`) — jsdiff does not introduce CRLF, and JSON serialisation of the resulting

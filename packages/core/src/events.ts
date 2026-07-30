@@ -43,6 +43,9 @@ export const EVENT_TYPE_TAGS: Readonly<Record<ScrutinyEventType, string>> = Obje
 /** The `t` tag every SCRUTINY event carries (TAG-1). */
 export const FABRIC_TAG = 'scrutiny-fabric'
 
+/** Every SCRUTINY event uses this Nostr kind (§3) — short text notes, disambiguated by `t` tags. */
+export const SCRUTINY_KIND = 1
+
 /** Version tag grammar (TAG-2). Three digits encoding MAJOR, MINOR, PATCH (VER-1). */
 export const VERSION_TAG_PATTERN = /^scrutiny-v\d{3}$/
 

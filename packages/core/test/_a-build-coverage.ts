@@ -15,17 +15,23 @@ const ROOT = { id: 'a'.repeat(64) }
 const REPLY = { id: 'b'.repeat(64) }
 
 /**
- * P4 — the same concrete, directly-built ambiguous case as `build.test.ts`'s BQ-4: three repeats of
- * a/b/c/d, the second repeat's `c` changed to `C`. The (d,a,b,c,d,a,b) context+removed pattern
- * recurs at another repeat boundary, so T1 can never disambiguate it.
+ * A `before`/`after` pair engineered so T1 can never disambiguate the resulting hunk: three repeats
+ * of a/b/c/d, the second repeat's `c` changed to `C`. The (d,a,b,c,d,a,b) context+removed pattern
+ * recurs at another repeat boundary. Shared with `build.test.ts`'s BQ-4, so the one directly-built
+ * case both files rely on can't drift apart.
  */
-function p4Issues(): readonly Issue[] {
+export function ambiguousPatchPair(): { before: string; after: string } {
   const lines: string[] = []
   for (let i = 0; i < 4; i++) lines.push('a', 'b', 'c', 'd')
   const before = `${lines.join('\n')}\n`
   const beforeLines = before.split('\n')
   beforeLines[6] = 'C'
-  const after = beforeLines.join('\n')
+  return { before, after: beforeLines.join('\n') }
+}
+
+/** P4 — the same concrete, directly-built ambiguous case {@link ambiguousPatchPair} names. */
+function p4Issues(): readonly Issue[] {
+  const { before, after } = ambiguousPatchPair()
   return buildPatch(ROOT, REPLY, before, after, 1).issues
 }
 
