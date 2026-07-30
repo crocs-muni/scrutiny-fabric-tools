@@ -53,6 +53,10 @@
       "types": "./dist/errors.d.ts",
       "default": "./dist/errors.js"
     },
+    "./store.js": {
+      "types": "./dist/store.d.ts",
+      "default": "./dist/store.js"
+    },
     "./package.json": "./package.json"
   },
   "scripts": {

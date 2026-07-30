@@ -461,5 +461,23 @@ compare `StoreView` (and, where chain content is the question, `resolveRoot`'s o
 Any future code touching SG1 that starts asserting on raw `StoreState` equality has reintroduced
 this gap.
 
+**Found while implementing SG1's property test: `applyStoreDelta`'s dedup is correctly order-
+dependent for two *distinct* objects sharing a declared id, and SG1 must not feed it such a pair
+directly.** The SG5 generator embeds a forged/genuine dedup-race pair (per its own bias requirement)
+as a plain `observe` delta. Folding that scenario through `applyStoreDelta` directly — bypassing the
+verify gate — and then permuting it produced exactly the failure this looks like it shouldn't:
+whichever of the forged/genuine pair happened to land first in a given permutation won the reducer's
+idempotent "first arrival wins" dedup, so the resolved content differed across permutations. This is
+not a reducer bug: `applyStoreDelta` documents that it assumes its `observe` events already passed
+the gate (STORE.md §5), and D20's "genuine always wins" guarantee is a property of that gate
+(`createStore`'s `add()`), never of the reducer in isolation — feeding it two objects that could only
+coexist by one of them being a forgery is asking a question only the gate is positioned to answer.
+The fix was in the test, not the implementation: every fold in `store-property.test.ts` simulates the
+gate (filters `observe` events through `verifyBySig`) before handing anything to `applyStoreDelta`,
+exactly as `createStore.add()` does. Recorded here because it is the same *shape* of trap as the
+`chainEpoch` one above — a plausible-looking equality check compared the wrong layer — even though
+the fix landed in test code rather than `store.ts` itself. Any future property test that folds
+`storeScenario`'s deltas through `applyStoreDelta` directly, without gating, will rediscover this.
+
 No other open questions yet — further entries land here as the gate items surface them, the way
 `ADMIT.md` §9/§10 and `RESOLVE.md` §4/§9 grew theirs.

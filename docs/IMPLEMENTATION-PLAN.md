@@ -1,6 +1,7 @@
 # Implementation plan — `@scrutiny-fabric/core` v0.1
 
-Target spec: **v0.6.0** (`scrutiny-v060`). Rationale for every decision here lives in
+Target spec: **v0.6.1** (`scrutiny-v061`, bumped from v0.6.0 — see the Status section's corrective-pass
+entry). Rationale for every decision here lives in
 [`DECISIONS-2026-07-27.md`](DECISIONS-2026-07-27.md) — this document is the *what and in what order*,
 not the *why*. Do not relitigate a decision without reading its D-entry first.
 
@@ -20,7 +21,7 @@ Supersedes the previous `IMPLEMENTATION-PLAN.md` (targeted spec v0.5.3, never co
 | 2 | `patch` — the T1/T2/T3 matcher | ✅ **done** — 209 tests; gate green over 10k round-trip and 5k zero-context cases. Mini-spec in [`PATCH-MATCHER.md`](PATCH-MATCHER.md). Found SPEC-FEEDBACK F5–F9 and correction C1 to D31. F5's multi-file-section reading was codified as C8 in v0.6.1 with no code change needed |
 | 3 | `resolve` — chain + overlays | ✅ **done** — 285 tests; G1 green over 10k permutations, G2 over 4k, 3/32 rules emit a code and 29 declared not-covered. Mini-spec in [`RESOLVE.md`](RESOLVE.md). Found SPEC-FEEDBACK F10–F11, both codified in v0.6.1 as SF-7 and OV-9/RL-5 with no code change needed. RC-5 (also new in v0.6.1) found a real bug — see below |
 | 4 | `admit` | ✅ **done** — 328 tests repo-wide (40 admit-specific); AG1 green over 10k prefix-checked sequences, AG2 over 10k apply-then-invert round-trips, AG3's 0/9 rules emit a code and 9 declared not-covered (all D-layer, no rejection disposition exists to emit), AG4's floors now hold for every named bias shape. Mini-spec in [`ADMIT.md`](ADMIT.md). AG2's property test found and fixed a real invertibility gap in the design before any code shipped against it. A post-merge `/code-review` pass found two more gaps: one AG4 bias shape named in the mini-spec's own text was unreachable by construction (self-fork siblings share a pubkey, so they can never diverge on direct trust — corrected in `ADMIT.md` §10), and two of AG4's floors had never actually been asserted (revoke-after-redundant-observe, outcome-mix logging) — both now hold, the two hardest-to-reach shapes via dedicated generators since the uniform one scored 0 and a flaky 5–13 per 3,000 runs |
-| 5 | `store` — reducer + ports + epochs | not started |
+| 5 | `store` — reducer + ports + epochs | ✅ **done** — 435 tests repo-wide (65 store-specific across `store.test.ts`, `store-property.test.ts`, `a-store-coverage.test.ts`); SG1 green over 2k permutations (both per-event and batched) plus a per-root `resolveRoot` cross-check, SG2's reference-equality regression holds, SG3's two-relay race resolved in both orders, SG4's 2/12 rules emit a code (BD-7, SIG-1 enforcement) and 10 declared not-covered, SG5's floors hold for every named bias shape. Mini-spec in [`STORE.md`](STORE.md). Found and fixed two real design gaps before/while writing the gate: `chainEpoch`'s bump count is arrival-order-dependent by construction, so SG1 compares a `StoreView` projection instead of raw `StoreState` (STORE.md §3/§10); and `applyStoreDelta`'s idempotent dedup is correctly order-dependent for two distinct objects sharing an id, so every property fold simulates the verify gate first rather than calling the reducer directly on ungated input (STORE.md §10) |
 | 6 | `query`, `build` | not started |
 | 7 | Coverage tooling, adapters, docs | not started |
 

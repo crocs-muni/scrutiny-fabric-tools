@@ -2,13 +2,15 @@
  * Extension points not yet owned by any implemented module.
  *
  * D16 names four branded interfaces (`RelayTransport`, `EventStorage`, `ScrutinySigner`,
- * `TrustProvider`); this file grows to hold whichever of them a module needs first. `admit` is the
- * first consumer, so only `TrustProvider` (D21) lives here so far. The other three belong to
- * `query`/`store`/`build` respectively, whichever phase needs them first.
+ * `TrustProvider`); this file grows to hold whichever of them a module needs first. `admit` was the
+ * first consumer (`TrustProvider`, D21); `store` is the second (`EventStorage`, D15/D37).
+ * `RelayTransport`/`ScrutinySigner` belong to whichever of `query`/`build` needs them first.
  *
  * Not a subpath export (see the plan's exports map) — these types are re-exported from the root
  * barrel only.
  */
+
+import type { NostrEvent } from './events.js'
 
 /**
  * `Symbol.for` uses a global registry, so two copies of `core` in one dependency tree still
@@ -33,4 +35,45 @@ export interface TrustProvider {
   isTrusted(pubkey: string): boolean
   readonly version: number
   deltaSince(v: number): { added: readonly string[]; removed: readonly string[] } | null
+}
+
+/**
+ * `Symbol.for` uses a global registry — see {@link trustSymbol}'s comment; same rationale (D16).
+ */
+export const storageSymbol = Symbol.for('@scrutiny-fabric/storage')
+
+/**
+ * A NIP-01 relay filter, kept minimal and local to this port rather than borrowed from a not-yet-
+ * built `query.ts` (Phase 6, filter builders). `tags` covers the single-letter tag filters
+ * (`#e`, `#t`, `#i`, `#k`, …) NIP-01 defines; kept as a named field rather than a template-literal
+ * index signature so it can coexist with `kinds`/`since`/`until`/`limit`'s differing value types.
+ */
+export interface EventFilter {
+  readonly ids?: readonly string[]
+  readonly authors?: readonly string[]
+  readonly kinds?: readonly number[]
+  readonly since?: number
+  readonly until?: number
+  readonly limit?: number
+  readonly tags?: Readonly<Record<string, readonly string[]>>
+}
+
+/**
+ * The persistence port (D15/D37) — `store`'s first real consumer, the way `TrustProvider` was
+ * `admit`'s. Sync-or-async return types throughout: the in-memory default (v0.1) resolves
+ * immediately, and a future IndexedDB/SQLite adapter needs the same shape to be genuinely async
+ * without a breaking change to callers — the entire point D15 is making. `includeDeleted` copies
+ * welshman's repository shape: `isDeleted()` is a predicate over an always-retained event, never a
+ * removal, which is what keeps DEL-4's audit-preservation guarantee achievable.
+ */
+export interface EventStorage {
+  readonly [storageSymbol]: true
+  put(events: readonly NostrEvent[]): Promise<void> | void
+  query(
+    filters: readonly EventFilter[],
+    options?: { readonly includeDeleted?: boolean },
+  ): Promise<readonly NostrEvent[]> | readonly NostrEvent[]
+  get(
+    ids: readonly string[],
+  ): Promise<ReadonlyMap<string, NostrEvent>> | ReadonlyMap<string, NostrEvent>
 }
