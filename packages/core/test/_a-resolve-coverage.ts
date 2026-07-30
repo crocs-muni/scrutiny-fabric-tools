@@ -189,6 +189,34 @@ export const A_RESOLVE_COVERAGE: CoverageTable = {
       'not a Product or Metadata, reported as a chain status rather than an issue because the ' +
       'events involved are perfectly valid — there is simply no chain. Covered positively.',
   ),
+
+  // --- new in spec v0.6.1 — all four already implemented before the rule existed to name it ---
+  'RC-5': notCovered(
+    'Tip identification: the tip is the last chain event, the root itself where the chain carries ' +
+      "no patches. Definitional, like RC-1. This exposed a real bug (an unpatched root's overlay " +
+      'misclassified stale instead of clean) fixed in fix/spec-v061-drift; covered by the RC-5 ' +
+      'regression test asserting a never-patched root is its own tip.',
+  ),
+  'SF-7': notCovered(
+    'Precedence between a self-fork and a HALT when both are live: canonical bytes freeze at ' +
+      'whichever is earlier in chain order. This module already argued the halt-always-wins ' +
+      'corollary from H1 before the rule existed (SPEC-FEEDBACK F10), and SF-7 confirms that ' +
+      'reading. Structural — the walk stops at the fork, so a halt can only be at or before it — ' +
+      'covered by the "reports the halt, not the fork, when both are live" test.',
+  ),
+  'OV-9': notCovered(
+    'A ceiling reached before overlay classification is a fifth outcome, unclassified, distinct ' +
+      'from all four classifications. Already implemented as SPEC-FEEDBACK F11 before the rule ' +
+      'existed; the disposition is a state on the overlay, not an issue code (same shape as OV-3). ' +
+      'Covered by the "leaves an overlay unclassified rather than calling a ceiling a conflict" test.',
+  ),
+  'RL-5': notCovered(
+    'Chain disposition under a ceiling: aborted, distinct from both resolved and HALT. Already ' +
+      "implemented as SPEC-FEEDBACK F11's `aborted` ChainState variant before the rule existed. " +
+      'The disposition is the `status` discriminant, not an issue code — RL-3 is the issue this ' +
+      'module emits alongside it. Covered by the aborted-chain tests asserting the status and that ' +
+      'no H1 is ever cited alongside it.',
+  ),
 }
 
 /** Every issue this partition produces. Consumed by the gate and invariant suites. */

@@ -24,10 +24,10 @@ const AB = 'a\nb\n'
 const ABC = 'a\nb\nc\n'
 
 describe('CHN-1 / RC-1 — walking the canonical chain', () => {
-  it('is the root content when no patches exist', () => {
+  it('is the root content when no patches exist, and the root is its own tip (RC-5)', () => {
     const r = root(A)
     const res = resolve(r.id, [r])
-    expect(res.chain).toEqual({ status: 'resolved', content: A, tipId: null, applied: [] })
+    expect(res.chain).toEqual({ status: 'resolved', content: A, tipId: r.id, applied: [] })
   })
 
   it('applies root-author patches in chain order, not array order', () => {
@@ -301,6 +301,18 @@ describe('OV — overlay classification', () => {
     const byId = new Map(res.overlays.map((o) => [o.id, o]))
     expect(byId.get(atTip.id)?.state).toBe('clean')
     expect(byId.get(atMid.id)?.state).toBe('stale')
+  })
+
+  // RC-5 (spec v0.6.1): the tip is the root event itself where the chain carries no patches. An
+  // overlay anchored to a never-patched root is therefore anchored to the tip, not to a position
+  // the chain has advanced past — this is the *first* annotation published against any new
+  // Product, so misclassifying it as `stale` here is the common case, not an edge case.
+  it('is clean against a root that has never been patched (RC-5)', () => {
+    const r = root(A)
+    const over = foreignPatch('over', r.id, r.id, A, AB)
+    const res = resolve(r.id, [r, over])
+    expect(res.chain.status).toBe('resolved')
+    expect(res.overlays.map((o) => o.state)).toEqual(['clean'])
   })
 
   it('is a conflict when the hunks do not apply to the target snapshot', () => {

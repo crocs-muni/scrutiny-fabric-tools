@@ -45,6 +45,11 @@ const OWNED: readonly RuleId[] = [
   'IX-3',
   'BD-9',
   'RL-3',
+  // New in spec v0.6.1 — see _a-resolve-coverage.ts for why each is not-covered.
+  'RC-5',
+  'SF-7',
+  'OV-9',
+  'RL-5',
 ]
 
 describe('Phase 3 gate — resolve-module rule coverage', () => {

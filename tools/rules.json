@@ -515,10 +515,10 @@
   {
     "id": "E4",
     "section": "5.2",
-    "layer": "V",
+    "layer": "A",
     "inheritsFrom": null,
-    "summary": "Variable-length fences: `max(3, N+1)` where `N` is longest payload run.",
-    "text": "**Variable-length fences.** Producers MUST choose an opening-fence length of `max(3, N + 1)`, where `N` is the longest run of consecutive backticks anywhere inside the payload bytes. This guarantees that any payload — including patches whose hunks operate on content that itself contains backtick fences (e.g., a Metadata event embedding a code-block PoC) — can be embedded unambiguously.",
+    "summary": "Variable-length fences: `max(3, N+1)`; a producer obligation, unobservable to a consumer.",
+    "text": "**Variable-length fences.** Producers MUST choose an opening-fence length of `max(3, N + 1)`, where `N` is the longest run of consecutive backticks anywhere inside the payload bytes. This guarantees that any payload — including patches whose hunks operate on content that itself contains backtick fences (e.g., a Metadata event embedding a code-block PoC) — can be embedded unambiguously. This is a producer obligation, enforced when building an event: a consumer cannot observe a violation, because a payload whose backtick run reached the fence length would have closed the block early (E3) and the bytes after it are not part of the payload at all (E5). There is nothing left for a consumer to check.",
     "reserved": false
   },
   {
@@ -589,8 +589,8 @@
     "section": "5.2",
     "layer": "V",
     "inheritsFrom": "unified-diff",
-    "summary": "Trailing data on header/`@@` lines MUST be tolerated and ignored.",
-    "text": "Trailing data on `---`, `+++`, `diff --git`, and `@@` lines (timestamps as emitted by `patch -u` / GNU `diff -u`, whitespace, etc.) MUST be tolerated and ignored.",
+    "summary": "Trailing data on header/`@@` lines leaves a payload valid; tolerate and ignore it.",
+    "text": "A payload carrying trailing data on its `---`, `+++`, `diff --git`, or `@@` lines (timestamps as emitted by `patch -u` / GNU `diff -u`, whitespace, etc.) **is valid**; consumers MUST tolerate that data and MUST ignore it.",
     "reserved": false
   },
   {
@@ -598,8 +598,8 @@
     "section": "5.2",
     "layer": "V",
     "inheritsFrom": "unified-diff",
-    "summary": "`Index:` preamble MAY appear; MUST be tolerated.",
-    "text": "The `Index:` preamble (capital `I`, followed by an `===…` separator line) MAY appear; consumers MUST tolerate it. It is *not* the same as the `index <sha>..<sha>` line emitted by `git diff` by default, which is forbidden (see P2).",
+    "summary": "An `Index:` preamble leaves a payload valid; it MAY appear and MUST be tolerated.",
+    "text": "A payload carrying the `Index:` preamble (capital `I`, followed by an `===…` separator line) **is valid**; the preamble MAY appear and consumers MUST tolerate it. It is *not* the same as the `index <sha>..<sha>` line emitted by `git diff` by default, which is forbidden (see P2).",
     "reserved": false
   },
   {
@@ -607,8 +607,8 @@
     "section": "5.2",
     "layer": "V",
     "inheritsFrom": "unified-diff",
-    "summary": "`diff --git` line MAY appear; MUST be tolerated.",
-    "text": "The `diff --git a/content b/content` line MAY appear before the headers; consumers MUST tolerate it. It is not required.",
+    "summary": "A `diff --git` line leaves a payload valid; it MAY appear and MUST be tolerated.",
+    "text": "A payload carrying a `diff --git a/content b/content` line before the headers **is valid**; the line MAY appear and consumers MUST tolerate it. It is not required.",
     "reserved": false
   },
   {
@@ -616,8 +616,8 @@
     "section": "5.2",
     "layer": "A",
     "inheritsFrom": "unified-diff",
-    "summary": "`\\ No newline at end of file` marker MUST be handled per unified-diff spec.",
-    "text": "A `\\ No newline at end of file` marker MAY appear in hunks; consumers MUST handle it per the unified-diff spec (it signals the absence of a trailing newline in the corresponding side of the diff).",
+    "summary": "A hunk line beginning with `\\` is a no-newline marker; key on the prefix, not the (localised) text.",
+    "text": "A hunk line beginning with `\\` is a no-newline-at-end-of-file marker: it signals the absence of a trailing newline in the corresponding side of the diff, and consumers MUST handle it per the unified-diff spec. Consumers MUST key on the `\\` prefix; **the marker's text is informational and MUST NOT be relied upon**, because GNU diff and git translate it through gettext (`\\ No newline at end of file` under an English locale, `\\ Kein Zeilenumbruch am Dateiende` under `LANG=de_DE.UTF-8`). Matching the English text loses the signal on a payload produced under another locale, which changes the resulting bytes that PB-1 makes normative.",
     "reserved": false
   },
   {
@@ -634,17 +634,26 @@
     "section": "5.2",
     "layer": "V",
     "inheritsFrom": null,
-    "summary": "Consumers MUST accept any payload matching the §5.2 consumer grammar, including zero-hunk payloads.",
-    "text": "A conforming consumer MUST accept any patch payload matching the consumer grammar above, including a payload carrying a header block and zero hunks (the header-only no-op shape, N2).",
+    "summary": "Floor on acceptance: any payload matching the §5.2 grammar is valid, zero-hunk included; no stricter reading.",
+    "text": "**Floor on acceptance.** Any patch payload matching the consumer grammar above **is valid**, including one carrying a header block and zero hunks (the header-only no-op shape, N2). A conforming consumer MUST accept every such payload and MUST NOT apply a stricter reading of the grammar than the grammar states. This is the inclusive counterpart to C1: C1 fixes what the valid set excludes, C7 fixes its lower bound. It is what forbids a consumer being stricter than the grammar on its own initiative, a case TR-1's second clause does not reach because no A or D rule is involved.",
+    "reserved": false
+  },
+  {
+    "id": "C8",
+    "section": "5.2",
+    "layer": "A",
+    "inheritsFrom": "unified-diff",
+    "summary": "Multiple file sections permitted; a `---` at hunk-line position starts a section, not a removal.",
+    "text": "**Multiple file sections.** A payload MAY carry more than one `file-section`. A `---` line occurring where a hunk line could appear begins a new file section; it MUST NOT be interpreted as a removal line. Consumers MUST process the hunks of every section as a single sequence in document order, sequenced per §5.3 T3, and MUST NOT drop any section. Because §5.2 C1 constrains every section's paths to `a/content` / `b/content`, the sections address one and the same content.",
     "reserved": false
   },
   {
     "id": "P1",
     "section": "5.2",
-    "layer": "V",
+    "layer": "A",
     "inheritsFrom": "unified-diff",
-    "summary": "Minimum 3 lines of context before/after each change block.",
-    "text": "Minimum 3 lines of context before and after each change block (the default for all reference tools).",
+    "summary": "Producers SHOULD emit `min(3, available)` context lines; not a validity criterion for consumers.",
+    "text": "**Context lines.** Producers SHOULD emit `min(3, available)` lines of context before and after each change block — three where the content affords it, and as many as exist where it does not. This is a **producer obligation, enforced when building a patch, not a validity criterion applied to a received one**: `--unified=3` and its equivalents specify a *maximum* the tool supplies where the content affords it, never a minimum it guarantees, and \"available\" depends on the target event's content, which a validity check over a single event never sees. Consumers MUST NOT reject a payload for carrying fewer context lines; a zero-context hunk is normal (see T2) and the §5.2 example below has none.",
     "reserved": false
   },
   {
@@ -652,17 +661,17 @@
     "section": "5.2",
     "layer": "V",
     "inheritsFrom": null,
-    "summary": "No `index <sha>..<sha>`, `mode`, `similarity index`, or rename metadata.",
-    "text": "No `index <oldsha>..<newsha> <mode>` lines (the lowercase-`index` form emitted by `git diff` by default), no `mode` lines, no `similarity index` lines, and no rename metadata. Use `--no-index` with git, or strip these post-hoc.",
+    "summary": "No `index <sha>..<sha>`, `mode`, `similarity index`, or rename metadata; `--no-index` does not suppress them.",
+    "text": "No `index <oldsha>..<newsha> <mode>` lines (the lowercase-`index` form emitted by `git diff` by default), no `mode` lines, no `similarity index` lines, and no rename metadata. Strip these post-hoc. Note that `--no-index` does **not** suppress them — it makes git diff two paths outside a repository and has no effect on index-line emission — so a producer using the `git` invocation recommended above MUST filter the index line itself.",
     "reserved": false
   },
   {
     "id": "P3",
     "section": "5.2",
-    "layer": "V",
+    "layer": "A",
     "inheritsFrom": null,
-    "summary": "UTF-8 encoding, LF line endings inside the payload.",
-    "text": "UTF-8 encoding, LF line endings inside the payload.",
+    "summary": "Producers MUST emit UTF-8 with LF line endings in the payload; not a consumer rejection criterion.",
+    "text": "Producers MUST emit UTF-8 with LF line endings inside the payload. A producer obligation, enforced when building an event: a consumer MUST NOT reject a payload over its line endings, because PB-2 forbids normalising the payload bytes, so a CRLF payload simply fails to match LF content and is handled by the determinism requirement (T1) as an ordinary failure to apply. Rejecting it at the Validity layer instead would pre-empt that with a harsher outcome for the same defect.",
     "reserved": false
   },
   {
@@ -689,7 +698,7 @@
     "layer": "A",
     "inheritsFrom": null,
     "summary": "Insertion carve-out: pure-insertion hunks apply at the `@@` `-`-line position.",
-    "text": "**Insertion carve-out.** A hunk with no context lines and no `-` lines (e.g., `@@ -0,0 +1,N @@` against empty content, or any pure-insertion hunk) has no pattern to disambiguate. Such a hunk MUST apply at the position implied by its `@@` header's `-` line number; the T1 uniqueness check does not apply.",
+    "text": "**Insertion carve-out.** A hunk with no context lines and no `-` lines (e.g., `@@ -0,0 +1,N @@` against empty content, or any pure-insertion hunk) has no pattern to disambiguate. Such a hunk MUST apply at the position implied by its `@@` header's `-` line number; the T1 uniqueness check does not apply. **That line number is interpreted in the coordinates of the patch's pre-application content, and MUST be carried forward by the net line delta of all prior hunks in the same patch.** Without the carry-forward this rule and T3 designate different positions the moment an earlier hunk in the same patch has added or removed lines, and the patch silently produces wrong content; with it, both rules hold simultaneously. This is what `git apply` and jsdiff both do.",
     "reserved": false
   },
   {
@@ -698,7 +707,7 @@
     "layer": "A",
     "inheritsFrom": null,
     "summary": "Multi-hunk sequencing: each hunk checked against post-prior-hunks content.",
-    "text": "**Multi-hunk sequencing.** When a patch carries multiple hunks, the T1 check for each hunk is evaluated against the content as produced after all prior hunks in the **same patch** have already been applied. Hunks are processed in document order. A hunk that would satisfy T1 against the pre-patch content but fails after an earlier hunk in the same patch has shifted matching positions causes the patch to HALT (H1).",
+    "text": "**Multi-hunk sequencing.** When a patch carries multiple hunks, the T1 check for each hunk is evaluated against the content as produced after all prior hunks in the **same patch** have already been applied. Hunks are processed in document order, across every `file-section` of the payload (C8). A hunk that would satisfy T1 against the pre-patch content but fails after an earlier hunk in the same patch has shifted matching positions causes the patch to HALT (H1). A pure-insertion hunk has no pattern and so is never subject to this check; its position is governed by T2's carry-forward instead.",
     "reserved": false
   },
   {
@@ -780,6 +789,15 @@
     "inheritsFrom": null,
     "summary": "Content abandoned for resource reasons MUST NOT be served or cached as canonical bytes.",
     "text": "Content abandoned for resource reasons MUST NOT be served or cached as canonical bytes.",
+    "reserved": false
+  },
+  {
+    "id": "RL-5",
+    "section": "5.4",
+    "layer": "A",
+    "inheritsFrom": null,
+    "summary": "A chain stopped by a ceiling is *aborted under a ceiling* — distinct from both resolved and HALT.",
+    "text": "**Chain disposition under a ceiling.** A chain whose application was stopped by a ceiling is reported as **aborted under a ceiling**, distinct from both `resolved` and HALT. Reporting it as `resolved` would name the last applied patch as the tip and claim a completeness the implementation does not have — which RC-3 then obliges non-UI consumers to serve downstream. Reporting it as HALT is forbidden by RL-3. The report MUST identify the patch at which application stopped and the ceiling that was reached, and MUST NOT cite H1.",
     "reserved": false
   },
   {
@@ -882,6 +900,15 @@
     "reserved": false
   },
   {
+    "id": "RC-5",
+    "section": "7.1",
+    "layer": "A",
+    "inheritsFrom": null,
+    "summary": "The tip is the last chain event — the root itself where the chain carries no patches.",
+    "text": "**Tip identification.** The tip is the last event in the canonical chain: the last patch where the chain carries patches, and the root event itself where it carries none. An unresolved self-fork leaves the chain undefined (SF-1) and the tip undefined with it. This matters because §7.3's `clean` classification turns on whether the overlay's target *is* the tip: reading the tip as \"the last patch\" and nothing else makes an overlay on a root that has never been patched `stale`, asserting that the chain has advanced past a target it has not advanced past. That is the first annotation published against any new Product, so it is the common case.",
+    "reserved": false
+  },
+  {
     "id": "SF-1",
     "section": "7.2",
     "layer": "A",
@@ -936,6 +963,15 @@
     "reserved": false
   },
   {
+    "id": "SF-7",
+    "section": "7.2",
+    "layer": "A",
+    "inheritsFrom": null,
+    "summary": "Self-fork vs HALT: freeze at whichever is earlier in chain order; never apply past a HALT.",
+    "text": "**Precedence between a self-fork and a HALT.** Where a self-fork (SF-2) and a HALT (§5.3 H1) are both live, canonical bytes freeze at whichever point is earlier in chain order. A self-fork upstream of a HALT freezes at the shared parent, and the patches downstream of it — including the one that would have HALTed — are never evaluated, because the chain past an undefined point is not evaluated at all. A HALT upstream of a self-fork freezes at the last successfully applied patch; the fork is still surfaced per SF-3 though it did not determine the content. Implementations MUST NOT apply any patch past a HALT in order to reach a downstream fork parent: H1 admits no exception, and doing so would return different canonical bytes for the same event set than an implementation that did not.",
+    "reserved": false
+  },
+  {
     "id": "OV-1",
     "section": "7.3",
     "layer": null,
@@ -968,7 +1004,7 @@
     "layer": "A",
     "inheritsFrom": null,
     "summary": "Classification is a pure deterministic function of (payload, target content).",
-    "text": "Overlay classification against its target is a pure function of (overlay payload, target's resolved content) and MUST be deterministic across compliant clients.",
+    "text": "Overlay classification against its target is a pure function of (overlay payload, target's resolved content) and MUST be deterministic across compliant clients. Given fixed ceilings, this holds for OV-9's `unclassified` outcome too; because ceilings are local and configurable (RL-2), two clients with *different* ceilings MAY reach different outcomes, and that is the one permitted source of divergence.",
     "reserved": false
   },
   {
@@ -977,7 +1013,7 @@
     "layer": "D",
     "inheritsFrom": null,
     "summary": "Clients SHOULD expose classification through their API/data layer.",
-    "text": "Clients SHOULD expose the classification (clean / conflict / stale / orphaned) through their API/data layer so downstream tooling can read it. Visual rendering remains client-defined.",
+    "text": "Clients SHOULD expose the classification (clean / conflict / stale / orphaned, or `unclassified` per OV-9) through their API/data layer so downstream tooling can read it. Visual rendering remains client-defined.",
     "reserved": false
   },
   {
@@ -1005,6 +1041,15 @@
     "inheritsFrom": null,
     "summary": "Root-author patch replying to foreign patch ignored for chain construction.",
     "text": "A root-author patch whose `e reply` points at a foreign patch is ignored for canonical-chain construction.",
+    "reserved": false
+  },
+  {
+    "id": "OV-9",
+    "section": "7.3",
+    "layer": "A",
+    "inheritsFrom": null,
+    "summary": "Ceiling reached before classification → `unclassified`; never conflict, orphaned, clean or stale.",
+    "text": "**Ceiling reached before classification.** If a §5.4 consumer ceiling is reached while classifying an overlay, the outcome is **unclassified** — a distinct fifth outcome, not one of the four classifications. Such an overlay MUST NOT be reported as `conflict` (no failure was established), as `orphaned` (the target is well defined and obtainable, and the α/β rule does not apply), or as `clean` or `stale` (the hunks were never shown to apply). It MUST be accompanied by the distinct resource-limit-exceeded annotation of RL-3, and MUST NOT cite H1.",
     "reserved": false
   },
   {

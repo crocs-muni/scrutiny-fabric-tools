@@ -165,12 +165,9 @@ export const V_COVERAGE: CoverageTable = {
       'across diff/patch/DIFF/extra-token/non-matching info strings.',
   ),
   E3: emitted(patchOf(`\`\`\`diff\n${MINIMAL_PAYLOAD}\n`)),
-  E4: notCovered(
-    'A producer rule, and unfalsifiable on receipt: a payload containing a backtick run at least ' +
-      'as long as its fence would have closed the block early, so a validator can never observe ' +
-      'the violation. Enforced when building patches (Phase 6). The consumer half — matching the ' +
-      'closing fence by length — is covered behaviourally.',
-  ),
+  // E4 retagged V -> A in v0.6.1 (producer obligation, unfalsifiable on receipt — see docs/
+  // SPEC-FEEDBACK-v0.6.0.md). No longer a V-layer rule, so it does not belong in this table at
+  // all; it lands with whichever module implements build.ts (Phase 6).
   E5: notCovered(
     'Defines the payload byte boundary rather than a constraint that can fail. Covered by a ' +
       'byte-exact assertion that the payload is the lines strictly between the fences, each ' +
@@ -202,18 +199,14 @@ export const V_COVERAGE: CoverageTable = {
   ),
 
   // --- §5.2 producer rules --------------------------------------------------
-  P1: notCovered(
-    'Not evaluated. P1 requires 3 context lines, which is unsatisfiable for content shorter than ' +
-      'seven lines — and SCRUTINY diffs a single content field, often one line. T2 normatively ' +
-      'defines apply semantics for a zero-context hunk, so rejecting one at the V layer would ' +
-      'make T2 unreachable, and the spec’s own §5.2 example payload has zero context. ' +
-      'Verified: the reference invocation at §5.2 line 549 emits a zero-context hunk. Enforced ' +
-      'when building patches instead (Phase 6, jsdiff context: 3). See SPEC-FEEDBACK F1.',
-  ),
+  // P1 and P3 retagged V -> A in v0.6.1 — both are producer obligations (context-line minimum,
+  // payload encoding/line endings), not Validity criteria for a received event, and neither
+  // belongs in this table any longer. P1 was already `notCovered` here for exactly that reason
+  // before the retag made it official (see SPEC-FEEDBACK F1); P3 was wrongly `emitted` as a V-layer
+  // rejection — validate.ts still observes it (the check is falsifiable on receipt, unlike P1/E4),
+  // but now as a non-rejecting A-layer annotation, tracked by patch-grammar.test.ts rather than
+  // this V-only partition.
   P2: emitted(patchOf(fenced(['index 7ebcdab..331da67 100644', MINIMAL_PAYLOAD].join('\n')))),
-  P3: emitted(
-    patchOf(fenced(['--- a/content', '+++ b/content', '@@ -1 +1 @@', '-o', '+n\uD800'].join('\n'))),
-  ),
 
   // --- §6 trust -------------------------------------------------------------
   'TR-1': notCovered(

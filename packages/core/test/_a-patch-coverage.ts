@@ -25,7 +25,10 @@ const issuesFrom =
     return result.status === 'halt' || result.status === 'limit' ? result.issues : []
   }
 
-/** The rules `docs/IMPLEMENTATION-PLAN.md` assigns to the `patch` module, plus RL-3 which it emits. */
+/**
+ * The rules `docs/IMPLEMENTATION-PLAN.md` assigns to the `patch` module, plus RL-3 which it emits
+ * and C8 (new in spec v0.6.1, added here rather than to the plan's original list).
+ */
 export const A_PATCH_COVERAGE: CoverageTable = {
   T1: emitted(issuesFrom('x\nDUP\ny\nDUP\nz\n', body('@@ -1,1 +1,1 @@', '-DUP', '+CHANGED'))),
 
@@ -94,6 +97,15 @@ export const A_PATCH_COVERAGE: CoverageTable = {
   ),
 
   'RL-3': emitted(issuesFrom('a\nb\n', body('@@ -1,1 +1,1 @@', '-a', '+z'), { maxHunks: 0 })),
+
+  C8: notCovered(
+    "New in spec v0.6.1; not in this table's originating plan. Multiple file-sections are a " +
+      'parsing/sequencing behaviour, not a check with a failure mode of its own — a violation ' +
+      'would surface as an ordinary T1 code evaluated against the flattened hunk sequence, the ' +
+      'same shape as T3 above. Covered behaviourally by the F5/C8 test asserting a two-header-' +
+      'block payload applies both hunks in document order rather than dropping the second ' +
+      'section or misreading its "---" line as a removal.',
+  ),
 }
 
 /** Every issue this partition produces. Consumed by the gate and invariant suites. */

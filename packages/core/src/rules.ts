@@ -4,7 +4,7 @@
 // Regenerate:  pnpm rules:gen
 // Verify:      pnpm rules:check
 //
-// 134 rules: V=47, A=55, D=31, 1 reserved.
+// 139 rules: V=44, A=63, D=31, 1 reserved.
 
 /**
  * The layer a rule belongs to (§6.0). The partition is by *subject*, not by normative strength —
@@ -92,6 +92,7 @@ export type RuleId =
   | 'C5'
   | 'C6'
   | 'C7'
+  | 'C8'
   | 'P1'
   | 'P2'
   | 'P3'
@@ -108,6 +109,7 @@ export type RuleId =
   | 'RL-2'
   | 'RL-3'
   | 'RL-4'
+  | 'RL-5'
   | 'TR-1'
   | 'TR-2'
   | 'TR-3'
@@ -119,12 +121,14 @@ export type RuleId =
   | 'RC-2'
   | 'RC-3'
   | 'RC-4'
+  | 'RC-5'
   | 'SF-1'
   | 'SF-2'
   | 'SF-3'
   | 'SF-4'
   | 'SF-5'
   | 'SF-6'
+  | 'SF-7'
   | 'OV-1'
   | 'OV-2'
   | 'OV-3'
@@ -133,6 +137,7 @@ export type RuleId =
   | 'OV-6'
   | 'OV-7'
   | 'OV-8'
+  | 'OV-9'
   | 'UR-1'
   | 'UR-2'
   | 'UR-3'
@@ -635,9 +640,9 @@ export const RULES: Readonly<Record<RuleId, Rule>> = Object.freeze({
   'E4': {
     id: 'E4',
     section: '5.2',
-    layer: 'V',
+    layer: 'A',
     inheritsFrom: null,
-    summary: 'Variable-length fences: `max(3, N+1)` where `N` is longest payload run.',
+    summary: 'Variable-length fences: `max(3, N+1)`; a producer obligation, unobservable to a consumer.',
     reserved: false,
   },
   'E5': {
@@ -701,7 +706,7 @@ export const RULES: Readonly<Record<RuleId, Rule>> = Object.freeze({
     section: '5.2',
     layer: 'V',
     inheritsFrom: 'unified-diff',
-    summary: 'Trailing data on header/`@@` lines MUST be tolerated and ignored.',
+    summary: 'Trailing data on header/`@@` lines leaves a payload valid; tolerate and ignore it.',
     reserved: false,
   },
   'C3': {
@@ -709,7 +714,7 @@ export const RULES: Readonly<Record<RuleId, Rule>> = Object.freeze({
     section: '5.2',
     layer: 'V',
     inheritsFrom: 'unified-diff',
-    summary: '`Index:` preamble MAY appear; MUST be tolerated.',
+    summary: 'An `Index:` preamble leaves a payload valid; it MAY appear and MUST be tolerated.',
     reserved: false,
   },
   'C4': {
@@ -717,7 +722,7 @@ export const RULES: Readonly<Record<RuleId, Rule>> = Object.freeze({
     section: '5.2',
     layer: 'V',
     inheritsFrom: 'unified-diff',
-    summary: '`diff --git` line MAY appear; MUST be tolerated.',
+    summary: 'A `diff --git` line leaves a payload valid; it MAY appear and MUST be tolerated.',
     reserved: false,
   },
   'C5': {
@@ -725,7 +730,7 @@ export const RULES: Readonly<Record<RuleId, Rule>> = Object.freeze({
     section: '5.2',
     layer: 'A',
     inheritsFrom: 'unified-diff',
-    summary: '`\\ No newline at end of file` marker MUST be handled per unified-diff spec.',
+    summary: 'A hunk line beginning with `\\` is a no-newline marker; key on the prefix, not the (localised) text.',
     reserved: false,
   },
   'C6': {
@@ -741,15 +746,23 @@ export const RULES: Readonly<Record<RuleId, Rule>> = Object.freeze({
     section: '5.2',
     layer: 'V',
     inheritsFrom: null,
-    summary: 'Consumers MUST accept any payload matching the §5.2 consumer grammar, including zero-hunk payloads.',
+    summary: 'Floor on acceptance: any payload matching the §5.2 grammar is valid, zero-hunk included; no stricter reading.',
+    reserved: false,
+  },
+  'C8': {
+    id: 'C8',
+    section: '5.2',
+    layer: 'A',
+    inheritsFrom: 'unified-diff',
+    summary: 'Multiple file sections permitted; a `---` at hunk-line position starts a section, not a removal.',
     reserved: false,
   },
   'P1': {
     id: 'P1',
     section: '5.2',
-    layer: 'V',
+    layer: 'A',
     inheritsFrom: 'unified-diff',
-    summary: 'Minimum 3 lines of context before/after each change block.',
+    summary: 'Producers SHOULD emit `min(3, available)` context lines; not a validity criterion for consumers.',
     reserved: false,
   },
   'P2': {
@@ -757,15 +770,15 @@ export const RULES: Readonly<Record<RuleId, Rule>> = Object.freeze({
     section: '5.2',
     layer: 'V',
     inheritsFrom: null,
-    summary: 'No `index <sha>..<sha>`, `mode`, `similarity index`, or rename metadata.',
+    summary: 'No `index <sha>..<sha>`, `mode`, `similarity index`, or rename metadata; `--no-index` does not suppress them.',
     reserved: false,
   },
   'P3': {
     id: 'P3',
     section: '5.2',
-    layer: 'V',
+    layer: 'A',
     inheritsFrom: null,
-    summary: 'UTF-8 encoding, LF line endings inside the payload.',
+    summary: 'Producers MUST emit UTF-8 with LF line endings in the payload; not a consumer rejection criterion.',
     reserved: false,
   },
   'P4': {
@@ -872,6 +885,14 @@ export const RULES: Readonly<Record<RuleId, Rule>> = Object.freeze({
     summary: 'Content abandoned for resource reasons MUST NOT be served or cached as canonical bytes.',
     reserved: false,
   },
+  'RL-5': {
+    id: 'RL-5',
+    section: '5.4',
+    layer: 'A',
+    inheritsFrom: null,
+    summary: 'A chain stopped by a ceiling is *aborted under a ceiling* — distinct from both resolved and HALT.',
+    reserved: false,
+  },
   'TR-1': {
     id: 'TR-1',
     section: '6',
@@ -960,6 +981,14 @@ export const RULES: Readonly<Record<RuleId, Rule>> = Object.freeze({
     summary: 'UI consumers SHOULD recompute on observed-set change.',
     reserved: false,
   },
+  'RC-5': {
+    id: 'RC-5',
+    section: '7.1',
+    layer: 'A',
+    inheritsFrom: null,
+    summary: 'The tip is the last chain event — the root itself where the chain carries no patches.',
+    reserved: false,
+  },
   'SF-1': {
     id: 'SF-1',
     section: '7.2',
@@ -1006,6 +1035,14 @@ export const RULES: Readonly<Record<RuleId, Rule>> = Object.freeze({
     layer: 'A',
     inheritsFrom: null,
     summary: 'Multiple forks resolved independently; freeze at earliest unresolved.',
+    reserved: false,
+  },
+  'SF-7': {
+    id: 'SF-7',
+    section: '7.2',
+    layer: 'A',
+    inheritsFrom: null,
+    summary: 'Self-fork vs HALT: freeze at whichever is earlier in chain order; never apply past a HALT.',
     reserved: false,
   },
   'OV-1': {
@@ -1070,6 +1107,14 @@ export const RULES: Readonly<Record<RuleId, Rule>> = Object.freeze({
     layer: 'A',
     inheritsFrom: null,
     summary: 'Root-author patch replying to foreign patch ignored for chain construction.',
+    reserved: false,
+  },
+  'OV-9': {
+    id: 'OV-9',
+    section: '7.3',
+    layer: 'A',
+    inheritsFrom: null,
+    summary: 'Ceiling reached before classification → `unclassified`; never conflict, orphaned, clean or stale.',
     reserved: false,
   },
   'UR-1': {

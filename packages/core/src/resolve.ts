@@ -30,19 +30,28 @@ import { type ApplyOptions, type HaltReason, type LimitKind, applyPatchContent }
  * `forked` carries no `tipId` — not "the tip is nothing" but "asking is a category error", since
  * SF-1 makes the chain undefined while a fork is unresolved. Same technique as `PatchHalt` carrying
  * no content: the wrong question cannot be typed.
+ *
+ * `tipId` is always a concrete event id, never `null` (RC-5, spec v0.6.1): "the tip is the last
+ * event in the canonical chain... the root event itself where it carries none." An earlier
+ * revision of this type used `null` as a sentinel for "the root is the tip," which is what
+ * produced the RC-5 bug fixed in fix/spec-v061-drift — an overlay anchored to a never-patched
+ * root compared its target id against `null` and always lost, misclassifying `stale` instead of
+ * `clean`. The vendored `chain/root-only` and `chain/foreign-patch-never-enters-the-chain` vectors
+ * both pin `tipId` to the root's own id for exactly this shape.
  */
 export type ChainState =
   | {
       readonly status: 'resolved'
+      /** The last applied patch, or the root event's own id where the chain carries none (RC-5). */
+      readonly tipId: string
       readonly content: string
-      /** The last patch applied, or `null` when the chain is just the root. */
-      readonly tipId: string | null
       readonly applied: readonly string[]
     }
   | {
       readonly status: 'halted'
       readonly content: string
-      readonly tipId: string | null
+      /** As `resolved`'s — the last successfully applied patch, or the root (RC-5). */
+      readonly tipId: string
       readonly applied: readonly string[]
       /** The patch that failed pre-validation (H1). */
       readonly haltedAt: string
@@ -57,19 +66,18 @@ export type ChainState =
     }
   | {
       /**
-       * A ceiling stopped application before a verdict was reached (RL-3).
+       * A ceiling stopped application before a verdict was reached (RL-3, RL-5).
        *
        * Distinct from `halted` because §5.4 forbids surfacing a resource limit as a HALT, and
        * distinct from `resolved` because patches remain that were deliberately not applied.
        *
        * `tipId` still carries the last *successfully applied* patch, exactly as it does on
        * `halted` — it is the last position with defined content, which overlay classification
-       * needs. The incompleteness is carried by `status`, not by blanking the field: a `null`
-       * here would be indistinguishable from a chain with no patches at all.
+       * needs (RC-5). The incompleteness is carried by `status`, not by the field.
        */
       readonly status: 'aborted'
       readonly content: string
-      readonly tipId: string | null
+      readonly tipId: string
       readonly applied: readonly string[]
       readonly abortedAt: string
       readonly limit: LimitKind
@@ -397,7 +405,11 @@ export function resolve(
     classifyAgainst(patch.id, content)
   }
 
-  const lastApplied = applied.at(-1) ?? null
+  // RC-5 — the tip is the root event itself where the chain carries no (successfully applied)
+  // patches, never "nothing." `applied.at(-1)` is `undefined` in exactly that case (zero patches
+  // applied, whether because none exist or because the first one HALTed/aborted before applying),
+  // and `rootId` is always the fallback — never a sentinel a caller must special-case.
+  const tip = applied.at(-1) ?? rootId
 
   if (fork !== undefined) {
     const branches: ForkBranch[] = fork.branches
@@ -428,7 +440,7 @@ export function resolve(
       ? {
           status: 'halted',
           content,
-          tipId: lastApplied,
+          tipId: tip,
           applied,
           haltedAt: halted.at.id,
           reason: halted.reason,
@@ -437,7 +449,7 @@ export function resolve(
         ? {
             status: 'aborted',
             content,
-            tipId: lastApplied,
+            tipId: tip,
             applied,
             abortedAt: aborted.at.id,
             limit: aborted.limit,
@@ -449,13 +461,13 @@ export function resolve(
               forkParentId: fork.parentId,
               branchIds: fork.branches.map((b) => b.id).sort(byIdAsc),
             }
-          : { status: 'resolved', content, tipId: lastApplied, applied }
+          : { status: 'resolved', content, tipId: tip, applied }
 
   // --- overlay states ------------------------------------------------------
   //
   // A forked chain has no tip (SF-1), so nothing anchored to it can be `clean`; well-formed
   // overlays against the frozen prefix are `stale`, which is what §7.3's condition literally says.
-  const tipForOverlays = chain.status === 'forked' ? null : lastApplied
+  const tipForOverlays = chain.status === 'forked' ? null : tip
   const definedPositions = new Set<string>([rootId, ...applied])
 
   const overlays: Overlay[] = []

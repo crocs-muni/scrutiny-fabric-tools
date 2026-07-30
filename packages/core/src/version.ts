@@ -4,7 +4,7 @@
  * Kept in its own module so `validate.ts` can read it without importing the root barrel, which
  * would make the module graph cyclic.
  */
-export const SPEC_VERSION = '0.6.0'
+export const SPEC_VERSION = '0.6.1'
 
 /**
  * The version `t` tag this implementation emits (TAG-2, VER-1).
@@ -16,4 +16,4 @@ export const SPEC_VERSION = '0.6.0'
  * in a relay filter: doing so silently drops every higher-version event, which violates VER-4
  * invisibly. The previous implementation did exactly this, and nothing ever reported it.
  */
-export const VERSION_TAG = 'scrutiny-v060'
+export const VERSION_TAG = 'scrutiny-v061'

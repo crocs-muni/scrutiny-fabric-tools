@@ -1,6 +1,6 @@
 # @scrutiny-fabric/core
 
-Reference implementation of the [SCRUTINY Fabric protocol](https://github.com/crocs-muni/scrutiny-fabric), spec v0.6.0.
+Reference implementation of the [SCRUTINY Fabric protocol](https://github.com/crocs-muni/scrutiny-fabric), spec v0.6.1.
 
 Sans-IO, crypto-free, ESM-only. The package parses and validates SCRUTINY events and applies patch
 payloads; it does not talk to relays, hash anything, or hold keys.
