@@ -1,7 +1,7 @@
 {
   "name": "@scrutiny-fabric/core",
   "version": "0.1.0",
-  "description": "Reference implementation of the SCRUTINY Fabric protocol (spec v0.6.0). Sans-IO, crypto-free, ESM-only.",
+  "description": "Reference implementation of the SCRUTINY Fabric protocol (spec v0.6.1). Sans-IO, crypto-free, ESM-only.",
   "license": "MIT",
   "repository": {
     "type": "git",
@@ -52,6 +52,10 @@
     "./errors.js": {
       "types": "./dist/errors.d.ts",
       "default": "./dist/errors.js"
+    },
+    "./store.js": {
+      "types": "./dist/store.d.ts",
+      "default": "./dist/store.js"
     },
     "./package.json": "./package.json"
   },

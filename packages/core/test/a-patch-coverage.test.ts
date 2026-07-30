@@ -26,6 +26,7 @@ const OWNED: readonly RuleId[] = [
   'PB-2',
   'E7',
   'RL-3',
+  'C8', // new in spec v0.6.1 — see _a-patch-coverage.ts for why it's not-covered
 ]
 
 describe('Phase 2 gate — patch-module rule coverage', () => {

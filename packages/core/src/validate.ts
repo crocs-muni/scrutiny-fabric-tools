@@ -583,9 +583,13 @@ function checkPayloadGrammar(payload: string, issues: Issue[]): void {
   // P3, UTF-8 clause. A lone surrogate survives JSON.parse but has no valid UTF-8 encoding, so it
   // cannot be serialised for an id recompute or transmitted verbatim. This is the only reachable
   // UTF-8 violation, since content arrives already decoded (R11).
+  //
+  // P3 retagged V -> A in v0.6.1: a producer obligation, not a Validity criterion for a received
+  // event (§6.0 — TR-1 forbids an A rule rejecting a V-valid event). `error` here would do exactly
+  // that, so this is `warning` even though the underlying defect is real and worth surfacing.
   if (LONE_SURROGATE.test(payload)) {
     issues.push(
-      issue('P3', 'error', 'patch payload contains an unpaired surrogate and is not valid UTF-8'),
+      issue('P3', 'warning', 'patch payload contains an unpaired surrogate and is not valid UTF-8'),
     )
   }
 

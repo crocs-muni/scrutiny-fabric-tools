@@ -1,7 +1,7 @@
 /**
  * `@scrutiny-fabric/core` — reference implementation of the SCRUTINY Fabric protocol.
  *
- * Target specification: **v0.6.0** (`scrutiny-v060`), 134 normative rules.
+ * Target specification: **v0.6.1** (`scrutiny-v061`), 139 normative rules.
  *
  * This root barrel is the primary documented import (D5). Subpath exports exist only where they buy
  * a consumer graph exclusion, never as organisation.
@@ -97,7 +97,39 @@ export {
   type Reason,
 } from './admit.js'
 
-export { trustSymbol, type TrustProvider } from './interfaces.js'
+export {
+  storageSymbol,
+  trustSymbol,
+  type EventFilter,
+  type EventStorage,
+  type TrustProvider,
+} from './interfaces.js'
+
+/**
+ * Reducer + `EventStorage` port + epoch bookkeeping (D15) — the fifth module, tying `patch`,
+ * `resolve`, and `admit` together. `createStore` is the ergonomic entry point; `applyStoreDelta` is
+ * the pure reducer underneath it that SG1/SG2's gates exercise directly.
+ */
+export {
+  EMPTY_STORE_STATE,
+  applyStoreDelta,
+  bindingRejectionIssue,
+  createInMemoryEventStorage,
+  createResolveMemo,
+  createStore,
+  resolveRoot,
+  sig1RejectionIssue,
+  toStoreView,
+  type AddResult,
+  type CreateStoreOptions,
+  type IngestMeta,
+  type RejectedEvent,
+  type ResolveMemo,
+  type Store,
+  type StoreDelta,
+  type StoreState,
+  type StoreView,
+} from './store.js'
 
 export {
   RULES,

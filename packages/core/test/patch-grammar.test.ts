@@ -157,7 +157,8 @@ describe('envelope (§5.2 E1–E6)', () => {
 })
 
 // ---------------------------------------------------------------------------
-// C1, P2, P3 — the rejections
+// C1, P2 — the rejections. P3 is checked in this block too but is no longer one (v0.6.1 retagged
+// it V -> A: a producer obligation, so the event stays valid and P3 surfaces as a warning).
 // ---------------------------------------------------------------------------
 describe('rejections', () => {
   it('rejects header paths other than a/content and b/content (C1)', () => {
@@ -209,12 +210,12 @@ describe('rejections', () => {
     expect(codes(fenced(payload))).not.toContain('P2')
   })
 
-  it('rejects an unpaired surrogate, which has no valid UTF-8 encoding (P3)', () => {
+  it('warns on an unpaired surrogate, which has no valid UTF-8 encoding, without rejecting (P3)', () => {
     const payload = ['--- a/content', '+++ b/content', '@@ -1 +1 @@', '-old', '+new\uD800'].join(
       '\n',
     )
     expect(codes(fenced(payload))).toContain('P3')
-    expect(check(fenced(payload)).status).toBe('invalid')
+    expect(check(fenced(payload)).status).toBe('valid')
   })
 
   it('accepts a correctly paired surrogate (an ordinary astral character)', () => {

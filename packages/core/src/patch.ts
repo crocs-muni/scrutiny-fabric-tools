@@ -254,7 +254,10 @@ function parseHunks(payload: string): Hunk[] {
   // grammar admits exactly one `header-block`, but read literally the second `---` line is also a
   // valid `hunk-line` (it begins with `-`), so the same bytes have two incompatible readings. We
   // take jsdiff's and sequence every hunk under T3, which drops nothing and stays deterministic.
-  // Recorded as SPEC-FEEDBACK F5.
+  // Recorded as SPEC-FEEDBACK F5 — resolved in spec v0.6.1 as C8, which codifies exactly this
+  // reading: multiple `file-section`s are permitted, a `---` at hunk-line position starts a new
+  // section rather than removing a line, and every section's hunks are processed as one sequence
+  // in document order under T3. This code already did that before the rule existed to name it.
   return parsed.flatMap((file) => file.hunks.map(reduceHunk))
 }
 

@@ -297,13 +297,13 @@ not time), so any use of it as a tiebreaker is both a conformance failure and a 
 
 ```ts
 type ChainState =
-  | { status: 'resolved'; content: string; tipId: string | null; applied: readonly string[] }
-  | { status: 'halted';   content: string; tipId: string | null; applied: readonly string[]
+  | { status: 'resolved'; content: string; tipId: string; applied: readonly string[] }
+  | { status: 'halted';   content: string; tipId: string; applied: readonly string[]
                         ; haltedAt: string; reason: HaltReason }
   | { status: 'forked';   content: string; forkParentId: string
                         ; branchIds: readonly string[] }        // no tipId — SF-1, structurally
-  | { status: 'aborted';  content: string; tipId: string | null; applied: readonly string[]
-                        ; abortedAt: string; limit: LimitKind } // RL-3 — see below
+  | { status: 'aborted';  content: string; tipId: string; applied: readonly string[]
+                        ; abortedAt: string; limit: LimitKind } // RL-3/RL-5 — see below
   | { status: 'absent';   reason: 'root-unobserved' | 'root-not-patchable' }
 
 type OverlayState = 'clean' | 'conflict' | 'stale' | 'orphaned' | 'unclassified'
@@ -324,9 +324,20 @@ interface Resolution {
 }
 ```
 
-`tipId` is `null`, not absent, when the chain resolves with zero patches — the tip is genuinely the
-root. `forked` has no `tipId` field at all, which is a different statement: not "the tip is nothing"
-but "asking is a category error." Same technique as Phase 2's halt variant carrying no `content`.
+`tipId` is **always a concrete event id, never `null`** (RC-5, spec v0.6.1): "the tip is the last
+event in the canonical chain... the root event itself where it carries none." `forked` has no
+`tipId` field at all, which is a different statement: not "the tip is nothing" but "asking is a
+category error." Same technique as Phase 2's halt variant carrying no `content`.
+
+**Correction, fix/spec-v061-drift.** This section originally typed `tipId` as `string | null`, using
+`null` as a sentinel for "the root is the tip" — defensible in isolation, but wrong under RC-5's
+literal text and under the vendored `application.json` corpus, every one of whose zero-patch chain
+cases (`chain/root-only`, `chain/foreign-patch-never-enters-the-chain`, and others) pins `tipId` to
+the *root's own id*, never `null`. The bug this produced was real, not cosmetic: an overlay anchored
+to a never-patched root compared its target id against `null` and always lost, misclassifying
+`stale` instead of `clean` — the *first* annotation published against any new Product, so the common
+case, not an edge case. Fixed by resolving the sentinel once (`applied.at(-1) ?? rootId`) and using
+that concrete value everywhere `tipId` is read or constructed, including for overlay classification.
 
 **Two variants the spec does not provide, both forced by §5.4 and recorded as SPEC-FEEDBACK F11.** A
 resource ceiling can be hit while applying the chain and while classifying an overlay, and §5.4

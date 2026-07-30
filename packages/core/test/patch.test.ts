@@ -11,6 +11,8 @@ import { describe, expect, it } from 'vitest'
 import { applyPatchContent, applyPatchPayload, makePatch } from '../src/patch.js'
 import { repeatyContent } from './_generators.js'
 import { body, describeResult, expectApplied, expectHalt } from './_patch.js'
+import type { ApplyCase } from './_vector-cases.js'
+import { vectorCases } from './_vector-cases.js'
 import { loadVectors } from './_vectors.js'
 import { REGRESSIONS } from './patch-regressions.js'
 
@@ -257,7 +259,7 @@ describe('failure channels are normalised into one rejection signal', () => {
   })
 })
 
-describe('F5 — a payload with two header blocks', () => {
+describe('F5 / C8 — a payload with two header blocks (multiple file-sections)', () => {
   it('sequences every parsed hunk under T3 rather than dropping any', () => {
     const payload = `${body('@@ -1,1 +1,1 @@', '-a', '+A')}${body('@@ -2,1 +2,1 @@', '-b', '+B')}`
     const result = applyPatchPayload('a\nb\n', payload)
@@ -292,16 +294,31 @@ describe('T1 under zero-context patches', () => {
   })
 })
 
-describe('conformance vectors', () => {
+describe('conformance vectors — application.json, kind: apply (Appendix G)', () => {
   const vectors = loadVectors()
   it('loads cleanly, and skips when the corpus is absent', () => {
-    // The corpus does not exist yet (§11 lists test vectors as future work, and there is no
-    // Appendix G). This asserts the loader's empty-directory path rather than a vector count.
+    // Vendored in fix/spec-v061-drift (D33). Still asserts the loader's own contract rather than a
+    // count, so a future absent-corpus run (a fresh checkout before vendoring) stays green too.
     expect(Array.isArray(vectors)).toBe(true)
   })
   for (const v of vectors) {
     it(`${v.file} parses`, () => {
       expect(v.data).toBeDefined()
+    })
+  }
+
+  const applyCases = vectorCases<ApplyCase>(vectors, 'application.json').filter(
+    (c) => c.kind === 'apply',
+  )
+  for (const c of applyCases) {
+    it(`${c.name} (${c.rule})`, () => {
+      const result = applyPatchPayload(c.content, c.payload, c.options)
+      expect(result.status, c.why).toBe(c.expect.outcome)
+      // G.3: halt reasons are advisory, never asserted for equality. Only `applied` content is
+      // normative.
+      if (c.expect.outcome === 'applied' && result.status === 'applied') {
+        expect(result.content, c.why).toBe(c.expect.content)
+      }
     })
   }
 })
