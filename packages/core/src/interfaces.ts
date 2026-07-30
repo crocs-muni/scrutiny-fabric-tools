@@ -43,10 +43,12 @@ export interface TrustProvider {
 export const storageSymbol = Symbol.for('@scrutiny-fabric/storage')
 
 /**
- * A NIP-01 relay filter, kept minimal and local to this port rather than borrowed from a not-yet-
- * built `query.ts` (Phase 6, filter builders). `tags` covers the single-letter tag filters
- * (`#e`, `#t`, `#i`, `#k`, …) NIP-01 defines; kept as a named field rather than a template-literal
- * index signature so it can coexist with `kinds`/`since`/`until`/`limit`'s differing value types.
+ * A NIP-01 relay filter. `query.ts` (Phase 6) builds and returns exactly this type rather than a
+ * parallel shape of its own — the comment this replaced flagged the risk of silent duplication, and
+ * NIP-50's `search` (DQ-3, §8.1 step 3) is the only field the original, minimal shape was missing.
+ * `tags` covers the single-letter tag filters (`#e`, `#t`, `#i`, `#k`, …) NIP-01 defines; kept as a
+ * named field rather than a template-literal index signature so it can coexist with
+ * `kinds`/`since`/`until`/`limit`'s differing value types.
  */
 export interface EventFilter {
   readonly ids?: readonly string[]
@@ -56,6 +58,8 @@ export interface EventFilter {
   readonly until?: number
   readonly limit?: number
   readonly tags?: Readonly<Record<string, readonly string[]>>
+  /** NIP-50 free-text search (DQ-3). Relay support is optional; ranking is relay-dependent. */
+  readonly search?: string
 }
 
 /**

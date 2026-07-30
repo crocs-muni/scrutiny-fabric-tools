@@ -139,3 +139,34 @@ export {
   type RuleId,
   type RuleLayer,
 } from './rules.js'
+
+/**
+ * §8 discovery/traversal filter builders and result classifiers (D34 partition: `docs/QUERY-BUILD.md`
+ * §4). Plain NIP-01 `EventFilter` objects out, no relay I/O, no async.
+ */
+export {
+  bindingsReferencing,
+  classifyByRole,
+  deletionsFor,
+  fullScanFilter,
+  indexerFilter,
+  searchFilter,
+  type RoleMatch,
+} from './query.js'
+
+/**
+ * Unsigned event templates (D13) — `id`/`pubkey`/`sig` are the injected signer's job, never this
+ * module's.
+ */
+export {
+  buildBinding,
+  buildMetadata,
+  buildPatch,
+  buildProduct,
+  fenceLength,
+  fencePatchPayload,
+  type BuildIndexedOptions,
+  type BuildPatchOptions,
+  type BuildResult,
+  type EndpointRef,
+} from './build.js'

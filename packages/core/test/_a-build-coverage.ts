@@ -1,0 +1,60 @@
+/**
+ * The Phase 6 coverage partition (part of BQ-6): the rules `build` owns.
+ *
+ * Four of five (E4, P1, P3, and build's own share of P2) are not-covered — each a computation or an
+ * obligation satisfied by construction, with no rejection disposition of its own (see
+ * `docs/QUERY-BUILD.md` §2.2/§4 for the P2 double-listing note). P4 is the one real emission: a
+ * genuinely ambiguous `before` makes `buildPatch`'s self-check disagree with the given `after`.
+ */
+
+import { buildPatch } from '../src/build.js'
+import type { Issue } from '../src/errors.js'
+import { type CoverageTable, allIssues, emitted, notCovered } from './_coverage.js'
+
+const ROOT = { id: 'a'.repeat(64) }
+const REPLY = { id: 'b'.repeat(64) }
+
+/**
+ * P4 — the same concrete, directly-built ambiguous case as `build.test.ts`'s BQ-4: three repeats of
+ * a/b/c/d, the second repeat's `c` changed to `C`. The (d,a,b,c,d,a,b) context+removed pattern
+ * recurs at another repeat boundary, so T1 can never disambiguate it.
+ */
+function p4Issues(): readonly Issue[] {
+  const lines: string[] = []
+  for (let i = 0; i < 4; i++) lines.push('a', 'b', 'c', 'd')
+  const before = `${lines.join('\n')}\n`
+  const beforeLines = before.split('\n')
+  beforeLines[6] = 'C'
+  const after = beforeLines.join('\n')
+  return buildPatch(ROOT, REPLY, before, after, 1).issues
+}
+
+export const A_BUILD_COVERAGE: CoverageTable = {
+  E4: notCovered(
+    'A computation (fenceLength = max(3, N+1)), not a predicate with a rejection disposition. Its ' +
+      'own property test (BQ-3, build.test.ts) is the coverage: the fence never closes early on an ' +
+      'embedded backtick run, checked against the real consumer-side parser.',
+  ),
+  P1: notCovered(
+    "Satisfied transitively via patch.ts's own default context of 3, which patch.ts's own doc " +
+      "comment already names as P1's enforcement point. buildPatch only threads an optional " +
+      'override through; covered by a regression test asserting that thread, not a rule-code ' +
+      'emission.',
+  ),
+  P2: notCovered(
+    'The emittable half of P2 belongs to validate.ts (a V-layer rejection over a received payload), ' +
+      "not to this module — see docs/QUERY-BUILD.md §2.2. build.ts's own half is satisfied by " +
+      "construction: makePatch reaches jsdiff's structuredPatch/formatPatch, which never emits an " +
+      '"index"/"mode"/"similarity index" line (only git diff\'s own default output does). There is ' +
+      'nothing for this module to check or emit.',
+  ),
+  P3: notCovered(
+    "No code path in this module can introduce CRLF: jsdiff's output is LF-only and PB-1 forbids " +
+      'normalising content in the first place. Nothing here is a validity check to emit against — ' +
+      'it is guaranteed by construction, not observed by a test.',
+  ),
+  P4: emitted(p4Issues),
+}
+
+/** Every issue this partition produces. Consumed by the gate and invariant suites. */
+export const ALL_BUILD_ISSUES: readonly Issue[] = allIssues(A_BUILD_COVERAGE)
