@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { issue } from '../src/errors.js'
 import { RULES, RULE_IDS } from '../src/rules.js'
+import { ALL_BUILD_ISSUES } from './_a-build-coverage.js'
 import { ALL_PATCH_ISSUES } from './_a-patch-coverage.js'
 import { ALL_RESOLVE_ISSUES } from './_a-resolve-coverage.js'
 import { ALL_STORE_ISSUES } from './_a-store-coverage.js'
@@ -11,6 +12,7 @@ const ALL_EMITTED_ISSUES = [
   ...ALL_PATCH_ISSUES,
   ...ALL_RESOLVE_ISSUES,
   ...ALL_STORE_ISSUES,
+  ...ALL_BUILD_ISSUES,
 ]
 
 describe('structural invariants', () => {
