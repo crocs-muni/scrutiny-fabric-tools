@@ -199,6 +199,14 @@ bumping an epoch that turns out not to matter costs one wasted memo miss; *not* 
 matter serves stale bytes, which RC-3 forbids outright. The asymmetry in that trade is why the
 "unconditional" half is there.
 
+**`applyStoreDelta`'s `unobserve` case bumps the identical target set, per removed event, via the same
+table above.** Removing an event can change a root's `resolve()` output exactly as adding one can — a
+retracted patch un-applies, a retracted deletion un-suppresses its target — so whatever epoch(s) would
+have bumped on that event's arrival bump again on its removal. The lookup source differs (the frozen
+`state.chainMembership` snapshot taken before the removal, since `unobserve` cannot rebuild membership
+from an event that's about to disappear), but the target set and the bump itself are the same
+dispatch, not a second rule.
+
 **Design correction, found while writing this section, before code existed.** The table above means
 a root's exact `chainEpoch` *count* is arrival-order-dependent: a deletion targeting patch `P1` bumps
 `chainEpoch[R]` if `P1`'s root membership is already known (`P1` arrived first) but bumps only
@@ -363,6 +371,12 @@ predicate over an always-retained event, never a removal from storage. This is w
 canonical chain, foreign overlays, and Bindings referencing a retracted root are preserved for audit"
 achievable — nothing here ever calls `EventStorage` with an instruction to delete a kind-5-targeted
 event, only kind 5 events themselves, stored like any other.
+
+The predicate itself is DEL-1/DEL-6's raw test, applied directly against this adapter's own stored
+set: an event is hidden from default (`includeDeleted` unset or `false`) `query()` results only when
+an *honoured* kind 5 — matching `pubkey`, non-kind-5 target — targets it. This is deliberately
+non-cascading and per-event, not per-chain: DEL-2's canonical-descendant removal is chain topology and
+stays `resolve.ts`'s job, never duplicated at the storage layer.
 
 **In-memory default only for v0.1** (D37) — an object satisfying `EventStorage` over a `Map`, no
 persistence across process restarts. IndexedDB and SQLite adapters are the app's problem.

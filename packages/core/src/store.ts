@@ -449,6 +449,11 @@ export interface CreateStoreOptions {
 }
 
 export interface IngestMeta {
+  /**
+   * Part of D19's mandated call shape (`store.add(events, {source, verified})`) — not yet read by
+   * `add()` itself. Reserved for a future consumer (e.g. per-relay provenance/audit logging); the
+   * field exists now so that shape doesn't become a breaking addition later.
+   */
   readonly source?: string
   /** The caller already ran an equivalent verify() over this batch — skip re-running it (D19). */
   readonly verified?: boolean
@@ -461,6 +466,13 @@ export interface RejectedEvent {
   readonly issue: Issue
 }
 
+/**
+ * `accepted` and `rejected` are NOT mutually exclusive. SIG-1 rejections (failed `verify()`) never
+ * reach `accepted` — they're dropped before `applyStoreDelta` runs. But a BD-7 rejection is a warning
+ * on a Binding that already passed verification and was observed, so its id is in both: `accepted`
+ * answers "what got observed," `rejected` answers "what has an issue attached," and for BD-7 the
+ * answer to both is yes.
+ */
 export interface AddResult {
   readonly accepted: readonly string[]
   readonly rejected: readonly RejectedEvent[]
@@ -493,6 +505,28 @@ export interface Store {
  * app together explicitly, or a test exercising `query`/`get` directly) rather than reachable only
  * as `createStore`'s invisible fallback.
  */
+/**
+ * DEL-1 (pubkey must match the target's) / DEL-6 (a kind 5 cannot itself be deleted) — the same
+ * raw predicate `resolve.ts`'s own `honouredDeletions` applies, kept local here rather than shared
+ * since this is a storage-level, non-cascading check (STORE.md §7): "is this exact event targeted by
+ * an honoured kind 5," never chain-topology-aware. DEL-2's canonical-descendant cascade stays
+ * `resolve.ts`'s job — nothing here re-derives it.
+ */
+function honouredlyDeletedIds(byId: ReadonlyMap<string, NostrEvent>): Set<string> {
+  const deleted = new Set<string>()
+  for (const event of byId.values()) {
+    if (event.kind !== 5) continue
+    for (const ref of eTags(event)) {
+      const target = byId.get(ref.id)
+      if (target === undefined) continue // DEL-8 — not yet available, nothing to hide yet
+      if (target.kind === 5) continue // DEL-6
+      if (target.pubkey !== event.pubkey) continue // DEL-1
+      deleted.add(ref.id)
+    }
+  }
+  return deleted
+}
+
 export function createInMemoryEventStorage(): EventStorage {
   const byId = new Map<string, NostrEvent>()
   return {
@@ -500,9 +534,24 @@ export function createInMemoryEventStorage(): EventStorage {
     put(events) {
       for (const e of events) byId.set(e.id, e)
     },
-    query(filters) {
-      if (filters.length === 0) return [...byId.values()]
-      return [...byId.values()].filter((e) => filters.some((f) => matchesFilter(e, f)))
+    query(filters, options) {
+      const includeDeleted = options?.includeDeleted ?? false
+      const deletedIds = includeDeleted ? undefined : honouredlyDeletedIds(byId)
+      const visible = (e: NostrEvent): boolean => includeDeleted || !deletedIds?.has(e.id)
+
+      if (filters.length === 0) return [...byId.values()].filter(visible)
+
+      // Each filter's own `limit` applies to that filter's matches only, per NIP-01 — not to the
+      // union across filters — so limiting happens per-filter, before the results are merged.
+      const matched = new Map<string, NostrEvent>()
+      for (const filter of filters) {
+        let events = [...byId.values()].filter((e) => visible(e) && matchesFilter(e, filter))
+        if (filter.limit !== undefined) {
+          events = events.sort((a, b) => b.created_at - a.created_at).slice(0, filter.limit)
+        }
+        for (const e of events) matched.set(e.id, e)
+      }
+      return [...matched.values()]
     },
     get(ids) {
       const out = new Map<string, NostrEvent>()

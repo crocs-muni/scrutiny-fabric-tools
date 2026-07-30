@@ -150,6 +150,24 @@ describe('unobserve', () => {
     await store.unobserve([r.id])
     expect(Object.keys(store.getState().admit.observedById)).not.toContain(r.id)
   })
+
+  it('bumps chainEpoch for the affected root, invalidating the Resolution memo (STORE.md §3 symmetry)', () => {
+    let state = EMPTY_STORE_STATE
+    const memo = createResolveMemo()
+    const r = root(A, 'unobserve-epoch-root')
+    const p = diffPatch('unobserve-epoch-patch', r.id, r.id, A, AB)
+    state = applyStoreDelta(state, { kind: 'observe', events: [r, p] })
+
+    const before = resolveRoot(state, r.id, memo)
+    expect(before.chain.status).toBe('resolved')
+    if (before.chain.status === 'resolved') expect(before.chain.content).toBe(AB)
+
+    state = applyStoreDelta(state, { kind: 'unobserve', eventIds: [p.id] })
+    const after = resolveRoot(state, r.id, memo)
+    expect(after).not.toBe(before) // the memo was invalidated, not stale-served
+    expect(after.chain.status).toBe('resolved')
+    if (after.chain.status === 'resolved') expect(after.chain.content).toBe(A) // patch removed
+  })
 })
 
 describe('SIG-1 enforcement — the default gate rejects a failing event', () => {
@@ -214,5 +232,38 @@ describe('the default in-memory EventStorage adapter', () => {
 
     const byRootTag = await storage.query([{ tags: { '#e': [r.id] } }])
     expect(byRootTag.map((e) => e.id)).toEqual([p.id]) // only the patch carries an `e` tag to r.id
+  })
+
+  it('hides an honouredly-deleted event from default query(), shows it with includeDeleted (DEL-1/DEL-6)', async () => {
+    const storage = createInMemoryEventStorage()
+    const r = root(A, 'storage-del-root')
+    const p = diffPatch('storage-del-patch', r.id, r.id, A, AB)
+    const del = deletion('storage-del-deletion', [p.id]) // pubkey defaults to PK_ROOT, matching p's
+    await storage.put([r, p, del])
+
+    expect(await storage.query([{ ids: [p.id] }])).toEqual([])
+
+    const withDeleted = await storage.query([{ ids: [p.id] }], { includeDeleted: true })
+    expect(withDeleted.map((e) => e.id)).toEqual([p.id])
+  })
+
+  it('does not hide a deletion whose pubkey does not match its target (DEL-1)', async () => {
+    const storage = createInMemoryEventStorage()
+    const p = diffPatch('storage-del-mismatch-patch', 'ignored-root', 'ignored-root', A, AB)
+    const del = deletion('storage-del-mismatch-deletion', [p.id], 'a-different-pubkey')
+    await storage.put([p, del])
+
+    const result = await storage.query([{ ids: [p.id] }])
+    expect(result.map((e) => e.id)).toEqual([p.id])
+  })
+
+  it("applies each filter's own limit to that filter's matches, newest first", async () => {
+    const storage = createInMemoryEventStorage()
+    const older = { ...root(A, 'storage-limit-older'), created_at: 1_000 }
+    const newer = { ...root(AB, 'storage-limit-newer'), created_at: 2_000 }
+    await storage.put([older, newer])
+
+    const limited = await storage.query([{ kinds: [1], limit: 1 }])
+    expect(limited.map((e) => e.id)).toEqual([newer.id])
   })
 })
