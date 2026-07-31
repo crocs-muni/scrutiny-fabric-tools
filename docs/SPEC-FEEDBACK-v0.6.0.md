@@ -4,15 +4,26 @@ Defects found while implementing `@scrutiny-fabric/core`. D2 makes spec feedback
 deliverable: gaps are recorded and batched into an amendment brief rather than worked around
 locally. This file is that batch. It supersedes `SPEC-AMENDMENT-BRIEF.md`, which is spent.
 
-Line numbers are against `~/scrutiny-fabric/docs/protocol-spec.md` at v0.6.0 (1449 lines).
+Line numbers are against `~/scrutiny-fabric/docs/protocol-spec.md` at v0.6.0 (1449 lines). **The
+spec has since moved to v0.6.1 (1504 lines), so every line citation below is stale by that delta.**
+The quoted spec text is the v0.6.0 text the defect was reported against, and is retained
+deliberately — rewriting it would erase what was actually wrong.
 
-Status legend: **open** — reported, not yet resolved in the spec.
+Status legend: **open** — reported, not yet resolved in the spec. **resolved in v0.6.1** — the
+amendment landed; the entry is kept for the record, not as outstanding work.
+
+**All eleven of F1–F11 are resolved as of spec v0.6.1**; F12 is new and open. Verified during the Phase 8 audit
+(2026-07-31) by re-reading the spec fresh; see `AUDIT-2026-07-31.md` §9 for the per-entry table
+of what each amendment became (F1 retagged A, F3 widened `line-content` to `%x00-09 / %x0B-FF`,
+F5 → C8, F10 → SF-7, F11 → OV-9/RL-5, …). Each implementation workaround was re-checked and all
+remain correct. Three source comments still describe departures the amendments removed — tracked
+as P12 in that report, not here.
 
 ---
 
 ## F1 — P1 is unsatisfiable for short content, so it cannot be a Validity rule
 
-**Status:** open · **Rules:** P1, T2, C7 · **Sections:** §5.2, §5.3, §6.0 · **Severity:** blocks a
+**Status:** resolved in v0.6.1 · **Rules:** P1, T2, C7 · **Sections:** §5.2, §5.3, §6.0 · **Severity:** blocks a
 faithful implementation
 
 §6.0 (line 638) assigns P1 to the Validity layer, and line 641 gives V a single disposition: "A
@@ -67,7 +78,7 @@ recorded in the not-test-covered coverage bucket with this reason.
 
 ## F2 — P2's stated remedy does not work: `git diff --no-index` still emits the index line
 
-**Status:** open · **Rules:** P2 · **Sections:** §5.2 · **Severity:** wrong advice, rule is sound
+**Status:** resolved in v0.6.1 · **Rules:** P2 · **Sections:** §5.2 · **Severity:** wrong advice, rule is sound
 
 P2 (line 558) forbids `index <oldsha>..<newsha> <mode>` lines and advises: "Use `--no-index` with
 git, or strip these post-hoc." The first clause is false. Verified 2026-07-27:
@@ -97,7 +108,7 @@ explicitly distinguishes this line from the tolerated `Index:` preamble.
 
 ## F3 — The consumer grammar's `*VCHAR` excludes SP and all non-ASCII
 
-**Status:** open · **Rules:** C2, C7, E5 · **Sections:** §5.2 · **Severity:** the grammar as written
+**Status:** resolved in v0.6.1 · **Rules:** C2, C7, E5 · **Sections:** §5.2 · **Severity:** the grammar as written
 rejects the spec's own example
 
 The grammar at lines 519–529 is ABNF, in which `VCHAR = %x21-7E` (RFC 5234) — printable ASCII
@@ -124,7 +135,7 @@ the majority of real payloads.
 
 ## F4 — §6.0's Validity manifest cites §5.1, whose only two rules are tagged A
 
-**Status:** open · **Rules:** PB-1, PB-2 · **Sections:** §6.0 · **Severity:** editorial, but it is
+**Status:** resolved in v0.6.1 · **Rules:** PB-1, PB-2 · **Sections:** §6.0 · **Severity:** editorial, but it is
 the citation implementers partition against
 
 The V bullet at line 638 reads:
@@ -149,7 +160,7 @@ rules are V.
 
 ## F5 — a payload with two header blocks has two incompatible readings
 
-**Status:** open · **Rules:** C7, C1 · **Sections:** §5.2 · **Severity:** ambiguity, rare in practice
+**Status:** resolved in v0.6.1 · **Rules:** C7, C1 · **Sections:** §5.2 · **Severity:** ambiguity, rare in practice
 
 The grammar at line 519 admits exactly one `header-block`:
 
@@ -179,7 +190,7 @@ deterministic. Covered by a test in `patch.test.ts`.
 
 ## F6 — T2 and T3 disagree about which file a pure insertion's line number indexes
 
-**Status:** open · **Rules:** T2, T3 · **Sections:** §5.3 · **Severity:** produces wrong content;
+**Status:** resolved in v0.6.1 · **Rules:** T2, T3 · **Sections:** §5.3 · **Severity:** produces wrong content;
 found by the Phase 2 property test, not by inspection
 
 T2 (line 591) says a pure-insertion hunk "MUST apply at the position implied by its `@@` header's
@@ -222,7 +233,7 @@ insertion index by it. Pinned as regression case
 
 ## F7 — the grammar's `hunk-line` cannot match a blank context line
 
-**Status:** open · **Rules:** C7, C5 · **Sections:** §5.2 · **Severity:** rejects payloads every
+**Status:** resolved in v0.6.1 · **Rules:** C7, C5 · **Sections:** §5.2 · **Severity:** rejects payloads every
 real tool accepts
 
 `hunk-line = ( " " / "+" / "-" / "\" ) *VCHAR LF` (line 527) requires a prefix character. A context
@@ -251,7 +262,7 @@ an empty body. Pinned as regression case `grammar/empty-context-line`.
 
 ## F8 — the reference producer emits a separator line the grammar does not admit
 
-**Status:** open · **Rules:** C3 · **Sections:** §5.2 · **Severity:** minor, but it affects a tool
+**Status:** resolved in v0.6.1 · **Rules:** C3 · **Sections:** §5.2 · **Severity:** minor, but it affects a tool
 the spec names
 
 `index-preamble = "Index: content" LF "=" 1*"=" LF` (line 521) admits the `===…` separator only
@@ -280,7 +291,7 @@ floor on acceptance, not a ceiling).
 
 ## F9 — C5 names an English string that GNU diff and git localise
 
-**Status:** open · **Rules:** C5 · **Sections:** §5.2 · **Severity:** rejects conformant payloads
+**Status:** resolved in v0.6.1 · **Rules:** C5 · **Sections:** §5.2 · **Severity:** rejects conformant payloads
 produced under a non-English locale
 
 C5 (line 540) refers to "a `\ No newline at end of file` marker". GNU diff and git translate this
@@ -395,3 +406,34 @@ that fits, and get V-tagged for want of anywhere better.
 `warning`, where only `error` rejects. That is an implementation affordance with no basis in the
 spec text, and it is recorded here as such rather than presented as a reading. The spec may wish to
 introduce a non-rejecting advisory disposition explicitly.
+
+---
+
+## F12 — RL-2's ceiling unit ("bytes compared") is free to exhaust
+
+**Status:** open · **Rules:** RL-2, RL-3 · **Sections:** §5.4 · **Severity:** lets an adversary run
+an unbilled scan; bounded in practice, but the unit is the hole
+
+**Where.** §5.4: *"Consumers SHOULD enforce configurable ceilings. Because an adversary optimises
+against whichever unit is counted, consumers SHOULD additionally bound the total work of patch
+application, measured in bytes compared, rather than relying on hunk or patch counts alone."*
+
+**The problem.** "Bytes compared" is itself a unit an adversary can optimise against. T1's uniqueness
+scan costs `|content| × |pattern|` *element* comparisons regardless of how many bytes those elements
+contain, so a pattern consisting of **empty lines** costs a full scan and bills zero bytes. §5.4's own
+justification for preferring total work over hunk counts — that an adversary optimises against
+whichever unit is counted — applies verbatim to the unit it then recommends.
+
+Found during the Phase 8 audit (2026-07-31) by reading `patch.ts`'s charge against the rule text.
+Practical severity is limited rather than absent: a pattern of empty lines is unlikely to occur
+exactly once in blank-line-heavy content, so the first such hunk usually HALTs on `ambiguous-match`
+after one scan. Chaining several uncharged scans in one payload requires each empty pattern to be
+unique, which is constructible but fiddly. The unbilled single scan is unconditional.
+
+**Suggested amendment.** Have RL-2 name the unit as *comparisons, charged at no less than one per
+line*, rather than "bytes compared" — or state that implementations MUST include a per-element floor
+in whatever unit they choose.
+
+**How this implementation handles it.** `patch.ts` charges `|content| × Σ(len(line) + 1)` rather than
+`|content| × Σ len(line)`, so every pattern line costs at least one unit whatever its contents.
+Landed in `83d2393`.
