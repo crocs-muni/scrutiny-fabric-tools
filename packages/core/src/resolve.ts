@@ -90,9 +90,11 @@ export type ChainState =
 /**
  * §7.3's four overlay states, plus one this implementation had to add.
  *
- * `unclassified` is **not** one of §7.3's four. It exists because §5.4's resource limit has no
- * disposition in §7.3's table: a ceiling is not a conflict (the overlay may well apply), not clean,
- * not stale, and not orphaned (the target is perfectly well defined). Recorded as SPEC-FEEDBACK F11.
+ * `unclassified` is **not** one of §7.3's original four. It exists because a ceiling is not a
+ * conflict (the overlay may well apply), not clean, not stale, and not orphaned (the target is
+ * perfectly well defined). Reported as SPEC-FEEDBACK F11 when §5.4's resource limit had no
+ * disposition anywhere; **v0.6.1 closed F11 by naming this exact outcome as OV-9**, so the fifth
+ * state is now normative rather than an implementation invention.
  */
 export type OverlayState = 'clean' | 'conflict' | 'stale' | 'orphaned' | 'unclassified'
 
@@ -432,9 +434,11 @@ export function resolve(
   //
   // A fork is structurally never upstream of a halt in the same resolution: the walk stops *at* the
   // fork, so every patch that could halt is at or before the fork parent. A halt therefore always
-  // wins when both are live — which is the opposite of §5.3 step 5's literal precedence, and is
-  // required because H1 forbids applying later patches unconditionally. Recorded as F10; the fork
-  // is still surfaced above, so SF-3's MUST holds either way.
+  // wins when both are live, because H1 forbids applying later patches unconditionally. Reported as
+  // F10 when v0.6.0's §5.3 step 5 stated fork-before-HALT unconditionally, which this contradicted;
+  // **v0.6.1 closed F10 by adopting the earlier-in-chain-order rule (SF-7)**, which is exactly what
+  // this computes. No longer a departure. The fork is still surfaced above, so SF-3's MUST holds
+  // either way.
   const chain: ChainState =
     halted !== undefined
       ? {
