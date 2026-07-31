@@ -7,6 +7,12 @@ not the *why*. Do not relitigate a decision without reading its D-entry first.
 
 Supersedes the previous `IMPLEMENTATION-PLAN.md` (targeted spec v0.5.3, never committed).
 
+**Scope note, added after Phase 6.** Phases 0–8 are v0.1: the protocol implementation plus its own
+audit before shipping. Phases 9–12 sketch what comes after — CLI, MCP server, `artifacts`, adapters as
+real packages — at the depth a plan-of-record needs, not the depth a mini-spec needs. None of 9–12 has
+had its own kickoff read-the-spec-fresh pass yet; treat their paragraphs below as a starting brief for
+that pass, not as settled design the way Phases 0–8's are.
+
 ---
 
 ## Status
@@ -24,6 +30,11 @@ Supersedes the previous `IMPLEMENTATION-PLAN.md` (targeted spec v0.5.3, never co
 | 5 | `store` — reducer + ports + epochs | ✅ **done** — 436 tests repo-wide (33 store-specific: 13 in `store.test.ts`, 6 in `store-property.test.ts`, 14 in `a-store-coverage.test.ts`); SG1 green over 2k permutations (both per-event and batched) plus a per-root `resolveRoot` cross-check, SG2's reference-equality regression holds, SG3's two-relay race resolved in both orders, SG4's 2/12 rules emit a code (BD-7, SIG-1 enforcement) and 10 declared not-covered, SG5's floors hold for every named bias shape. Mini-spec in [`STORE.md`](STORE.md). Found and fixed two real design gaps before/while writing the gate: `chainEpoch`'s bump count is arrival-order-dependent by construction, so SG1 compares a `StoreView` projection instead of raw `StoreState` (STORE.md §3/§10); and `applyStoreDelta`'s idempotent dedup is correctly order-dependent for two distinct objects sharing an id, so every property fold simulates the verify gate first rather than calling the reducer directly on ungated input (STORE.md §10) |
 | 6 | `query`, `build` | ✅ **done** — 478 tests repo-wide (36 Phase-6-specific); BQ-1 matches the spec's own §8.1/§8.2 worked examples literally, BQ-2 round-trips `classifyByRole` against mixed Binding/Patch tag shapes, BQ-3 holds the E4 fence-length property over 2k generated backtick-run cases against the real consumer-side parser, BQ-4/BQ-5 cover both branches of `buildPatch`'s P4 self-check (including a directly-built, not sampled, T1-ambiguous case), BQ-6's partition is `query` 0/5 emitted (all D-layer, same shape as `admit`'s AG3) and `build` 1/5 emitted (P4). Mini-spec in [`QUERY-BUILD.md`](QUERY-BUILD.md). Found and recorded, not fixed as a bug: the plan's own module-ownership table double-lists P2 under both `validate` and `build` — resolved as two halves of one rule (validate's V-layer receipt-side rejection vs. build's producer-side "never emit it," satisfied by construction), not a conflict — see `QUERY-BUILD.md` §2.2 |
 | 7 | Coverage tooling, adapters, docs | not started |
+| 8 | Deep implementation audit + comparative analysis | not started — **v0.1's own capstone, not v0.2 work**; gates whether/how Phases 9–12 happen at all |
+| 9 | `artifacts` package (imeta/Blossom verification, IM-1…5) | not started — v0.2; may be cancelled per D7/Phase 8's own findings |
+| 10 | `@scrutiny-fabric/cli` | not started — v0.2; first real consumer of `ScrutinySigner` (still undefined) |
+| 11 | `@scrutiny-fabric/mcp` | not started — v0.2; no Appendix-A-equivalent sketch exists, needs its own scoping pass before a build brief is possible |
+| 12 | Published relay adapters | **contingent** — blocked on a Corrections entry reversing D6; not started, may never start |
 
 The spec amendment is complete and `tools/rules.json` regenerated against v0.6.1 (was v0.6.0).
 `SPEC-AMENDMENT-BRIEF.md` is spent and can be deleted.
@@ -70,9 +81,10 @@ Scaffolding (Phase 0) can proceed in parallel with the above.
 
 **v0.1 publishes exactly one package: `@scrutiny-fabric/core`.**
 
-Deferred to v0.2+: `@scrutiny-fabric/cli`, `@scrutiny-fabric/mcp`. Possibly never:
-`@scrutiny-fabric/artifacts` (D7 — build only when a real consumer needs it).
-Never published: relay adapters (D6 — they ship as `examples/adapters/`).
+Deferred to v0.2+: `@scrutiny-fabric/cli` (Phase 10), `@scrutiny-fabric/mcp` (Phase 11). Possibly
+never: `@scrutiny-fabric/artifacts` (D7 — build only when a real consumer needs it; Phase 9).
+Never published, unless D6 is formally reversed: relay adapters (D6 — they ship as
+`examples/adapters/`, Phase 7; a real package is Phase 12, contingent).
 
 ---
 
@@ -371,6 +383,82 @@ fence-length computation.
 vendored-vector checksum. Four adapters in `examples/adapters/`, each CI-tested against a mock relay.
 README plus executable doc examples.
 
+### Phase 8 — deep implementation audit + comparative analysis
+
+Not a build phase — a review phase, and the last one before calling v0.1 done. Two halves:
+
+**Internal audit.** A project-wide pass much deeper than any single phase's own `/code-review` +
+`/simplify` — read every module (`events`, `validate`, `id`, `patch`, `resolve`, `admit`, `store`,
+`query`, `build`) with the hindsight only a finished surface gives: correctness, API ergonomics,
+performance at real corpus scale (hazard #4's sec-certs figures are the standing reference point —
+re-measure them here, they were never measured in a browser), and cross-module consistency that only
+shows up once every module exists — e.g. does `query`'s `EventFilter` shape still hold up once a real
+`RelayTransport` consumes it in Phase 7's adapters?
+
+**Comparative analysis.** Read the ecosystem libraries `DECISIONS-2026-07-27.md` already cites
+(nostr-tools, NDK, applesauce, nostrify, welshman) for how they solved adjacent problems —
+verification defaults, storage shape, filter ergonomics — and pull concrete, measured lessons the way
+D19's own per-library table does, not impressions. SCRUTINY's most novel surface is the diff-based
+content-evolution mechanic, which has no real precedent *in* Nostr — look at git itself and at
+OT/CRDT systems for how deterministic patch application at scale is usually handled, and check
+`patch.ts`'s T1/T2/T3 gate against whatever's learned.
+
+**Resolve the conformance-vector gap.** Confirmed against Appendix G.1 as of this writing:
+`discovery.json` (D-layer) and `serialization.json` (§3 serialization) remain reserved and unpublished
+in the spec repo; only `application.json` (46 cases, A-layer) and `validity.json` (19 cases, V-layer)
+are vendored and checksummed. Decide whether this project keeps relying on its own substitute-gate
+discipline indefinitely (G1–G4/AG1–AG4/SG1–SG5/BQ-1–6), contributes vectors upstream, or derives a
+project-local pseudo-corpus from the property tests' own permanent regression cases.
+
+**Fold in the two orphaned rules.** RL-1 and IX-1/IX-2/IX-4 are producer-side SHOULDs owned by no
+module (see the module-ownership table above). Decide whether `build.ts` gains a lightweight advisory
+check for them, the way it already enforces P1/E4 by construction, or whether they genuinely have no
+implementable form for a library to check on a producer's behalf.
+
+Deliverable: a written audit report with a prioritized punch-list. Small, contained findings become
+follow-up commits immediately; anything that would reshape a module's public surface gets scoped as
+its own phase before landing, not folded silently into whatever's convenient.
+
+### Phase 9 — `artifacts` package (imeta/Blossom verification)
+
+IM-1…5 (§4.6): SHA-256 streaming verification of `imeta` attachments, size-mismatch-as-verification-
+failure, multi-URL mirror fallback, warn-before-display for unverified artifacts. Ships as a separate
+package per D7 — Node-first, `node:crypto` streaming by default with an injectable hasher, so it never
+touches `core`'s zero-dependency property or breaks browser bundles. D7 already flags this as possibly
+never shipping, and hazard #1 below calls it "the weakest unit" — Phase 8's audit should produce a real
+opinion on whether to build this at all before this phase's own kickoff starts.
+
+### Phase 10 — `@scrutiny-fabric/cli`
+
+Appendix A already sketches the shape: walk / inspect / diff / format-patch / sign / publish, built on
+`core`'s existing `resolve`/`build`/`query`. Needs `ScrutinySigner` defined — D16's fourth interface,
+still undefined as of Phase 7. The plan's own interface table already names the CLI as
+`ScrutinySigner`'s raw-key consumer, so this phase is where that interface most likely gets written,
+not Phase 7's adapters (which need `RelayTransport`, a different interface, not this one).
+
+### Phase 11 — `@scrutiny-fabric/mcp`
+
+An MCP server exposing `core`'s query/resolve/build surface to AI agents — D40–D42's own rationale for
+why `rules.json`/`Issue.code` are agent-legible in the first place is the reason this is worth building
+at all. Far less specified than the CLI: no Appendix-A-equivalent sketch exists anywhere for it, so
+this phase needs its own scoping pass (a `/grilling` session, not just a kickoff brief) before a build
+brief can be written.
+
+### Phase 12 — published relay adapters (contingent)
+
+D6 currently rejects this for v0.1: `examples/adapters/` (Phase 7) stays copy-paste, never a published
+package, specifically to avoid forcing one relay library on every consumer. This phase exists only if
+Phase 8's comparative analysis, or real downstream usage, produces a concrete reason to reverse that —
+and reversing D6 needs a dated Corrections entry in `DECISIONS-2026-07-27.md` before this phase could
+even be scoped, not just built. If it ever happens, D6's own naming rule still applies: name the
+library in the package name (`@scrutiny-fabric/relay-nostr-tools`), never a generic `relay`.
+
+**Not a phase here.** §11's Future Work items (merges & overlay adoption, recursive overlays, a
+`supersedes` tag, confidential metadata, vendor identity discovery, Metadata↔Metadata binding,
+cherry-pick attribution, snapshot pins, NIP-90 DVM integration) are protocol amendments authored in the
+sibling `~/scrutiny-fabric` spec repo, not implementation work in this one. Nothing here can start
+until that repo's spec version moves — track it separately, not as a numbered phase in this plan.
+
 ---
 
 ## Testing strategy
@@ -412,12 +500,16 @@ CI fails if code cites a rule ID absent from the spec.
 
 ## Explicitly out of scope for v0.1
 
-CLI · MCP server · `artifacts` (imeta fetching) · published relay adapters · relay selection and the
-outbox model (app-level; welshman has an open "Re-work router" issue — not our problem to solve) ·
-LLM grounding and prompt assembly · graph layout · session persistence schema · NIP-77 Negentropy ·
-OpenTimestamps verification · SQLite-WASM storage adapter · TypeDoc HTML · performance budgets (D
-declined) · N-hop web-of-trust expansion (the `TrustProvider` interface is the migration path; no
-implementation).
+CLI (Phase 10) · MCP server (Phase 11) · `artifacts` / imeta fetching (Phase 9) · published relay
+adapters (Phase 12, contingent) · relay selection and the outbox model (app-level; welshman has an
+open "Re-work router" issue — not our problem to solve) · LLM grounding and prompt assembly · graph
+layout · session persistence schema · NIP-77 Negentropy · OpenTimestamps verification · SQLite-WASM
+storage adapter · TypeDoc HTML · performance budgets (D declined) · N-hop web-of-trust expansion (the
+`TrustProvider` interface is the migration path; no implementation).
+
+The four bracketed items have a phase number because Phase 8's audit is expected to at least start
+them. Everything after "relay selection" has none — they stay genuinely unscoped, not merely
+unscheduled, until something (a real consumer, a decision reversal) gives one of them a reason to.
 
 ---
 
