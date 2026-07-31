@@ -93,6 +93,29 @@ export const REGRESSIONS: readonly RegressionCase[] = [
     expect: { status: 'applied', content: 'x\ny\n' },
   },
   {
+    name: 't2/shift-after-eof-newline-change',
+    rule: 'T2',
+    why:
+      'Found by the Phase 8 audit. T2 carries the insertion index forward by the net *line* delta ' +
+      'of prior hunks, but the delta was computed over toLines array length — and the trailing ' +
+      'newline is a final "" element, so a hunk that only drops the EOF newline (C5) moved the ' +
+      'count by one having added and removed no lines. The insertion then landed one position ' +
+      'early, silently: T2 has no uniqueness test, so the wrong answer applied cleanly rather ' +
+      'than halting. Produced "X\\na\\nb\\nC" before the fix. Reachable only with hunks in ' +
+      'descending order (t3/descending-hunks), which is why the ascending-only round-trip ' +
+      'property never generated it.',
+    content: 'a\nb\nc\n',
+    payload: body(
+      '@@ -3,1 +3,1 @@',
+      '-c',
+      '+C',
+      '\\ No newline at end of file',
+      '@@ -1,0 +2,1 @@',
+      '+X',
+    ),
+    expect: { status: 'applied', content: 'a\nX\nb\nC' },
+  },
+  {
     name: 't2/insertion-amid-duplicates',
     rule: 'T2',
     why:

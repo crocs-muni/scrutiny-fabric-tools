@@ -29,9 +29,9 @@ that pass, not as settled design the way Phases 0–8's are.
 | 4 | `admit` | ✅ **done** — 328 tests repo-wide (40 admit-specific); AG1 green over 10k prefix-checked sequences, AG2 over 10k apply-then-invert round-trips, AG3's 0/9 rules emit a code and 9 declared not-covered (all D-layer, no rejection disposition exists to emit), AG4's floors now hold for every named bias shape. Mini-spec in [`ADMIT.md`](ADMIT.md). AG2's property test found and fixed a real invertibility gap in the design before any code shipped against it. A post-merge `/code-review` pass found two more gaps: one AG4 bias shape named in the mini-spec's own text was unreachable by construction (self-fork siblings share a pubkey, so they can never diverge on direct trust — corrected in `ADMIT.md` §10), and two of AG4's floors had never actually been asserted (revoke-after-redundant-observe, outcome-mix logging) — both now hold, the two hardest-to-reach shapes via dedicated generators since the uniform one scored 0 and a flaky 5–13 per 3,000 runs |
 | 5 | `store` — reducer + ports + epochs | ✅ **done** — 436 tests repo-wide (33 store-specific: 13 in `store.test.ts`, 6 in `store-property.test.ts`, 14 in `a-store-coverage.test.ts`); SG1 green over 2k permutations (both per-event and batched) plus a per-root `resolveRoot` cross-check, SG2's reference-equality regression holds, SG3's two-relay race resolved in both orders, SG4's 2/12 rules emit a code (BD-7, SIG-1 enforcement) and 10 declared not-covered, SG5's floors hold for every named bias shape. Mini-spec in [`STORE.md`](STORE.md). Found and fixed two real design gaps before/while writing the gate: `chainEpoch`'s bump count is arrival-order-dependent by construction, so SG1 compares a `StoreView` projection instead of raw `StoreState` (STORE.md §3/§10); and `applyStoreDelta`'s idempotent dedup is correctly order-dependent for two distinct objects sharing an id, so every property fold simulates the verify gate first rather than calling the reducer directly on ungated input (STORE.md §10) |
 | 6 | `query`, `build` | ✅ **done** — 478 tests repo-wide (36 Phase-6-specific); BQ-1 matches the spec's own §8.1/§8.2 worked examples literally, BQ-2 round-trips `classifyByRole` against mixed Binding/Patch tag shapes, BQ-3 holds the E4 fence-length property over 2k generated backtick-run cases against the real consumer-side parser, BQ-4/BQ-5 cover both branches of `buildPatch`'s P4 self-check (including a directly-built, not sampled, T1-ambiguous case), BQ-6's partition is `query` 0/5 emitted (all D-layer, same shape as `admit`'s AG3) and `build` 1/5 emitted (P4). Mini-spec in [`QUERY-BUILD.md`](QUERY-BUILD.md). Found and recorded, not fixed as a bug: the plan's own module-ownership table double-lists P2 under both `validate` and `build` — resolved as two halves of one rule (validate's V-layer receipt-side rejection vs. build's producer-side "never emit it," satisfied by construction), not a conflict — see `QUERY-BUILD.md` §2.2 |
-| 7 | Coverage tooling, adapters, docs | not started |
-| 8 | Deep implementation audit + comparative analysis | not started — **v0.1's own capstone, not v0.2 work**; gates whether/how Phases 9–12 happen at all |
-| 9 | `artifacts` package (imeta/Blossom verification, IM-1…5) | not started — v0.2; may be cancelled per D7/Phase 8's own findings |
+| 7 | Coverage tooling, adapters, docs | not started — **blocked twice over** by Phase 8: `RelayTransport` does not exist (`interfaces.ts` declares only `TrustProvider` and `EventStorage`; the transport interface lives solely in the D16 table below), and `EventFilter` must be reshaped to a real NIP-01 filter first, or every adapter inherits a converter and a silently-widening filter. See `AUDIT-2026-07-31.md` §7 |
+| 8 | Deep implementation audit + comparative analysis | ✅ **done** 2026-07-31 — report in [`AUDIT-2026-07-31.md`](AUDIT-2026-07-31.md); 495 tests. **Verdict: v0.1 is not shippable as-is.** Found three correctness defects and a structural hole in the coverage machinery. Fixed here: the T2 carry-forward bug (silent wrong canonical bytes across an EOF-newline change), the registry-closure gap (21 rules were in no coverage table, six of them actively emitted), RL-1/IX-2 producer checks, and load-flaky property gates. Proposed as their own phases: the resolve-memo staleness (P1) and the `EventFilter` reshape (P2), both critical. Corrections C2–C8 appended to DECISIONS |
+| 9 | ~~`artifacts` package~~ | ❌ **dropped** 2026-07-31 — see Corrections **C4**. The real sec-certs corpus has median content of 287 bytes and a maximum of 2,088; nothing in it approaches §4.6's ~30 KB `imeta` threshold, so the motivating consumer does not exist. D7's shape decision stays on record. IM-1…IM-4 are declared unowned in `test/_unowned.ts`, which records that **IM-4 is a MUST** — so `core` must never grow *partial* imeta support |
 | 10 | `@scrutiny-fabric/cli` | not started — v0.2; first real consumer of `ScrutinySigner` (still undefined) |
 | 11 | `@scrutiny-fabric/mcp` | not started — v0.2; no Appendix-A-equivalent sketch exists, needs its own scoping pass before a build brief is possible |
 | 12 | Published relay adapters | **contingent** — blocked on a Corrections entry reversing D6; not started, may never start |
@@ -177,11 +177,24 @@ Rule IDs are from Appendix F. These assignments drive the generated coverage rep
 | `resolve` | CHN-1…3, RC-1/2/5, SF-1…7, H1/H2, OV-2/3/4/6/8/9, DEL-1/2/3/6/7, PT-5/6/8/9, IX-3, BD-9, RL-5 | **Reads no trust state** (D25). `ChainState.forked` has **no `tipId`** — makes SF-4 unrepresentable. RC-5, SF-7, OV-9, RL-5 are new in spec v0.6.1; SF-7 and OV-9/RL-5 codify design calls this module already made (SPEC-FEEDBACK F10/F11) and needed no code change. RC-5 exposed a real bug — see fix/spec-v061-drift |
 | `admit` | TR-2…7, OV-7, DEL-4/5 | Refcounted reason sets. `direct-trust` = Set bit; `binding` = counter guarded by `liveBindings` (D23) |
 | `query` | DQ-1…4, BD-8 | Returns plain NIP-01 filter objects; no transport dependency |
-| `build` | E4 (fence length `max(3, N+1)`), P1…P4 | Emits `{kind, created_at, tags, content}` — **no `id`, `pubkey`, `sig`** (D13). Sole enforcement point for P1 and E4, both of which are unfalsifiable on receipt |
+| `build` | E4 (fence length `max(3, N+1)`), P1…P4, **RL-1**, **IX-2** | Emits `{kind, created_at, tags, content}` — **no `id`, `pubkey`, `sig`** (D13). Sole enforcement point for P1 and E4, both of which are unfalsifiable on receipt. **RL-1 and IX-2 added by Phase 8**: three of §5.4's four bounds (tag value ≤1024 B, signed event ≤64 KB, hunks ≤64) and IX-2's 64-`i`-tag ceiling are computable from the template this module assembles, so they are checked here the way P4 already self-checks. §5.4's fourth bound — patches per chain — stays with RL-2/RL-3 on the consumer side |
 | `store` | UR-1…3, RC-3/4, BD-6/7, DEL-8/9, RL-2/3, SIG-1 (enforcement) | Reducer + `StorageAdapter` port, **not a class** (D15). Three epochs (D24) |
 
-Not owned by any module, by design: IM-1…IM-5 (deferred with `artifacts`, D7), IX-1/2/4 and RL-1
-(producer guidance), DEL-10/11 (client and relay behaviour).
+Not owned by any module, by design: **13 rules, now enumerated with written reasons in
+`packages/core/test/_unowned.ts` and machine-checked** — OV-1 (reserved), OTS-1, CA-1, BD-11, OV-5,
+DEL-10/11, IX-1, IX-4, and IM-1…IM-4 (dropped with `artifacts`, C4). The previous form of this
+sentence was wrong twice: it listed IX-2 and RL-1, both of which turned out implementable (see
+`build` above), and it omitted seven rules entirely.
+
+> ⚠️ **This table is documentation, not a specification, and it has been found wrong three times.**
+> `QUERY-BUILD.md` §2.2 found the P2 double-listing; Phase 8 found 25 rules double-listed, seven
+> silent omissions, and 21 rules in no coverage table at all. Its range notation (`E1…E6`, `P1…P4`)
+> silently over-claims — `E4` appears only in `build.ts`, never in `validate.ts` — and the `events`
+> row duplicates 17 rules from the `validate` row while `events.ts` mentions ten of them.
+> **No gate may transcribe this table.** `test/rule-closure.test.ts` now closes the registry over the
+> coverage tables directly; the six per-module `OWNED` arrays that still copy from here are the
+> remaining weak link, and the table should ultimately be *generated* from the coverage tables per
+> D36's own "derive, never duplicate". See `AUDIT-2026-07-31.md` §3.
 
 ---
 
@@ -532,13 +545,22 @@ PR. Never commit `.env`, `*.nsec`, `*.key`. `investigations/` stays gitignored *
 
 ## Known hazards, carried forward
 
-1. **`artifacts` is the weakest unit.** If only one app ever needs it, it stays app-level.
+1. ~~**`artifacts` is the weakest unit.**~~ **Resolved 2026-07-31 (C4)** — dropped, not deferred
+   again. No app needs it: the real corpus's largest content is 2,088 bytes against a ~30 KB
+   threshold. The residual constraint is that IM-4 is a MUST, so partial imeta support in `core`
+   would be a conformance failure rather than an incomplete feature.
 2. **`store`'s public API must not be a class.** Ship reducer + port from the first release; swapping
    later is a breaking change to the most-used entry point (D15).
 3. **D23's refcounting is only sound while BD-3/BD-4 hold.** §11 lists Metadata↔Metadata bindings as
    future work. Isolate the reachability step to one ~10-line method and comment the dependency.
-4. **All benchmark figures in DECISIONS are synthetic.** Re-measure against the real sec-certs mapping
-   before trusting absolutes; the 216 MB eager-materialisation figure was never measured in a browser.
+4. **All benchmark figures in DECISIONS are synthetic — except these.** Re-measured 2026-07-31
+   against the real sec-certs mapping (C3). The 216 MB eager-materialisation figure is reproducible
+   but **mislabelled**: it is 6,737 roots × depth ≈67, and the real corpus is depth **≤1**, where
+   eager costs 3.68 MB against 2.73 MB lazy. D28's byte-bounded LRU is not warranted and was never
+   built. **Still true, and now the part that matters:** nothing has been measured in a browser, and
+   the figure that decides whether a tab survives is not the resolution cache but the raw event
+   corpus — ~1.35 KB/event over an estimated 30k–110k events, i.e. **40–150 MB**, 15–50× the entire
+   caching question. That is the measurement still owed.
 5. **The relay timestamp window is confirmed and will bite the bulk publisher.** Verified against
    `hoytech/strfry/strfry.conf` on 2026-07-27: `rejectEventsOlderThanSeconds = 94608000` (exactly
    three years) and `rejectEventsNewerThanSeconds = 900`. Setting `created_at` to a certificate's

@@ -143,6 +143,18 @@ function fromLines(lines: readonly string[]): string {
   return lines.join('\n')
 }
 
+/**
+ * The number of *lines* in a {@link toLines} array, excluding the trailing-newline bit.
+ *
+ * `lines.length` is lines-plus-terminator, so it moves by one whenever a hunk changes only the
+ * trailing-newline state (C5) without adding or removing a line. T2's carry-forward is defined over
+ * the net **line** delta, so it must count lines, not array elements — see the `shift` bookkeeping in
+ * {@link applyPatchPayload}.
+ */
+function lineCount(lines: readonly string[]): number {
+  return lines.length > 0 && lines[lines.length - 1] === '' ? lines.length - 1 : lines.length
+}
+
 // ---------------------------------------------------------------------------
 // Hunks
 // ---------------------------------------------------------------------------
@@ -460,7 +472,12 @@ export function applyPatchPayload(
   for (const [index, hunk] of hunks.entries()) {
     // Charge the scan's exact upper bound *before* running it, so an adversarial patch is refused
     // rather than executed and then regretted (RL-2).
-    const patternChars = hunk.oldPat.reduce((sum, line) => sum + line.length, 0)
+    // One unit per pattern line on top of its characters, so a pattern of *empty* lines is not
+    // free: `occurrences` still runs `|L| x |oldPat|` element comparisons for it, and charging the
+    // character total alone bills that scan at zero. RL-2's stated unit is "bytes compared", which
+    // is the hole — §5.4's own reasoning is that an adversary optimises against whichever unit is
+    // counted. Recorded as SPEC-FEEDBACK F12.
+    const patternChars = hunk.oldPat.reduce((sum, line) => sum + line.length + 1, 0)
     const cost = lines.length * patternChars
     if (work + cost > maxWork) {
       return limitReached(
@@ -509,7 +526,12 @@ export function applyPatchPayload(
 
     // T3 — the next hunk is matched against the content this one produced, not the pre-patch
     // content, and is re-scanned in full because a splice can shift any position.
-    shift += spliced.lines.length - lines.length
+    //
+    // Counted with {@link lineCount}, not `.length`: the trailing-newline bit is a final `''`
+    // element, so a hunk that only changes the EOF newline state (C5) moves `.length` by one while
+    // adding and removing no lines at all. Charging that to `shift` displaced every later T2
+    // insertion by one position — silently, since T2 has no uniqueness test to catch it.
+    shift += lineCount(spliced.lines) - lineCount(lines)
     lines = spliced.lines
   }
 

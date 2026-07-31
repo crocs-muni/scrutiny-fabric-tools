@@ -553,15 +553,18 @@ function checkPatchPayload(event: NostrEvent, issues: Issue[]): void {
 /**
  * Check a payload against §5.2's consumer grammar.
  *
- * Two deliberate departures, both recorded in `docs/SPEC-FEEDBACK-v0.6.0.md`:
+ * Two points, both once departures and both now agreements — see `docs/SPEC-FEEDBACK-v0.6.0.md`:
  *
- * - The grammar's `*VCHAR` is ABNF `%x21-7E`, which excludes the space and every non-ASCII byte —
- *   so read literally it rejects any line containing a space, the spec's own em-dash example, and
- *   the `patch -u` timestamps C2 mandates tolerating. Line bodies are treated here as any sequence
- *   of characters other than LF (F3).
+ * - Line bodies are any sequence of characters other than LF. This *was* a departure: v0.6.0's
+ *   grammar said `*VCHAR`, ABNF `%x21-7E`, which excludes the space and every non-ASCII byte, so
+ *   read literally it rejected any line containing a space, the spec's own em-dash example, and the
+ *   `patch -u` timestamps C2 mandates tolerating. **v0.6.1 adopted this reading** —
+ *   `line-content = *( %x00-09 / %x0B-FF )` — so the code and the spec now agree and F3 is closed.
+ *   The behaviour is unchanged; only its justification moved from "deliberate departure" to
+ *   "conformance".
  * - Unrecognised lines are tolerated rather than rejected. §5.2 defines the grammar as what a
  *   consumer MUST *accept*, which is a floor, not a ceiling; only constructs a rule explicitly
- *   forbids are rejected. P1 is not evaluated at all (F1).
+ *   forbids are rejected. P1 is not evaluated at all (F1, closed in v0.6.1 by retagging P1 to A).
  */
 function checkPayloadGrammar(payload: string, issues: Issue[]): void {
   // A wholly empty fenced block — ```diff immediately followed by its closing fence — is not a

@@ -52,7 +52,7 @@ describe('C7 — payloads that MUST be accepted', () => {
       ['--- a/content', '+++ b/content', '@@ -1 +1 @@ function foo()', '-old', '+new'].join('\n'),
     ],
     [
-      'non-ASCII in hunk lines — the spec grammar rejects this, see F3',
+      'non-ASCII in hunk lines — rejected by v0.6.0s grammar, admitted since v0.6.1 (F3)',
       [
         '--- a/content',
         '+++ b/content',
@@ -62,7 +62,7 @@ describe('C7 — payloads that MUST be accepted', () => {
       ].join('\n'),
     ],
     [
-      'context lines containing spaces — also rejected by the literal grammar, F3',
+      'context lines containing spaces — likewise rejected before v0.6.1 widened line-content (F3)',
       [
         '--- a/content',
         '+++ b/content',

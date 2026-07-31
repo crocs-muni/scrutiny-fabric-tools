@@ -7,6 +7,7 @@
  * genuinely ambiguous `before` makes `buildPatch`'s self-check disagree with the given `after`.
  */
 
+import { buildProduct } from '../src/build.js'
 import { buildPatch } from '../src/build.js'
 import type { Issue } from '../src/errors.js'
 import { type CoverageTable, allIssues, emitted, notCovered } from './_coverage.js'
@@ -35,6 +36,20 @@ function p4Issues(): readonly Issue[] {
   return buildPatch(ROOT, REPLY, before, after, 1).issues
 }
 
+/** RL-1 — an `i` tag past §5.4's 1024-byte per-tag-value ceiling. */
+function rl1Issues(): readonly Issue[] {
+  return buildProduct('c', 1, [`cpe:2.3:h:${'x'.repeat(1100)}`]).issues
+}
+
+/** IX-2 — more than 64 `i` tags on one event. */
+function ix2Issues(): readonly Issue[] {
+  return buildProduct(
+    'c',
+    1,
+    Array.from({ length: 65 }, (_, i) => `cve:CVE-2024-${1000 + i}`),
+  ).issues
+}
+
 export const A_BUILD_COVERAGE: CoverageTable = {
   E4: notCovered(
     'A computation (fenceLength = max(3, N+1)), not a predicate with a rejection disposition. Its ' +
@@ -60,6 +75,13 @@ export const A_BUILD_COVERAGE: CoverageTable = {
       'it is guaranteed by construction, not observed by a test.',
   ),
   P4: emitted(p4Issues),
+  /**
+   * Added by the Phase 8 audit. The plan listed both as "not owned by any module, by design
+   * (producer guidance)"; three of §5.4's four bounds and the whole of IX-2's ceiling are in fact
+   * computable from the template this module assembles, so they are enforced here the way P4 is.
+   */
+  'RL-1': emitted(rl1Issues),
+  'IX-2': emitted(ix2Issues),
 }
 
 /** Every issue this partition produces. Consumed by the gate and invariant suites. */

@@ -508,3 +508,171 @@ major or a different entry point, and should not be relied on until re-measured.
 Phase 6: `structuredPatch('a/content', 'b/content', before, after, '', '', { context: 3 })`, then
 `formatPatch(patch)` **with no second argument**, then strip a leading bare `===…` separator line
 if present.
+
+**C2 (2026-07-31, Phase 8) — D19's welshman row records a hazard that no longer exists.**
+
+D19 states: "welshman … `netContext.isEventValid` is a mutable global." Read fresh against
+`coracle-social/welshman@master` on 2026-07-31, `packages/net/src/context.ts` declares
+`NetContext = { pool?, repository?, getAdapter? }` — no `isEventValid` at all. Verification is now a
+per-call option with a safe default, in `net/src/request.ts`:
+`const isEventValid = options.isEventValid || (event => verifyEvent(event))`.
+
+**What is unaffected.** D19's verdict for welshman ("Yes via `request`/`requestOne`") stands and is
+now stronger: the mutable-global attack surface is gone. Only the stated caveat is obsolete.
+
+D19's other four rows re-verified and stand. Two refinements worth recording rather than leaving to
+be rediscovered:
+
+- **NDK's third defect is a mis-bind, not an unbind.** `NDKRelay`'s constructor does
+  `(ndk?.validationRatioFn ?? …).bind(this)`, binding `NDK`'s method to the *relay* — which carries
+  `lowestValidationRatio` but not `initialValidationRatio`. That `undefined` becomes `NaN` at the
+  first 30-second tick after 10 validated events, and `shouldValidateEvent()` returns `false`
+  permanently, per relay. The observable behaviour D19 recorded reproduces exactly; only the
+  mechanism was described wrongly.
+- **applesauce is worse than D37 records.** `EventStore.add` files a kind-5 deletion, and checks
+  `this.deletes.check(event)`, *before* the verification branch; `DeleteManager` enforces only that
+  the claimed author matches. An **unsigned** kind 5 carrying a victim's `pubkey` is therefore
+  accepted and thereafter suppresses that victim's events. This is a stronger reason for D37's
+  existing "do not use applesauce's `EventStore` defaults" note than the kind-5-removes-the-target
+  behaviour already cited there.
+
+**C3 (2026-07-31, Phase 8) — D28's 216 MB is arithmetically real and wrongly labelled.**
+
+D28 states: "Eagerly materialising every per-position state … measured **216 MB** at sec-certs scale
+versus ~25 MB lazy." Re-measured against the real corpus
+(`investigations/sec-certs-mapping/data/main-dataset.json`, 6,737 certs), Node 25.6.1 with
+`--expose-gc` and forced GC before each sample:
+
+| depth | baseline corpus | eager `ChainState`/position | lazy `resolve()` |
+|---:|---:|---:|---:|
+| **1 (the real corpus)** | 18.16 MB | **3.68 MB** | **2.73 MB** |
+| 64 | 487.45 MB | **206.91 MB** | 11.02 MB |
+
+The figure reproduces at **depth ≈67**, driven by the quadratic `applied[]` arrays rather than by
+content strings. The sec-certs mapping produces a chain depth of **0 or 1** — its only Patch is a
+status transition, and maintenance updates map to Metadata+Binding (mapping REPORT.md, Decision A).
+At that depth the eager/lazy gap is **0.95 MB**. The "~25 MB lazy" comparator was not reproduced at
+any depth; the shipped lazy path costs 1.7–11 MB across a 0→64 sweep.
+
+**What is unaffected.** The *decision* to compute lazily stands, but not for D28's reason: it costs
+nothing, and `resolve.ts` already does it by interleaving overlay classification with the chain walk
+and retaining only the running content. **The byte-bounded LRU is not warranted by this corpus and
+was never built** — `RESOLVE.md` §211 already argued this, and the measurement confirms it. Strike
+the LRU from D28 rather than implementing it.
+
+Hazard #4 should be re-scoped. The number that decides whether a browser tab survives is not the
+resolution cache but the **raw event corpus**: ~1.35 KB/event across an estimated 30k–110k events is
+**40–150 MB**, 15–50× the entire caching question, and it is still unmeasured. D39's
+content-addressed dedup, not D28's LRU, is what addresses it. D39's own figures verify: "~217 PP hub
+metadata events across ~4,984 bindings" measured as 218 shared PPs across 5,016 edges.
+
+The confidence register's own warning (§4, "all benchmark numbers … the 216 MB was never measured in
+a browser") is vindicated and should stay. **It still has not been measured in a browser** — no
+headless browser is installed. Chrome ships pointer compression that this Node build does not, so
+the figures above are conservative upper bounds for a tab rather than underestimates.
+
+**C4 (2026-07-31, Phase 8) — D7 resolved: `artifacts` is dropped as a numbered phase.**
+
+D7 deferred `artifacts` and said it "may never ship"; hazard #1 called it "the weakest unit". Phase 8
+owed a verdict rather than another restatement, and the corpus supplies one: the real sec-certs
+Product content measures **median 287 bytes, maximum 2,088** — nothing in it approaches §4.6's ~30 KB
+`imeta` threshold. The consumer that would motivate the package does not exist.
+
+**Decision: remove Phase 9 from the plan's numbered sequence.** D7's shape decision (separate
+package, Node-first, injectable hasher) stays on record for whenever a real consumer appears.
+
+One constraint must survive the deferral, and is now enforced by machinery rather than memory:
+**IM-4 is a MUST** ("implementations MUST warn before displaying or processing unverified
+artifacts"), so `core` must never grow *partial* imeta support — shipping IM-1…3 without IM-4 would
+be a conformance failure, not a missing convenience. IM-1…IM-4 are recorded in
+`packages/core/test/_unowned.ts` with that reason, so the new registry-closure gate surfaces the
+decision to anyone who starts.
+
+**C5 (2026-07-31, Phase 8) — D29's oracle property is violated in shipped code.**
+
+D29 states: "Every incremental path must agree with a from-scratch recompute … the only real defence
+against the refcount bugs in D23." That defence is not in place for chain resolution, and the gap is
+live. `overlayState` (`resolve.ts:519`) decides DEL-7's α/β degradation from the **whole observed
+set**, while `chainEpochTargets` (`store.ts:189`) returns `[]` for a Binding and for any
+non-SCRUTINY event, and for a Patch bumps only that patch's own root. `resolveRoot` (`store.ts:423`)
+serves the cached resolution whenever `chainEpoch[rootId]` is unchanged. Reproduced:
+
+```
+memoised store, target absent  : orphaned/beta
+memoised store, target present : orphaned/beta
+fresh store over same final set: orphaned/alpha
+```
+
+An overlay anchored at root `R` whose `e reply` names an event outside `R`'s chain is frozen at
+`beta` forever. This also violates **RC-3** (serving stale bytes when fresh inputs are locally
+available) and is a **UR-1** confluence failure in effect, since the reported state depends on
+arrival order.
+
+**What is unaffected.** D29 stands as a decision — the finding is that nothing enforces it here. SG1
+passes because it compares a `StoreView` projection that excludes resolutions. Fixing this changes
+epoch semantics and therefore **D24**, so it is scoped as its own phase rather than patched; see
+`AUDIT-2026-07-31.md` §2 for the three candidate fixes and the recommendation.
+
+**C6 (2026-07-31, Phase 8) — D34's coverage claim was false for six rules.**
+
+D34 states coverage is measured in "three honest buckets" so that a rule cannot be silently skipped.
+That held for the Validity layer only: `v-coverage.test.ts` derives its expected set from the
+generated registry, whereas every A/D gate compares its table against an `OWNED` array
+**hand-transcribed** from the module-ownership table in `IMPLEMENTATION-PLAN.md`. That closes the
+loop against a document rather than against the spec — in a project whose stated rule-citation
+discipline is that no link in the chain is hand-written.
+
+Measured: **21 real rules (plus reserved OV-1) appeared in no coverage table at all.** Six of them —
+`PR-2`/`PR-3`/`PR-4`/`MD-2`/`MD-3`/`MD-4` — are actively emitted by `validate.ts:206-230`, making
+them the only rules in the package that `issue()` can produce with no coverage entry anywhere.
+
+**What is unaffected.** D34's principle (observed emission, never annotation) is right and is
+retained. Only its enforcement was incomplete. Corrected in `a69a249`: `rule-closure.test.ts` now
+asserts `union(every coverage table, _unowned.ts) == registry`, so an unclassified rule fails the
+build the way an unclassified V rule always did. 139 rules — 126 owned, 13 declared unowned with
+written reasons.
+
+Two related findings recorded rather than fixed: the ownership table's range notation
+(`E1…E6`, `P1…P4`) silently over-claims — `E4` appears only in `build.ts`, never in `validate.ts`,
+the identical defect to the P2 double-listing `QUERY-BUILD.md` §2.2 found — and the `events` row
+duplicates 17 rules from the `validate` row while `events.ts` mentions only ten of them. The table
+should be **generated from the coverage tables**, per D36's own "derive, never duplicate".
+
+**C7 (2026-07-31, Phase 8) — D6 and D7's dispositions are confirmed, not reversed.**
+
+Phase 8 was scoped to be able to reverse either. Recorded so a later reader does not reopen them
+without new evidence:
+
+- **D6 stands.** The comparative analysis surfaced one argument for publishing adapters — a converter
+  is genuinely needed, so four copy-paste adapters would each reimplement it — but that is an
+  artifact of `EventFilter` not being a NIP-01 filter (`AUDIT-2026-07-31.md` §7), which is being
+  fixed. Once it is, an adapter is a thin transport wrapper again and D6's reasoning is untouched.
+  Phase 12 stays contingent. Note Phase 7 is additionally blocked: **`RelayTransport` does not
+  exist** — `interfaces.ts` declares only `TrustProvider` and `EventStorage`, and the transport
+  interface lives solely in the plan's D16 table.
+- **D7 is resolved, not reversed** — see C4.
+
+**C8 (2026-07-31, Phase 8) — the conformance-vector gap gets a decision, not another deferral.**
+
+Appendix G.1 names four vector files. `application.json` (46 cases) and `validity.json` (19) are
+vendored and digest-matched; `discovery.json` and `serialization.json` are reserved and absent from
+both repos. The spec says so itself (`protocol-spec.md:1469`), so this is acknowledged
+incompleteness rather than drift — but "rely on the substitute gate" has now been the answer for six
+consecutive phases, and 31 D-layer rules have an empty corpus. Decision, three parts:
+
+1. **Contribute `serialization.json` upstream.** §3's event-id serialization is `JSON.stringify` by
+   ecosystem definition (R11), `id.ts` implements it, and a vector is just
+   `event → serialized string → sha256`. No policy judgement is involved and this project is the
+   reference implementation. There is no reason for the file to stay reserved.
+2. **Formalise the project-local corpus.** `test/patch-regressions.ts` is already written "shaped to
+   become conformance vectors verbatim once the corpus exists". Emit those cases as a vector-shaped
+   JSON artifact so the substitute gate is exportable and can seed a real corpus.
+3. **Report the blocker on `discovery.json` rather than inventing it.** D-layer vectors cannot take
+   `validity.json`'s shape, because §6.0 gives D rules no disposition — which is exactly why
+   `admit`'s and `query`'s partitions are legitimately all-`not-covered`. A vector asserting "what
+   outcome?" has no outcome to assert for a D rule. That is a **spec** gap, and belongs in
+   SPEC-FEEDBACK rather than in a file this project defines unilaterally.
+
+Rejected: relying on the substitute gates indefinitely. They are good and have found real bugs — but
+C5 above is precisely a defect none of them covers, and a gate suite written by the same people who
+wrote the code has a blind spot an external corpus does not.
