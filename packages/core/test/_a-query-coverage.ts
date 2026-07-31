@@ -8,8 +8,9 @@
  * `docs/QUERY-BUILD.md` §4 before this file existed.
  */
 
+import type { Issue } from '../src/errors.js'
 import type { CoverageTable } from './_coverage.js'
-import { notCovered } from './_coverage.js'
+import { allIssues, notCovered } from './_coverage.js'
 
 export const A_QUERY_COVERAGE: CoverageTable = {
   'DQ-1': notCovered(
@@ -41,3 +42,11 @@ export const A_QUERY_COVERAGE: CoverageTable = {
       '(docs/QUERY-BUILD.md §1.4).',
   ),
 }
+
+/**
+ * Every issue this partition produces — empty today, since all five rules are D-layer with nothing
+ * to emit. Exported anyway so the TR-1 roll-up in `invariants.test.ts` covers this table by
+ * construction: the Phase 8 audit found that a table with no issues export silently escapes that
+ * invariant the moment one of its entries becomes `emitted`.
+ */
+export const ALL_QUERY_ISSUES: readonly Issue[] = allIssues(A_QUERY_COVERAGE)

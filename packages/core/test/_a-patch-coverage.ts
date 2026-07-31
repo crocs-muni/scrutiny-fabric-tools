@@ -98,6 +98,15 @@ export const A_PATCH_COVERAGE: CoverageTable = {
 
   'RL-3': emitted(issuesFrom('a\nb\n', body('@@ -1,1 +1,1 @@', '-a', '+z'), { maxHunks: 0 })),
 
+  'RL-4': notCovered(
+    'Enforced by the shape of the union rather than by a check, so there is no code to emit: ' +
+      'PatchLimit carries `limit`/`observed`/`ceiling` and no `content` field at all, which makes ' +
+      '"serve or cache the bytes of an abandoned application" unrepresentable rather than merely ' +
+      'forbidden — the same technique SF-1 uses to keep a forked chain from exposing a tipId. ' +
+      'Added by the Phase 8 audit, which found RL-4 in no coverage table despite patch.ts being ' +
+      'its real owner (the plan lists neither).',
+  ),
+
   C8: notCovered(
     "New in spec v0.6.1; not in this table's originating plan. Multiple file-sections are a " +
       'parsing/sequencing behaviour, not a check with a failure mode of its own — a violation ' +

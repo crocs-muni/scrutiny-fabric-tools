@@ -1,17 +1,29 @@
 import { describe, expect, it } from 'vitest'
 import { issue } from '../src/errors.js'
 import { RULES, RULE_IDS } from '../src/rules.js'
+import { ALL_ADMIT_ISSUES } from './_a-admit-coverage.js'
 import { ALL_BUILD_ISSUES } from './_a-build-coverage.js'
 import { ALL_PATCH_ISSUES } from './_a-patch-coverage.js'
+import { ALL_QUERY_ISSUES } from './_a-query-coverage.js'
 import { ALL_RESOLVE_ISSUES } from './_a-resolve-coverage.js'
 import { ALL_STORE_ISSUES } from './_a-store-coverage.js'
+import { ALL_VALIDATE_D_ISSUES } from './_a-validate-coverage.js'
 import { ALL_EMITTED_ISSUES as V_ISSUES } from './_v-coverage.js'
 
+/**
+ * Every partition, without exception. `admit` and `query` were missing before the Phase 8 audit:
+ * both tables are all-`not-covered` today, so the roll-up was unchanged by their absence — and
+ * would have stayed silently unchanged the first time either gained an `emitted` entry, which is
+ * exactly when TR-1 starts mattering for it.
+ */
 const ALL_EMITTED_ISSUES = [
   ...V_ISSUES,
+  ...ALL_VALIDATE_D_ISSUES,
   ...ALL_PATCH_ISSUES,
   ...ALL_RESOLVE_ISSUES,
+  ...ALL_ADMIT_ISSUES,
   ...ALL_STORE_ISSUES,
+  ...ALL_QUERY_ISSUES,
   ...ALL_BUILD_ISSUES,
 ]
 

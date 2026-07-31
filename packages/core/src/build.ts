@@ -21,6 +21,85 @@ export interface BuildResult {
 
 const NO_ISSUES: readonly Issue[] = Object.freeze([])
 
+// ---------------------------------------------------------------------------
+// §5.4 producer bounds (RL-1) and §4.5's indexer ceiling (IX-2)
+// ---------------------------------------------------------------------------
+
+/**
+ * §5.4's recommended bounds, as far as a producer holding one template can see them.
+ *
+ * The plan listed RL-1 and IX-2 among the rules "not owned by any module, by design (producer
+ * guidance)". The Phase 8 audit found that wrong for the three bounds below: every input they
+ * constrain is already in this module's hands when it assembles a template, so they are checkable
+ * here the same way P4 is — build the artifact, then measure it. What is genuinely not checkable
+ * here is §5.4's fourth bound, patches per canonical chain (≤ 1000): `build` sees one event, never
+ * a chain. That half stays with the consumer-side ceilings (RL-2/RL-3) in `patch`/`resolve`.
+ *
+ * All emitted as `warning`. RL-1 and IX-2 are D-layer, and TR-1 forbids a D-layer rule rejecting a
+ * V-valid event — the template is always returned, exactly as with P4.
+ */
+const MAX_EVENT_BYTES = 65536
+const MAX_TAG_VALUE_BYTES = 1024
+const MAX_HUNKS_PER_PAYLOAD = 64
+/** IX-2, and its per-event-type siblings PR-2/MD-2. */
+const MAX_INDEXER_TAGS = 64
+
+/**
+ * Bytes the signer adds once it fills in `id`, `pubkey` and `sig` — three fixed-width hex fields
+ * plus their JSON keys, separators and quotes. Constant, so the size a relay will weigh can be
+ * bounded from an unsigned template without this module ever seeing a key (D12/D13).
+ */
+const SIGNED_ENVELOPE_BYTES = 285
+
+/** UTF-8 byte length. Relay limits are byte limits; `String.length` counts UTF-16 units. */
+function utf8Bytes(value: string): number {
+  let bytes = 0
+  for (const ch of value) {
+    const cp = ch.codePointAt(0) ?? 0
+    bytes += cp < 0x80 ? 1 : cp < 0x800 ? 2 : cp < 0x10000 ? 3 : 4
+  }
+  return bytes
+}
+
+/** RL-1's two whole-template bounds: per-tag-value length, and total signed event size. */
+function boundsIssues(template: UnsignedEvent): Issue[] {
+  const issues: Issue[] = []
+
+  for (const tag of template.tags) {
+    for (const value of tag) {
+      const bytes = utf8Bytes(value)
+      if (bytes > MAX_TAG_VALUE_BYTES) {
+        issues.push(
+          issue(
+            'RL-1',
+            'warning',
+            `tag value of ${bytes} bytes exceeds §5.4's recommended maximum of ${MAX_TAG_VALUE_BYTES} (strfry maxTagValSize); deployed relays reject the event outright`,
+          ),
+        )
+      }
+    }
+  }
+
+  const size = utf8Bytes(JSON.stringify(template)) + SIGNED_ENVELOPE_BYTES
+  if (size > MAX_EVENT_BYTES) {
+    issues.push(
+      issue(
+        'RL-1',
+        'warning',
+        `signed event of about ${size} bytes exceeds §5.4's recommended maximum of ${MAX_EVENT_BYTES} (strfry maxEventSize); move bulk payload to an imeta attachment (§4.6)`,
+      ),
+    )
+  }
+
+  return issues
+}
+
+/** Assemble a result, attaching RL-1's bounds findings to whatever the builder already found. */
+function result(template: UnsignedEvent, own: readonly Issue[] = NO_ISSUES): BuildResult {
+  const issues = [...own, ...boundsIssues(template)]
+  return { template, issues: issues.length === 0 ? NO_ISSUES : issues }
+}
+
 function baseTags(type: ScrutinyEventType): string[][] {
   return [
     ['t', FABRIC_TAG],
@@ -50,15 +129,29 @@ function buildIndexedEvent(
   createdAt: number,
   indexers: readonly string[],
 ): BuildResult {
-  return {
-    template: {
-      kind: SCRUTINY_KIND,
-      created_at: createdAt,
-      tags: [...baseTags(type), ...indexerTags(indexers)],
-      content,
-    },
-    issues: NO_ISSUES,
+  const template: UnsignedEvent = {
+    kind: SCRUTINY_KIND,
+    created_at: createdAt,
+    tags: [...baseTags(type), ...indexerTags(indexers)],
+    content,
   }
+
+  // IX-2, producer side. `validate.ts` already enforces the same ceiling on receipt, but cites the
+  // per-event-type siblings PR-2/MD-2 there — IX-2 states it for events generally, and this is the
+  // only place a producer can be told before publishing. See docs/QUERY-BUILD.md §2.2 for why one
+  // obligation carrying several rule IDs is normal here rather than a conflict.
+  const own =
+    indexers.length > MAX_INDEXER_TAGS
+      ? [
+          issue(
+            'IX-2',
+            'warning',
+            `${indexers.length} i tags exceeds the recommended maximum of ${MAX_INDEXER_TAGS}; surface only the indexers this event is *about* (IX-4) rather than every indexer its payload mentions`,
+          ),
+        ]
+      : NO_ISSUES
+
+  return result(template, own)
 }
 
 /** `indexers` are raw `i`-tag values, e.g. `"cpe:2.3:h:infineon:m7794a12:-:*:*:*:*:*:*:*"`. */
@@ -102,15 +195,12 @@ export function buildBinding(
   content: string,
   createdAt: number,
 ): BuildResult {
-  return {
-    template: {
-      kind: SCRUTINY_KIND,
-      created_at: createdAt,
-      tags: [...baseTags('binding'), endpointTag('root', root), endpointTag('link', link)],
-      content,
-    },
-    issues: NO_ISSUES,
-  }
+  return result({
+    kind: SCRUTINY_KIND,
+    created_at: createdAt,
+    tags: [...baseTags('binding'), endpointTag('root', root), endpointTag('link', link)],
+    content,
+  })
 }
 
 // ---------------------------------------------------------------------------
@@ -175,18 +265,32 @@ export function buildPatch(
     content,
   }
 
+  const own: Issue[] = []
+
+  // RL-1's third producer-visible bound: hunks per payload (§5.4, basis "T1 cost"). Counted from
+  // the payload this call just produced, so it reflects what will actually be published.
+  const hunks = (payload.match(/^@@ /gm) ?? []).length
+  if (hunks > MAX_HUNKS_PER_PAYLOAD) {
+    own.push(
+      issue(
+        'RL-1',
+        'warning',
+        `patch carries ${hunks} hunks, exceeding §5.4's recommended maximum of ${MAX_HUNKS_PER_PAYLOAD}; a consumer enforcing that ceiling (RL-2) aborts application and reports the chain as aborted rather than resolved (RL-5)`,
+      ),
+    )
+  }
+
   const check = applyPatchContent(before, content)
   const settled = check.status === 'applied' || check.status === 'noop'
-  if (settled && check.content === after) return { template, issues: NO_ISSUES }
-
-  return {
-    template,
-    issues: [
+  if (!settled || check.content !== after) {
+    own.push(
       issue(
         'P4',
         'warning',
         `self-verification failed before publishing: applying the built patch against the given "before" content produced ${settled ? 'different content' : `a ${check.status}`} rather than the given "after" content`,
       ),
-    ],
+    )
   }
+
+  return result(template, own)
 }

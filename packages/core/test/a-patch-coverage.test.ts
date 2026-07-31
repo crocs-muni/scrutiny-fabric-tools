@@ -26,6 +26,7 @@ const OWNED: readonly RuleId[] = [
   'PB-2',
   'E7',
   'RL-3',
+  'RL-4', // added by the Phase 8 audit — patch.ts is its real owner; the plan lists no module
   'C8', // new in spec v0.6.1 — see _a-patch-coverage.ts for why it's not-covered
 ]
 
