@@ -77,6 +77,7 @@
     "@arethetypeswrong/cli": "^0.18.5",
     "@types/node": "^22",
     "fast-check": "^4.9.0",
+    "nostr-tools": "2.24.1",
     "typescript": "^5.8",
     "vitest": "^3.2.7"
   },

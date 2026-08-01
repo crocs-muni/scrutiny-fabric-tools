@@ -30,7 +30,8 @@ export function indexerFilter(indexer: string | readonly string[]): EventFilter 
   const values = Array.isArray(indexer) ? indexer : [indexer]
   return {
     kinds: [SCRUTINY_KIND],
-    tags: { '#t': [FABRIC_TAG], '#i': [...values] },
+    '#t': [FABRIC_TAG],
+    '#i': [...values],
   }
 }
 
@@ -38,7 +39,7 @@ export function indexerFilter(indexer: string | readonly string[]): EventFilter 
 export function searchFilter(query: string): EventFilter {
   return {
     kinds: [SCRUTINY_KIND],
-    tags: { '#t': [FABRIC_TAG] },
+    '#t': [FABRIC_TAG],
     search: query,
   }
 }
@@ -53,7 +54,7 @@ export function fullScanFilter(types?: readonly IndexedEventType[]): EventFilter
     types !== undefined && types.length > 0 ? types : (['product', 'metadata'] as const)
   return {
     kinds: [SCRUTINY_KIND],
-    tags: { '#t': selected.map((t) => EVENT_TYPE_TAGS[t]) },
+    '#t': selected.map((t) => EVENT_TYPE_TAGS[t]),
   }
 }
 
@@ -68,7 +69,8 @@ export function fullScanFilter(types?: readonly IndexedEventType[]): EventFilter
 export function bindingsReferencing(eventId: string): EventFilter {
   return {
     kinds: [SCRUTINY_KIND],
-    tags: { '#t': [EVENT_TYPE_TAGS.binding], '#e': [eventId] },
+    '#t': [EVENT_TYPE_TAGS.binding],
+    '#e': [eventId],
   }
 }
 
@@ -79,7 +81,7 @@ export function bindingsReferencing(eventId: string): EventFilter {
 export function deletionsFor(eventId: string): EventFilter {
   return {
     kinds: [DELETION_KIND],
-    tags: { '#e': [eventId] },
+    '#e': [eventId],
   }
 }
 

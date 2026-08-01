@@ -547,7 +547,12 @@ export function createInMemoryEventStorage(): EventStorage {
       for (const filter of filters) {
         let events = [...byId.values()].filter((e) => visible(e) && matchesFilter(e, filter))
         if (filter.limit !== undefined) {
-          events = events.sort((a, b) => b.created_at - a.created_at).slice(0, filter.limit)
+          // Tie-break by id (P6): `created_at` alone leaves ties in Map insertion/arrival order,
+          // an arrival-order leak through this port the same confluence-leak class UR-1 forbids
+          // elsewhere in this module.
+          events = events
+            .sort((a, b) => b.created_at - a.created_at || a.id.localeCompare(b.id))
+            .slice(0, filter.limit)
         }
         for (const e of events) matched.set(e.id, e)
       }
@@ -570,11 +575,13 @@ function matchesFilter(event: NostrEvent, filter: EventFilter): boolean {
   if (filter.kinds !== undefined && !filter.kinds.includes(event.kind)) return false
   if (filter.since !== undefined && event.created_at < filter.since) return false
   if (filter.until !== undefined && event.created_at > filter.until) return false
-  if (filter.tags !== undefined) {
-    for (const [tagName, values] of Object.entries(filter.tags)) {
-      const letter = tagName.startsWith('#') ? tagName.slice(1) : tagName
-      if (!tagValues(event, letter).some((v) => values.includes(v))) return false
-    }
+  // Flat `#`-prefixed keys (Phase 13) — the real NIP-01 shape, read directly rather than through a
+  // nested `tags` field no relay ever recognised.
+  for (const key of Object.keys(filter)) {
+    if (!key.startsWith('#')) continue
+    const values = (filter as Readonly<Record<string, readonly string[]>>)[key]
+    if (values === undefined) continue
+    if (!tagValues(event, key.slice(1)).some((v) => values.includes(v))) return false
   }
   return true
 }
