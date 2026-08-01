@@ -22,7 +22,8 @@ describe('BQ-1 — §8.1 discovery filters match the spec text', () => {
   it('step 1/2 — exact indexer', () => {
     expect(indexerFilter('cpe:2.3:h:infineon:m7794a12:-:*:*:*:*:*:*:*')).toEqual({
       kinds: [1],
-      tags: { '#t': ['scrutiny-fabric'], '#i': ['cpe:2.3:h:infineon:m7794a12:-:*:*:*:*:*:*:*'] },
+      '#t': ['scrutiny-fabric'],
+      '#i': ['cpe:2.3:h:infineon:m7794a12:-:*:*:*:*:*:*:*'],
     })
   })
 
@@ -34,14 +35,15 @@ describe('BQ-1 — §8.1 discovery filters match the spec text', () => {
     ]
     expect(indexerFilter(levels)).toEqual({
       kinds: [1],
-      tags: { '#t': ['scrutiny-fabric'], '#i': levels },
+      '#t': ['scrutiny-fabric'],
+      '#i': levels,
     })
   })
 
   it('step 3 — NIP-50 free text (DQ-3)', () => {
     expect(searchFilter('Infineon M7794A12')).toEqual({
       kinds: [1],
-      tags: { '#t': ['scrutiny-fabric'] },
+      '#t': ['scrutiny-fabric'],
       search: 'Infineon M7794A12',
     })
   })
@@ -49,14 +51,14 @@ describe('BQ-1 — §8.1 discovery filters match the spec text', () => {
   it('step 4 — full scan, defaulting to both Product and Metadata', () => {
     expect(fullScanFilter()).toEqual({
       kinds: [1],
-      tags: { '#t': ['scrutiny-product', 'scrutiny-metadata'] },
+      '#t': ['scrutiny-product', 'scrutiny-metadata'],
     })
   })
 
   it('step 4 — narrowed to a known target type', () => {
     expect(fullScanFilter(['product'])).toEqual({
       kinds: [1],
-      tags: { '#t': ['scrutiny-product'] },
+      '#t': ['scrutiny-product'],
     })
   })
 })
@@ -66,18 +68,20 @@ describe('BQ-1 — §8.2 traversal filters match the spec text', () => {
     const filter = bindingsReferencing('aaa111')
     expect(filter).toEqual({
       kinds: [1],
-      tags: { '#t': ['scrutiny-binding'], '#e': ['aaa111'] },
+      '#t': ['scrutiny-binding'],
+      '#e': ['aaa111'],
     })
     expect(bindingsReferencing('bbb222')).toEqual({
       kinds: [1],
-      tags: { '#t': ['scrutiny-binding'], '#e': ['bbb222'] },
+      '#t': ['scrutiny-binding'],
+      '#e': ['bbb222'],
     })
   })
 
   it('deletions affecting an event (DQ-2) — no #t, since kind 5 carries none', () => {
     expect(deletionsFor('ddd444')).toEqual({
       kinds: [5],
-      tags: { '#e': ['ddd444'] },
+      '#e': ['ddd444'],
     })
   })
 })
