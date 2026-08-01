@@ -676,3 +676,131 @@ consecutive phases, and 31 D-layer rules have an empty corpus. Decision, three p
 Rejected: relying on the substitute gates indefinitely. They are good and have found real bugs — but
 C5 above is precisely a defect none of them covers, and a gate suite written by the same people who
 wrote the code has a blind spot an external corpus does not.
+
+**C9 (2026-08-01, spec-and-plan pass) — D32 clarified: scope is the applier function and its
+exports-map subpath, not patch-adjacent result/option types.**
+
+D32 states: "`./patch` is internal, not a published subpath. Exposing the applier invites callers to
+bypass the gate §5.3 says implementations "MUST still enforce". Do not publish a footgun." Read
+verbatim, D32's own text names two things: a subpath (`./patch`) and an applier ("exposing the
+applier invites callers to bypass the gate"). It says nothing about the inert result/option
+vocabulary the applier happens to return or accept — `HaltReason`, `LimitKind`, `ApplyOptions`, and
+`HaltRule` carry no gate-bypassing capability themselves; only the function that calls the gate does.
+`PLAN-2026-08-01-rewrite-mandate.md` §2 extracts these four types into a dedicated
+`packages/core/src/patch-types.ts` (types only, no functions), re-exported from `index.ts`'s root
+barrel with no new exports-map subpath (D17), while `patch.ts`'s applier function itself and the
+`./patch` subpath stay exactly as internal as D32 already requires.
+
+**What is unaffected.** D32's substance stands unedited: `./patch` is still not a published subpath,
+the applier function is still never exported, and §5.3's T1/T2/T3 gate still cannot be bypassed by
+any public API this package ships. This is a clarification of scope, not a reversal — publishing
+`HaltReason`/`LimitKind`/`ApplyOptions`/`HaltRule` via `patch-types.ts` does not touch what D32
+forbids. `CONTEXT-WIDENING.md` §1.1 independently confirms and relies on this same reading when
+justifying `patch-matcher.ts` as a second internal (never-exported) file alongside `./patch`.
+
+**C10 (2026-08-01, spec-and-plan pass) — D24 amended: a fourth reducer index, `overlayAwaiting`,
+drives chain-epoch invalidation for overlay targets.**
+
+C5 showed `chainEpoch` never bumps for a root `R` whose overlay targets an event outside `R`'s own
+chain, violating D29's oracle property (`AUDIT-2026-07-31.md` §2's P1). Amendment, per
+`OVERLAY-AWAITING.md`'s finished design (superseding `PLAN-2026-08-01-rewrite-mandate.md` §3's
+rougher sketch on the two points marked below):
+
+`StoreState` gains `overlayAwaiting: Readonly<Record<string, readonly string[]>>` (target-event-id
+-> root-id[]). **Populated only from observed Patch events**: whenever a Patch is observed, if both
+`replyTarget(event)` and `rootTarget(event)` are defined, `overlayAwaiting[replyTarget(event)]` gains
+`rootTarget(event)`, via the existing generic `addAwaiting` helper — unconditional for every observed
+Patch (root-author or foreign, valid or not), mirroring `chainMembership`'s own precedent.
+(`replyTarget` is hoisted, verbatim, from a private helper in `resolve.ts` into a new exported
+function in `events.ts`, alongside the existing `rootTarget` export.)
+
+`chainEpochTargets` gains a fifth, additive row, layered on top of its existing four: for **every**
+observed or unobserved event, regardless of type, it looks up `overlayAwaiting[event.id]` (the
+arriving/departing event's own id) and bumps `chainEpoch` for every root id found there. **This
+consultation is not scoped to Patches** — refinement (b) to the mandate's sketch, which read only as
+"consulted... for the arriving event's own id" without stating that this fires for every event type:
+Patches are only where the index is *populated*; the bump-side lookup fires for any event type, since
+the target an overlay depends on can be a Product, Metadata, Patch, or anything else.
+
+The index is **never mutated on `unobserve`, in either dimension** — refinement (a) to the mandate's
+sketch, which stated only that the target-keyed entry is retained: neither that entry itself nor a
+Patch's own contribution to an entry's root-id array is ever removed (the array is coarse — multiple
+Patches, from the same or different roots, can each contribute the same root id to the same target's
+entry — so removing one contributor safely would need a per-Patch refcount the mandate does not
+specify; removing without it risks deleting a still-live dependency and reintroducing C5's own failure
+one level down). This follows `chainMembership`'s "stale-but-correct" precedent over
+`bindingsAwaiting`'s active-cleanup precedent: `bindingsAwaiting`'s cleanup is keyed by exact Binding
+identity (no multiplicity hazard), and no terminal verdict exists for an overlay dependency the way
+BD-3/BD-4 gives one for Binding endpoints.
+
+`STORE.md` §6's resolution-memo key is unchanged by this fix — it repairs `chainEpoch`'s precision at
+the point the imprecision was introduced (`chainEpochTargets`'s row coverage), rather than patching
+the memo key one layer up, superseding the audit's own cheaper "key the memo on `observedEpoch` when a
+resolution contains an orphaned overlay" option.
+
+**What is unaffected.** D24's three-epoch structure stands: `overlayAwaiting` adds a new *trigger* to
+the existing per-root `chainEpoch`, not a fourth epoch. D26 (the overlay-cache key has no trust
+component) is unbroken and cited only as precedent. D29 is the decision this fix repairs, not one it
+revises — C5 remains on record as the correct historical finding; this entry records its fix landing.
+D38 (cache raw events, never resolved content) is unbroken: the index stores ids only, never resolved
+content. D15/D43 (plain data, pure/synchronous reducer) are unbroken: `overlayAwaiting` is a
+`Readonly<Record<string, readonly string[]>>` field like every other `StoreState` field, and its
+population/consultation stay inside the existing pure, synchronous reducer. Full derivation, a worked
+trace of the P1 scenario, and the `StoreView`/gate consequences are recorded in `OVERLAY-AWAITING.md`,
+not restated here.
+
+**C11 (2026-08-01, spec-and-plan pass) — D29's oracle property was violated by a second, independent
+gap: `store.add()` never called `validateEvent` at all (P5).**
+
+`AUDIT-2026-07-31.md` P5 found that `createStore`'s `add()` never invokes `validateEvent` — a
+consumer could ingest and resolve malformed Bindings, mis-tagged events, and PT-7-violating overlays
+with no V-layer check ever running, so an incremental `resolveRoot` answer could disagree with what a
+from-scratch validate-then-resolve pipeline would report for any V-invalid or V-pending event. This is
+a distinct D29 violation from C5's — C5 is the `overlayAwaiting`/chain-epoch-target gap fixed by C10
+above (the check ran, but its invalidation signal was imprecise); this is "the check never ran in the
+first place" — and P5 was never given its own dated Corrections entry the way its sibling gap C5 was,
+despite being recorded in the same `AUDIT-2026-07-31.md` audit pass.
+
+Fixed by `VALIDATION-WIRING.md`: `store.add()` now calls `validateEvent` on every accepted event
+(accepted meaning SIG-1-passing, regardless of V-verdict — never silently dropped for a validator bug,
+per DEL-4's "never silently drop, preserve for audit" precedent applied to a different failure mode).
+`rejectedBindings`/`bindingsAwaiting` generalize to `invalidIds`/`pendingAwaiting`, rule-agnostic
+across every V rule that can produce an error or an `awaiting` array, not just Binding endpoints.
+`resolveRoot`'s event feed excludes `invalidIds` before calling `resolve()`, closing the gap P5 found.
+
+**What is unaffected.** D29 stands as a decision — this is its second repair, not a revision. D15,
+D18, D19, D20, D24, D34 are all satisfied unchanged by this fix (`VALIDATION-WIRING.md` §6 verifies
+each individually: no new class or port, SIG-1 gate untouched, verification-status shape untouched,
+dedup-after-verify ordering untouched, no new epoch — only a new trigger for the existing per-root
+`chainEpoch` — and coverage strengthened, not weakened). A related, out-of-scope gap was found while
+writing `VALIDATION-WIRING.md` (`admit.ts`'s `computeAdmission`/`applyDelta` never check BD-3/BD-4
+endpoint typing, so a Binding this fix correctly marks invalid via `invalidIds` still confers
+admission credit to its wrongly-typed endpoints) — this is not a D29 disagreement (the oracle and the
+incremental path agree with each other, on a spec-incorrect answer) and is explicitly deferred to its
+own future decision and Corrections entry, touching D23's admission mechanism rather than this one.
+
+**C12 (2026-08-01, spec-and-plan pass) — D21 clarified: "no trust package" governs the trust-deciding
+mechanism, not `store`'s bookkeeping over an already-made decision.**
+
+`TRUST-VIEW.md` §7 found that `store.ts`'s existing `trust(pubkeys)`/`untrust(pubkeys)` — a
+`Set`-backed allowlist (`AdmitState.trusted`), now stated plainly as the documented, recommended path
+for a `Store` consumer's admission view (`TRUST-VIEW.md` §5's new `admissionView()`/`viewRoot()`
+methods) — reads, on D21's summary line taken in isolation ("Trust is a synchronous predicate, never a
+set. No `trust` package"), as exactly what D21 forbids.
+
+Clarification, not a reversal, read against D21's own rationale rather than its summary line: D21's
+"no `trust` package" targets a *policy*-computing mechanism — web-of-trust expansion, NIP-51 list
+fetching, reputation scoring — which §6.1 puts out of scope of the specification, and whose dependency
+argument (NIP-51 fetching is relay IO; NIP-44 decryption needs a signer) is about computing *who* to
+trust. `store.ts`'s `trust`/`untrust` compute no such policy; they are a bookkeeping sink for a trust
+decision already made by the caller through whatever mechanism they chose — the same role
+`IngestMeta.verified` plays for a verification decision `store.add()` does not itself compute. The
+`Set` D21 rules out is a `Set` used as the *mechanism for deciding* who to trust; `AdmitState.trusted`
+is storage for a decision made elsewhere, which is a different claim.
+
+**What is unaffected.** `TrustProvider`'s synchronous-predicate requirement is untouched and still
+required exactly as written. `computeAdmission`'s status as the conformance oracle (D29) is untouched,
+and is in fact extended by `TRUST-VIEW.md` §6 to state plainly that `computeAdmission`/`TrustProvider`
+hold this oracle role for `Store`'s trust surface specifically — matching AG1's already-established
+incremental-equals-oracle property. `store.ts`'s `trust`/`untrust` were always compatible with D21
+under this reading; only D21's own text did not make the distinction explicit until now.
