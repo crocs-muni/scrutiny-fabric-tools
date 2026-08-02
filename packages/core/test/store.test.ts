@@ -441,18 +441,32 @@ describe('OVERLAY-AWAITING.md §8 — RC-3 cross-root regression (permanent regr
 
     // RC-3 assertion: X's arrival must bump chainEpoch[R] because R's resolution depends on X's observedness
     expect(epochAfterX).toBeGreaterThan(epochAfterOverlay)
+  })
 
-    // Verify stale-vs-fresh resolution agreement: a fresh resolve over the same final set
-    // must produce the same answer as the memo-invalidated resolve
+  it('serves the stale pre-X resolution only until X arrives, then recomputes', () => {
+    // One shared memo across both observations: the pre-X resolve caches against the pre-X epoch;
+    // X's arrival must invalidate it, and the recomputed result must equal a fresh store's over the
+    // same final set (D29). Unlike the epoch assertions above, this fails if memo invalidation is
+    // broken for the cross-root path — that is the RC-3 regression in its served-bytes form.
+    const events = overlayPatch('rc3-stale-then-fresh')
+    const [r, x, overlayEvent] = events
+
     const memo = createResolveMemo()
-    const staleServed = resolveRoot(state, r.id, memo)
+
+    let state = applyStoreDelta(EMPTY_STORE_STATE, { kind: 'observe', events: [r] })
+    state = applyStoreDelta(state, { kind: 'observe', events: [overlayEvent] })
+
+    const beforeX = resolveRoot(state, r.id, memo)
+
+    state = applyStoreDelta(state, { kind: 'observe', events: [x] })
+    const afterX = resolveRoot(state, r.id, memo)
+
+    expect(afterX).not.toBe(beforeX) // memo invalidated by the cross-root bump → fresh resolve() call
 
     const freshState = [r, x, overlayEvent].reduce(
       (s, e) => applyStoreDelta(s, { kind: 'observe', events: [e] }),
       EMPTY_STORE_STATE,
     )
-    const freshResolution = resolveRoot(freshState, r.id, createResolveMemo())
-
-    expect(staleServed).toEqual(freshResolution) // RC-3: no stale bytes served
+    expect(resolveRoot(freshState, r.id, createResolveMemo())).toEqual(afterX)
   })
 })

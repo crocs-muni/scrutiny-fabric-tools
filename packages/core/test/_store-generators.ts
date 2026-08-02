@@ -172,12 +172,14 @@ function build(s: {
   // overlayAwaiting-population assertion anchors this shape as non-vacuous (a t-tag-less lookalike
   // here would silently exercise nothing — exactly what SG5 exists to forbid).
   if (s.overlayCrossRoot) {
+    // Canonical order is the §7 regression shape itself (overlay precedes its reply target);
+    // SG1's permutations still exercise every other order.
     const [r1, x, overlay] = overlayPatch(tag)
     rootIds.push(r1.id)
     mix.overlayCrossRoot++
     deltas.push(observe(r1))
-    deltas.push(observe(x))
     deltas.push(observe(overlay))
+    deltas.push(observe(x))
   }
 
   return { deltas, rootIds, mix }
@@ -202,7 +204,8 @@ export const storeScenarioAndPermutation: fc.Arbitrary<{
  */
 export function overlayPatch(label: string): readonly [NostrEvent, NostrEvent, NostrEvent] {
   const r = genuine(root('a\n', `${label}-r`))
-  const x = genuine(root('b\n', `${label}-x`))
+  // X matches the §7 worked trace verbatim: an unrelated Metadata event, value-agnostic.
+  const x = genuine(metadataAt(`${label}-x`, 'metadata'))
   // Build an overlay patch manually: e root = R1, e reply = X (where X has no e root = R1)
   // Preserve the t tags from diffPatch so scrutinyEventType returns 'patch'
   // Use PK_FOREIGN so this is actually classified as an overlay (foreign patch)
