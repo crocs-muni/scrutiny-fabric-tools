@@ -41,7 +41,7 @@ events, never resolved content") answers "did this ever arrive," and a new exclu
 mandate's own sketch names three buckets, not four. A `valid` verdict carrying only warnings (e.g. a
 Product's PR-2 64-`i`-tag advisory) is reported in `accepted` and nowhere else — identical to today's
 silence, since `store.add()` today surfaces no `Issue` at all for a passing event. This is a real,
-un-closed ergonomics gap (a caller wanting producer-side D-layer advisories back from `add()` still has
+unclosed ergonomics gap (a caller wanting producer-side D-layer advisories back from `add()` still has
 none), but it is out of scope for the three-bucket final call already settled here; flagging it rather
 than quietly enlarging the shape.
 

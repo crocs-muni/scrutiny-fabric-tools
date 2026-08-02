@@ -270,7 +270,7 @@ export function createNostrToolsTransport(pool: SimplePool): RelayTransport {
       // unambiguous relay identity (§1.1) and every EOSE is already per-relay (§1.3) with no
       // bookkeeping needed to keep them apart.
       const closers = relays.map((relay) =>
-        pool.subscribeMany([relay], filters as EventFilter[], {
+        pool.subscribeMany([relay], [...filters], {
           onevent: (event: NostrEvent) => onEvent(event, relay),
           oneose: () => onEose?.(relay),
         }),
@@ -281,7 +281,7 @@ export function createNostrToolsTransport(pool: SimplePool): RelayTransport {
     async publish(event, relays) {
       const TIMEOUT_MS = 5_000
       const results = await Promise.allSettled(
-        pool.publish(relays as string[], event).map(
+        pool.publish([...relays], event).map(
           (ack, i) =>
             new Promise<{ relay: string; ok: boolean; reason?: string }>((resolve) => {
               const timer = setTimeout(

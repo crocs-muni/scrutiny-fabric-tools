@@ -141,7 +141,7 @@ monotonicity assumption of any kind — not "ambiguity resolves monotonically as
 the mandate is right to distrust generally, and which C5/EOF and hunk-merging interactions make
 genuinely uncertain near file boundaries), and not "skipping to a larger step is safe." Every
 candidate context in the reachable range is actually tried. This is the reading under which "widen
-linearly" is a real constrat rather than a description that happens to also fit an untrusted skip.
+linearly" is a real constraint rather than a description that happens to also fit an untrusted skip.
 
 ### 2.2 A second design correction: per-hunk checks must thread spliced content across hunks (T3)
 
