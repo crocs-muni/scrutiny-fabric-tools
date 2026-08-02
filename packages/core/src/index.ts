@@ -101,9 +101,11 @@ export {
 
 export {
   storageSymbol,
+  transportSymbol,
   trustSymbol,
   type EventFilter,
   type EventStorage,
+  type RelayTransport,
   type TrustProvider,
 } from './interfaces.js'
 

@@ -88,3 +88,68 @@ export interface EventStorage {
     ids: readonly string[],
   ): Promise<ReadonlyMap<string, NostrEvent>> | ReadonlyMap<string, NostrEvent>
 }
+
+/**
+ * `Symbol.for` uses a global registry — see {@link trustSymbol}'s comment; same rationale (D16).
+ */
+export const transportSymbol = Symbol.for('@scrutiny-fabric/transport')
+
+/**
+ * The relay I/O port (D16) — the last of the four branded interfaces `core` declares, and the only
+ * one with no implementation shipped anywhere, by design (D6): `core` never depends on a relay
+ * library, so an adapter is always a copy-paste `examples/adapters/*` file, CI-tested but never
+ * published. Callback plus an explicit unsubscribe closure, matching what nostr-tools, NDK,
+ * applesauce, and nostrify all expose internally — a thin pass-through per adapter, never a
+ * push-to-pull bridge.
+ */
+export interface RelayTransport {
+  readonly [transportSymbol]: true
+
+  /**
+   * Subscribe across one or more relays under one logical subscription. `onEvent`'s second
+   * parameter is the relay that delivered this particular copy of the event — present because
+   * `store.ts`'s `IngestMeta.source` (D19) is reserved per ingest batch, and a multi-relay
+   * `request()` is the only place that ever knows which relay a given event actually came from;
+   * discarding that fact here makes `source` permanently unpopulatable for the multi-relay case.
+   * This is not relay-provenance-for-censorship-detection (R9 rejected building that feature) — it
+   * is not discarding a data point already free at the point it is produced.
+   *
+   * `onEose` fires once per relay, at whatever time that relay individually finishes replaying its
+   * stored events for this subscription's filters — matching NIP-01's `EOSE` semantics, which are
+   * per-relay per-subscription, never a combined signal. A caller that wants "every relay is now
+   * live" derives it by counting distinct `relay` values against `relays.length`.
+   *
+   * Returns an explicit unsubscribe closure, `() => void`, rather than an object with a `.close()`
+   * method or an `EventEmitter` — matches D16's callback-plus-unsubscribe precedent throughout.
+   */
+  request(
+    relays: readonly string[],
+    filters: readonly EventFilter[],
+    onEvent: (event: NostrEvent, relay: string) => void,
+    onEose?: (relay: string) => void,
+  ): () => void
+
+  /**
+   * Mirrors NIP-01's `OK` message exactly, never a collapsed boolean. Every relay named in `relays`
+   * MUST have a corresponding key in the resolved map — a relay that never sends `OK` before the
+   * adapter's own deadline is reported as `{ ok: false, reason: 'timeout' }` (or an equivalently
+   * descriptive string), never by omission. `reason` stays a plain, open `string` either way: a
+   * relay's own rejection message (the fourth element of its `OK` frame) is free text, and a
+   * timeout reason belongs in that same open vocabulary rather than a separate closed union.
+   */
+  publish(
+    event: NostrEvent,
+    relays: readonly string[],
+  ): Promise<ReadonlyMap<string, { readonly ok: boolean; readonly reason?: string }>>
+
+  /**
+   * NIP-45 `COUNT` is genuinely optional relay-side, so this stays an optional method, not
+   * required-and-throwing. A relay present in `relays` but missing from the resolved map's keys, or
+   * present with value `undefined`, means that relay did not answer `COUNT` — distinct from a real
+   * count of `0`.
+   */
+  count?(
+    relays: readonly string[],
+    filters: readonly EventFilter[],
+  ): Promise<ReadonlyMap<string, number | undefined>>
+}
