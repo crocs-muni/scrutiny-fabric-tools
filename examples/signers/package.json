@@ -1,0 +1,18 @@
+{
+  "name": "scrutiny-fabric-example-signer",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@noble/curves": "^1.9.2",
+    "@noble/hashes": "^1.8.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22",
+    "typescript": "^5.8",
+    "@scrutiny-fabric/core": "file:../../packages/core"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "node --experimental-strip-types --test"
+  }
+}
