@@ -14,15 +14,19 @@
  * Binding-only `rejectedBindings`/`bindingsAwaiting` fields into rule-agnostic `invalidIds`/
  * `pendingAwaiting` and excluding `invalidIds` from `resolveRoot`'s event feed. Phase 15
  * (`docs/OVERLAY-AWAITING.md`) adds the `overlayAwaiting` reverse index that closes the resolve-memo
- * staleness gap (D24/C10).
+ * staleness gap (D24/C10). Phase 16 (`docs/TRUST-VIEW.md`) adds `admissionView()`/`viewRoot()` — the
+ * store's own trust-filtered overlay view, composing `resolveRoot` with `trustedView`/`visibleOverlays`.
  */
 
 import {
   type AdmissionIndex,
+  type AdmissionView,
   type AdmitState,
   EMPTY_ADMIT_STATE,
   applyDelta as applyAdmitDelta,
   toIndex,
+  trustedView,
+  visibleOverlays,
 } from './admit.js'
 import { type Issue, issue } from './errors.js'
 import {
@@ -455,8 +459,9 @@ function optionsKeyOf(options: ResolveOptions | undefined): string {
 /**
  * Reads a root through the epoch-gated memo, recomputing via `resolve()` only when absent or when
  * `chainEpoch[rootId]` has moved since the cached entry (STORE.md §6). Trust is deliberately not part
- * of the key or the cache at all (D26's precedent) — apply `admit.visibleOverlays` to
- * `resolution.overlays` at read time if a trust-filtered view is wanted.
+ * of the key or the cache at all (D26's precedent) — `overlays` here is every overlay in the observed
+ * set, unfiltered. For a trust-filtered overlay view, use `Store.viewRoot` (or `admissionView()` +
+ * `visibleOverlays`) — see docs/TRUST-VIEW.md.
  */
 export function resolveRoot(
   state: StoreState,
@@ -558,12 +563,30 @@ export const sig1RejectionIssue = (event: NostrEvent): Issue =>
     `event ${event.id}: failed signature/id verification and was not admitted`,
   )
 
+export interface ViewRootOptions extends ResolveOptions {
+  /**
+   * Filters `Resolution.overlays` (OV-7). Defaults to `admissionView()` — this Store's own current
+   * trust state. Pass `openView` (re-exported from the barrel already, D22) explicitly for the
+   * "show everything" audit case. There is no boolean escape hatch: D22 rules out a bypass flag for
+   * exactly this reason, and that rule applies one layer up here as much as it did inside `admit.ts`.
+   */
+  readonly admission?: AdmissionView
+}
+
 export interface Store {
   add(events: readonly NostrEvent[], meta?: IngestMeta): Promise<AddResult>
   unobserve(eventIds: readonly string[]): Promise<void>
   trust(pubkeys: readonly string[]): void
   untrust(pubkeys: readonly string[]): void
   resolveRoot(rootId: string, options?: ResolveOptions): Resolution
+  /** The current trust view of this Store's admit state, for OV-7 overlay filtering (TRUST-VIEW.md §2). */
+  admissionView(): AdmissionView
+  /**
+   * A trust-filtered resolution: `resolveRoot` followed by filtering ONLY `overlays` through
+   * `visibleOverlays` with the given (or defaulted) admission view — D25/TR-7, so `chain`/
+   * `pending`/`annotations` are never gated on trust (docs/TRUST-VIEW.md §2).
+   */
+  viewRoot(rootId: string, options?: ViewRootOptions): Resolution
   getState(): StoreState
 }
 
@@ -723,12 +746,26 @@ export function createStore(options: CreateStoreOptions): Store {
     return resolveRoot(state, rootId, memo, effectiveOptions)
   }
 
+  function admissionView(): AdmissionView {
+    return trustedView(toIndex(state.admit))
+  }
+
+  function viewRoot(rootId: string, options?: ViewRootOptions): Resolution {
+    const resolveOptions: ResolveOptions | undefined =
+      options?.apply !== undefined ? { apply: options.apply } : undefined
+    const resolution = resolveRootBound(rootId, resolveOptions)
+    const view = options?.admission ?? admissionView()
+    return { ...resolution, overlays: visibleOverlays(resolution.overlays, view) }
+  }
+
   return {
     add,
     unobserve,
     trust,
     untrust,
     resolveRoot: resolveRootBound,
+    admissionView,
+    viewRoot,
     getState: () => state,
   }
 }

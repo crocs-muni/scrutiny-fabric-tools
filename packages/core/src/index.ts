@@ -131,6 +131,7 @@ export {
   type StoreDelta,
   type StoreState,
   type StoreView,
+  type ViewRootOptions,
 } from './store.js'
 
 export {
