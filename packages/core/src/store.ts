@@ -30,6 +30,7 @@ import {
 } from './admit.js'
 import { type Issue, issue } from './errors.js'
 import {
+  EVENT_TYPE_TAGS,
   type NostrEvent,
   eTags,
   replyTarget,
@@ -617,16 +618,121 @@ function honouredlyDeletedIds(byId: ReadonlyMap<string, NostrEvent>): Set<string
   return deleted
 }
 
+/**
+ * Phase 21 (mandate §14, `AUDIT-2026-07-31.md` §5): the default in-memory adapter gets real
+ * indexes instead of one `Map` plus a full scan per filter — by `kind`, by exact `i`-tag value,
+ * by `e`-tag reference, and by `t`-tag **restricted to the four event-type tags**. Applicable
+ * indexes are *intersected* per filter, never welshman's fixed-priority-first-index-no-intersect
+ * shape the audit measured (every `query.ts` filter carries both a `#t` and a `kinds` key, so a
+ * tag-first index's commonest bucket holds every row). Non-discriminating `#t` values (the fabric
+ * and version tags, 100%-of-rows keys) never prune; the full `matchesFilter` predicate still runs
+ * on the pruned candidates, so pruning can only ever skip events that cannot match.
+ *
+ * Ordering is deliberately unchanged: candidate pruning narrows the *predicate* work, never the
+ * iteration — output arrays remain byte-identical to the pre-index implementation, which the
+ * differential property (`storage.test`-side) asserts rather than assumes. The deletion-hiding
+ * scan is now cached and invalidated on `put` (any arrival can add a kind 5 or a target).
+ */
 export function createInMemoryEventStorage(): EventStorage {
   const byId = new Map<string, NostrEvent>()
+  const kindIdx = new Map<number, Set<string>>()
+  const typeTagIdx = new Map<string, Set<string>>()
+  const iTagIdx = new Map<string, Set<string>>()
+  const eTagIdx = new Map<string, Set<string>>()
+  let deletedCache: Set<string> | undefined
+
+  const TYPE_TAG_VALUES = new Set<string>(Object.values(EVENT_TYPE_TAGS))
+
+  const idxAdd = <K>(idx: Map<K, Set<string>>, key: K, id: string): void => {
+    idx.get(key)?.add(id) ?? idx.set(key, new Set([id]))
+  }
+  const idxDrop = <K>(idx: Map<K, Set<string>>, key: K, id: string): void => {
+    const set = idx.get(key)
+    if (set === undefined) return
+    set.delete(id)
+    if (set.size === 0) idx.delete(key)
+  }
+
+  const indexEvent = (event: NostrEvent): void => {
+    idxAdd(kindIdx, event.kind, event.id)
+    for (const t of tagValues(event, 't')) {
+      if (TYPE_TAG_VALUES.has(t)) idxAdd(typeTagIdx, t, event.id)
+    }
+    for (const i of tagValues(event, 'i')) idxAdd(iTagIdx, i, event.id)
+    for (const ref of eTags(event)) idxAdd(eTagIdx, ref.id, event.id)
+  }
+  const unindexEvent = (event: NostrEvent): void => {
+    idxDrop(kindIdx, event.kind, event.id)
+    for (const t of tagValues(event, 't')) {
+      if (TYPE_TAG_VALUES.has(t)) idxDrop(typeTagIdx, t, event.id)
+    }
+    for (const i of tagValues(event, 'i')) idxDrop(iTagIdx, i, event.id)
+    for (const ref of eTags(event)) idxDrop(eTagIdx, ref.id, event.id)
+  }
+
+  /**
+   * The id set a filter can safely be pruned to, or `undefined` when no index applies. Each
+   * produced bucket is a superset of that key's true matches, so intersecting them loses nothing
+   * `matchesFilter` would accept.
+   */
+  const candidateIds = (filter: EventFilter): ReadonlySet<string> | undefined => {
+    const buckets: ReadonlySet<string>[] = []
+    if (filter.ids !== undefined) buckets.push(new Set(filter.ids))
+    if (filter.kinds !== undefined) {
+      const s = new Set<string>()
+      for (const k of filter.kinds) for (const id of kindIdx.get(k) ?? []) s.add(id)
+      buckets.push(s)
+    }
+    const tagBucket = (
+      key: '#t' | '#i' | '#e',
+      idx: ReadonlyMap<string, ReadonlySet<string>>,
+      discriminating: boolean,
+    ): void => {
+      const values = (filter as Readonly<Record<string, readonly string[] | undefined>>)[key]
+      if (values === undefined) return
+      if (discriminating) {
+        // `#t` prunes only when EVERY listed value is a type tag: within a key NIP-01 is OR, so a
+        // mixed list (type + fabric) could match via the uniform fabric tag — no safe pruning.
+        if (values.length === 0 || !values.every((v) => TYPE_TAG_VALUES.has(v))) return
+      }
+      const s = new Set<string>()
+      for (const v of values) for (const id of idx.get(v) ?? []) s.add(id)
+      buckets.push(s)
+    }
+    tagBucket('#t', typeTagIdx, true)
+    tagBucket('#i', iTagIdx, false)
+    tagBucket('#e', eTagIdx, false)
+    if (buckets.length === 0) return undefined
+
+    // Intersect by iterating the smaller side of each pair. Buckets are superset-safe, so the
+    // result is a superset of the true matches — never a subset of them.
+    let result: ReadonlySet<string> = buckets[0] as ReadonlySet<string>
+    for (const next of buckets.slice(1)) {
+      const [small, big] = next.size < result.size ? [next, result] : [result, next]
+      const pruned = new Set<string>()
+      for (const id of small) if (big.has(id)) pruned.add(id)
+      result = pruned
+    }
+    return result
+  }
+
   return {
     [storageSymbol]: true,
     put(events) {
-      for (const e of events) byId.set(e.id, e)
+      for (const e of events) {
+        const old = byId.get(e.id)
+        if (old !== undefined) unindexEvent(old)
+        byId.set(e.id, e)
+        indexEvent(e)
+        deletedCache = undefined
+      }
     },
     query(filters, options) {
       const includeDeleted = options?.includeDeleted ?? false
-      const deletedIds = includeDeleted ? undefined : honouredlyDeletedIds(byId)
+      if (!includeDeleted && deletedCache === undefined) {
+        deletedCache = honouredlyDeletedIds(byId)
+      }
+      const deletedIds = includeDeleted ? undefined : deletedCache
       const visible = (e: NostrEvent): boolean => includeDeleted || !deletedIds?.has(e.id)
 
       if (filters.length === 0) return [...byId.values()].filter(visible)
@@ -635,7 +741,12 @@ export function createInMemoryEventStorage(): EventStorage {
       // union across filters — so limiting happens per-filter, before the results are merged.
       const matched = new Map<string, NostrEvent>()
       for (const filter of filters) {
-        let events = [...byId.values()].filter((e) => visible(e) && matchesFilter(e, filter))
+        const pruned = candidateIds(filter)
+        let events: NostrEvent[] = []
+        for (const e of byId.values()) {
+          if (pruned !== undefined && !pruned.has(e.id)) continue
+          if (visible(e) && matchesFilter(e, filter)) events.push(e)
+        }
         if (filter.limit !== undefined) {
           // Tie-break by id (P6): `created_at` alone leaves ties in Map insertion/arrival order,
           // an arrival-order leak through this port the same confluence-leak class UR-1 forbids
