@@ -18,7 +18,9 @@
 
 import fc from 'fast-check'
 import { describe, expect, it } from 'vitest'
-import { type ApplyResult, applyPatchPayload, makePatch } from '../src/patch.js'
+import { buildPatch, widenContext } from '../src/build.js'
+import { type Hunk, occurrences, spliceAt, toLines } from '../src/patch-matcher.js'
+import { type ApplyResult, applyPatchContent, applyPatchPayload, makePatch } from '../src/patch.js'
 import { distinctPair, repeatyContent } from './_generators.js'
 import { describeResult } from './_patch.js'
 
@@ -109,6 +111,49 @@ describe('Phase 2 gate — applyPatch(a, makePatch(a, b)) === b', () => {
         expect(() => applyPatchPayload(content, payload)).not.toThrow()
       }),
       { numRuns: 5_000 },
+    )
+  })
+})
+
+const PROD_ROOT = { id: 'a'.repeat(64) } as const
+const PROD_REPLY = { id: 'b'.repeat(64) } as const
+
+/**
+ * Independent oracle for CONTEXT-WIDENING.md §6: evaluates "resolved" by threading lines across
+ * the exact hunks `widenContext` returned — the same T3 sequencing `applyPatchPayload` uses —
+ * without re-running `build.ts`'s own trial. If a pattern is ambiguous under this scan, no
+ * widening verdict can legitimately say otherwise; this is what keeps the property honest
+ * against the implementation, per §6's "re-derived independently in the test."
+ */
+function threadedSayUnique(a: string, hunks: readonly Hunk[]): boolean {
+  let lines = toLines(a)
+  for (const hunk of hunks) {
+    if (hunk.oldPat.length === 0) continue
+    const found = occurrences(lines, hunk.oldPat)
+    if (found.count !== 1) return false
+    const spliced = spliceAt(lines, hunk, found.first)
+    if (!spliced.ok) return false
+    lines = spliced.lines
+  }
+  return true
+}
+
+describe('Phase 18 gate — buildPatch’s widening agrees with an independent verdict (CONTEXT-WIDENING.md §6)', () => {
+  it('resolved ⟺ no P4 ⟺ the template applies to `after`, over repeat-heavy pairs', () => {
+    fc.assert(
+      fc.property(repeatyContent, repeatyContent, (a, b) => {
+        const res = widenContext(a, b, 3, 1 << 22)
+        const { template, issues } = buildPatch(PROD_ROOT, PROD_REPLY, a, b, 1, 3, 1 << 22)
+        const p4s = issues.filter((i) => i.code === 'P4')
+        if (res.exhausted) return // the budget-cut fallback (P4 verbatim) is pinned deterministically in build.test.ts
+        expect(threadedSayUnique(a, res.hunks)).toBe(true) // independently computed verdict
+        expect(p4s).toEqual([])
+        const applied = applyPatchContent(a, template.content)
+        const reproduced =
+          applied.status === 'noop' ? a : applied.status === 'applied' ? applied.content : undefined
+        expect(reproduced).toBe(b)
+      }),
+      { numRuns: 2_000 },
     )
   })
 })
