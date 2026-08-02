@@ -513,3 +513,34 @@ edits to that file are a later stage's job per this session's own constraints.
    `e reply` equals its own id is presumably invalid under some existing or future V rule; this document
    does not depend on that landing, since the degenerate case is already harmless under §3's
    over-approximation argument regardless of validity.
+
+---
+
+## Correction (2026-08-02) — §7's worked trace is unreachable in its named form; the live regression is exclusion-driven staleness
+
+Filed after Phase 15 landed (PR #16), on executable-probe evidence against the shipped code. §7
+Step 5 asserts that resolving `R` after `X`'s arrival yields `orphaned/α` ("obtainable"). It does
+not, and cannot: with `X` observable, the foreign overlay fails PT-7 (`validate.ts:382-403` — `X`
+is neither the root nor a root-author patch of `R`), flips pending→invalid, and leaves
+`resolveRoot`'s event feed (VALIDATION-WIRING.md §4). The β→α reclassification this document's
+design treats as its motivating case remains reachable only for reply targets that keep PT-7's
+typing once observed: root-author-patch positions in ambiguous regions (fork, HALT-downstream)
+and not-yet-observed root-author patches.
+
+Nothing in §§2–5's mechanism changes as a result: population stays unconditional and
+validity-blind (§3's over-approximation argument already covers invalid events); the fifth
+dispatch row fires on `X`'s arrival whatever `X`'s own type (§5); the memo is invalidated exactly
+as designed. What changes is the *served-bytes difference the guard exists to prevent*.
+Pre-Phase-14 (no V-layer gating of the resolve feed), an invalid-by-typing overlay remained in the
+resolution, and `X`'s arrival leaked a stale `orphaned/β` — the audit's P1 in its original form.
+Post-Phase-14, that same arrival changes the resolution by *removing* the now-invalid overlay, and
+without the fifth row the memo would keep serving the stale resolution with that overlay still
+listed — the same C5 shape, one validation layer later. The same row squashes both.
+
+The permanent regressions record both facts: the §7/§8 tests (`store.test.ts`) assert the epoch
+bump plus memo/fresh-store agreement — and now also the PT-7 flip, the `invalidIds` gain, and the
+feed exclusion, with the narrative corrected — and a dedicated
+'OVERLAY-AWAITING × VALIDATION-WIRING — exclusion-driven staleness' regression pins the end-to-end
+behavior through a single shared memo against a fresh store (D29). The spec-side interaction this
+exposed is filed as SPEC-FEEDBACK **F15** (PT-7 × DEL-7): §10's "obtainable" wording reads broader
+than the reply-target space PT-7 admits.

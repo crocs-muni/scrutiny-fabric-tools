@@ -623,3 +623,42 @@ assumption, restated verbatim in `compareVersionTags`'s own doc comment. No work
 implementation today, because the ceiling has not yet forced a second migration; this entry is filed
 prospectively, following D45's own lesson, so that a fix lands with headroom instead of under the
 forced-bump pressure that produced v0.6.0 the first time.
+
+## F15 — PT-7 × DEL-7 interaction: orphaned/α is reachable only for PT-7-typed targets, which §10's "obtainable" wording never says
+
+**Status:** open · **Rules:** DEL-7 (wording clarification requested), PT-7 (unaffected — works as
+specified) · **Sections:** §4.4, §7.3, §10 · **Severity:** documentation-level — no implementation
+divergence; the reference implementation follows both rules as written, and their composition is
+narrower than §10's prose suggests.
+
+**Where.** §4.4 PT-7: "A foreign patch's `e reply` MUST point at the root event or a root-author
+patch. Overlay-to-overlay reply is invalid (§7.3)." §10 DEL-7: "α/β degradation for orphaned
+overlays. If the overlay's target is obtainable (cached or fetched), render against the target's
+universe (α). If unobtainable, render as a standalone artifact (β); the overlay is not re-anchored
+to any other event."
+
+**The interaction, verified by executable probe.** Read in composition, a foreign overlay whose
+`e reply` names an event outside the overlayed root's lineage — the exact shape the implementation
+side's audit trail (OVERLAY-AWAITING.md §7's worked trace, correcting now) uses to motivate the
+α case ("unrelated to R entirely, or the root/tip of a different chain") — passes PT-7 only while
+the target is *unobserved* (a pending verdict), and fails it the moment the target becomes
+observable (it is neither the root nor a root-author patch). DEL-7's α case therefore never
+materialises for that shape: a conforming consumer drops the event from any V-gated resolution
+feed, and the overlay never re-renders as orphaned/α. The reachable α space under both rules is
+exactly: root-author-patch positions in ambiguous chain regions (downstream of a HALT, inside an
+unresolved self-fork, fork siblings — §7.3's own definition of orphaned), plus not-yet-observed
+root-author-patch targets, whose later arrival is already the chain's own invalidation trigger.
+
+Probe evidence (reference implementation, 2026-08-02): pre-target arrival —
+`state=orphaned, degradation=beta, verdict=pending`; post-arrival — `verdict=invalid,
+issues=["PT-7"]`, overlay excluded from `resolveRoot`'s event feed. The α outcome is unreachable.
+
+**Suggested amendment.** No semantic change to either rule. §10 near DEL-7 gains one clarifying
+paragraph: α degradation presupposes a reply target that remains PT-7-valid once observed —
+root-author-patch positions, including fork/HALT-ambiguous regions — and that targets failing
+PT-7's typing are invalid events whose appearance in a resolution is a validation-feed question
+outside DEL-7's scope, never an α reclassification. Optionally tighten "obtainable (cached or
+fetched)", which reads broader than the typed space PT-7 admits. A sibling correction is filed in
+the implementation repo's OVERLAY-AWAITING.md (dated 2026-08-02), which also records that the
+memo-staleness regression this class of shape actually exercises is *exclusion-driven* (the
+pending→invalid flip leaving the feed), not α/β-driven.
