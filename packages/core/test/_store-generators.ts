@@ -11,7 +11,7 @@
 import fc from 'fast-check'
 import type { NostrEvent } from '../src/events.js'
 import type { StoreDelta } from '../src/store.js'
-import { PK_ROOT } from './_fixtures.js'
+import { PK_FOREIGN, PK_ROOT } from './_fixtures.js'
 import { deletion, diffPatch, root } from './_resolve.js'
 import { bindingAt, forged, genuine, metadataAt } from './_store.js'
 
@@ -22,6 +22,7 @@ export interface ScenarioMix {
   readonly bindingEndpointsNonAdjacent: number
   readonly dedupRaces: number
   readonly trustThenObserveSameTick: number
+  readonly overlayCrossRoot: number // OVERLAY-AWAITING.md §8: cross-root overlay shape for RC-3 regression
 }
 
 export const emptyMix = (): ScenarioMix => ({
@@ -30,6 +31,7 @@ export const emptyMix = (): ScenarioMix => ({
   bindingEndpointsNonAdjacent: 0,
   dedupRaces: 0,
   trustThenObserveSameTick: 0,
+  overlayCrossRoot: 0,
 })
 
 /** Field-wise sum — the property test accumulates one `ScenarioMix` per generated scenario into a running total this way. */
@@ -39,6 +41,7 @@ export const addMix = (a: ScenarioMix, b: ScenarioMix): ScenarioMix => ({
   bindingEndpointsNonAdjacent: a.bindingEndpointsNonAdjacent + b.bindingEndpointsNonAdjacent,
   dedupRaces: a.dedupRaces + b.dedupRaces,
   trustThenObserveSameTick: a.trustThenObserveSameTick + b.trustThenObserveSameTick,
+  overlayCrossRoot: a.overlayCrossRoot + b.overlayCrossRoot,
 })
 
 export interface StoreScenario {
@@ -74,6 +77,7 @@ const spec = fc.record({
   trustActions: fc.uniqueArray(trustAction, { maxLength: 2, selector: (a) => a.pubkey }),
   trustImmediatelyBeforeObserve: fc.boolean(),
   deleteFirstPatch: fc.boolean(),
+  overlayCrossRoot: fc.boolean(), // OVERLAY-AWAITING.md §8: generate cross-root overlay shape
 })
 
 function build(s: {
@@ -85,6 +89,7 @@ function build(s: {
   trustActions: readonly { pubkey: string; trust: boolean }[]
   trustImmediatelyBeforeObserve: boolean
   deleteFirstPatch: boolean
+  overlayCrossRoot: boolean // OVERLAY-AWAITING.md §8: cross-root overlay shape
 }): StoreScenario {
   scenarioCounter += 1
   const tag = `s${scenarioCounter}`
@@ -161,6 +166,20 @@ function build(s: {
     }
   }
 
+  // OVERLAY-AWAITING.md §8: cross-root overlay shape (RC-3 regression). A Patch on root R1 with
+  // a reply tag naming an event X that has no relationship to R1. Reuses the exported overlayPatch()
+  // helper verbatim — the same constructor the store.test.ts permanent regressions use, whose
+  // overlayAwaiting-population assertion anchors this shape as non-vacuous (a t-tag-less lookalike
+  // here would silently exercise nothing — exactly what SG5 exists to forbid).
+  if (s.overlayCrossRoot) {
+    const [r1, x, overlay] = overlayPatch(tag)
+    rootIds.push(r1.id)
+    mix.overlayCrossRoot++
+    deltas.push(observe(r1))
+    deltas.push(observe(x))
+    deltas.push(observe(overlay))
+  }
+
   return { deltas, rootIds, mix }
 }
 
@@ -175,3 +194,27 @@ export const storeScenarioAndPermutation: fc.Arbitrary<{
     .shuffledSubarray([...s.deltas], { minLength: s.deltas.length, maxLength: s.deltas.length })
     .map((permuted) => ({ scenario: s, permuted })),
 )
+
+/**
+ * OVERLAY-AWAITING.md §7/§8: a cross-root overlay patch for the RC-3 regression. Returns three events
+ * (R, X, O) where R is a root, X is an unrelated root, and O is a Patch on R with e reply = X.
+ * The caller controls arrival order; this just builds the shape.
+ */
+export function overlayPatch(label: string): readonly [NostrEvent, NostrEvent, NostrEvent] {
+  const r = genuine(root('a\n', `${label}-r`))
+  const x = genuine(root('b\n', `${label}-x`))
+  // Build an overlay patch manually: e root = R1, e reply = X (where X has no e root = R1)
+  // Preserve the t tags from diffPatch so scrutinyEventType returns 'patch'
+  // Use PK_FOREIGN so this is actually classified as an overlay (foreign patch)
+  const base = genuine(diffPatch(`${label}-overlay`, r.id, r.id, 'a\n', 'a\noverlay\n'))
+  const overlay: NostrEvent = {
+    ...base,
+    pubkey: PK_FOREIGN, // must be foreign to be classified as an overlay
+    tags: [
+      ...base.tags.filter((t) => t[0] === 't'), // keep t tags
+      ['e', r.id, '', 'root', PK_FOREIGN], // root tag must match overlay's pubkey
+      ['e', x.id, '', 'reply', PK_FOREIGN],
+    ],
+  }
+  return [r, x, overlay]
+}

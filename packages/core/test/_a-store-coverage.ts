@@ -68,7 +68,10 @@ export const A_STORE_COVERAGE: CoverageTable = {
     'An obligation on how a non-UI consumer behaves (recompute canonical bytes on observed-set ' +
       'change), satisfied structurally by the epoch-gated memo rather than by emitting anything ' +
       'when honoured. Covered by the memo tests asserting a bumped chainEpoch always produces a ' +
-      'fresh resolve() call (a new Resolution reference).',
+      'fresh resolve() call (a new Resolution reference). Strengthened per OVERLAY-AWAITING.md §8: ' +
+      'the cross-root regression now exists — an event X with no relationship to root R in any of ' +
+      'the four original dispatch rows, arriving after an overlay on R names it as a reply target, ' +
+      'must bump chainEpoch[R]. This is recorded as a permanent regression in store.test.ts.',
   ),
   'RC-4': notCovered('As RC-3, and a SHOULD rather than a MUST. Same mechanism, same coverage.'),
   'BD-6': notCovered(

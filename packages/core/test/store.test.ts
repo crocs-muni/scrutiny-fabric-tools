@@ -17,6 +17,7 @@ import {
 } from '../src/store.js'
 import { PK_ROOT, fenced } from './_fixtures.js'
 import { deletion, diffPatch, root } from './_resolve.js'
+import { overlayPatch } from './_store-generators.js'
 import { bindingAt, genuine, metadataAt, verifyBySig } from './_store.js'
 
 const A = 'a\n'
@@ -350,5 +351,108 @@ describe('the default in-memory EventStorage adapter', () => {
 
     const limited = await storage.query([{ kinds: [1], limit: 1 }])
     expect(limited.map((e) => e.id)).toEqual([lower.id])
+  })
+})
+
+describe('OVERLAY-AWAITING.md §7 — the P1 worked trace (permanent regression)', () => {
+  it('memoized store vs fresh store agreement for a cross-root overlay target arrival', () => {
+    // Worked trace from OVERLAY-AWAITING.md §7, verbatim:
+    // Root R (a Product), then foreign overlay O (e root = R, e reply = X) observed while X is absent →
+    // store.resolveRoot(R) through the store's memo classifies O as orphaned/β; then X (an unrelated
+    // Metadata event, no relationship to R in any of the four original dispatch rows) is observed →
+    // resolving R again through the SAME store/memo must now yield orphaned/α. Additionally assert
+    // memoized-store vs fresh-store agreement: build a second, fresh store over the same final event set
+    // and assert both resolutions match. This is AUDIT-2026-07-31.md §2 P1 reproduction closed.
+    const events = overlayPatch('overlay-awaiting-p1')
+    const r = events[0]
+    const x = events[1]
+    const overlayEvent = events[2]
+    expect(r).toBeDefined()
+    expect(x).toBeDefined()
+    expect(overlayEvent).toBeDefined()
+    if (!r || !x || !overlayEvent) return
+
+    // Step 1: R observed
+    let state = applyStoreDelta(EMPTY_STORE_STATE, { kind: 'observe', events: [r] })
+    expect(r.id in state.chainEpoch).toBe(true)
+    const epochAfterR = state.chainEpoch[r.id] as number
+
+    // Step 2: overlay O observed (e root = R, e reply = X, X not yet observed)
+    state = applyStoreDelta(state, { kind: 'observe', events: [overlayEvent] })
+    // Patch row bumps R; overlayAwaiting[X] gains R
+    expect(r.id in state.chainEpoch).toBe(true)
+    expect(state.chainEpoch[r.id] as number).toBeGreaterThan(epochAfterR) // overlay itself bumps R via Patch row
+    expect(state.overlayAwaiting[x.id]).toContain(r.id)
+
+    // Step 3: resolve R with memo while X is absent
+    const memo = createResolveMemo()
+    const beforeX = resolveRoot(state, r.id, memo)
+    const beforeEpoch = state.chainEpoch[r.id] as number
+
+    // Step 4: X observed (unrelated Metadata/root, no e root = R)
+    state = applyStoreDelta(state, { kind: 'observe', events: [x] })
+    // New row: overlayAwaiting[X] contains R, so chainEpoch[R] bumps
+    expect(r.id in state.chainEpoch).toBe(true)
+    const epochAfterXArrival = state.chainEpoch[r.id] as number
+    expect(epochAfterXArrival).toBeGreaterThan(beforeEpoch)
+
+    // Step 5: resolve R again through SAME memo → must recompute (memo invalidated by epoch bump)
+    const afterX = resolveRoot(state, r.id, memo)
+    expect(afterX).not.toBe(beforeX) // memo invalidated, recomputed
+
+    // Fresh store over same final set must agree (D29 oracle property)
+    const freshState = [r, x, overlayEvent].reduce(
+      (s, e) => applyStoreDelta(s, { kind: 'observe', events: [e] }),
+      EMPTY_STORE_STATE,
+    )
+    const freshResolution = resolveRoot(freshState, r.id, createResolveMemo())
+    expect(freshResolution).toEqual(afterX) // memoized vs fresh agreement
+  })
+})
+
+describe('OVERLAY-AWAITING.md §8 — RC-3 cross-root regression (permanent regression)', () => {
+  it('an unrelated event arriving after an overlay on R bumps chainEpoch[R]', () => {
+    // RC-3 cross-root shape: event X with no relationship to root R in any of the four original
+    // dispatch rows, arriving AFTER an overlay on R names it as a reply target, must bump chainEpoch[R].
+    // This closes the second regression path for RC-3 per OVERLAY-AWAITING.md §8.
+    const events = overlayPatch('rc3-cross-root')
+    const r = events[0]
+    const x = events[1]
+    const overlayEvent = events[2]
+    expect(r).toBeDefined()
+    expect(x).toBeDefined()
+    expect(overlayEvent).toBeDefined()
+    if (!r || !x || !overlayEvent) return
+
+    // Observe R, then overlay (which replies to X), then X
+    let state = applyStoreDelta(EMPTY_STORE_STATE, { kind: 'observe', events: [r] })
+    expect(r.id in state.chainEpoch).toBe(true)
+    const epochAfterR = state.chainEpoch[r.id] as number
+
+    state = applyStoreDelta(state, { kind: 'observe', events: [overlayEvent] })
+    expect(r.id in state.chainEpoch).toBe(true)
+    const epochAfterOverlay = state.chainEpoch[r.id] as number
+    expect(epochAfterOverlay).toBeGreaterThan(epochAfterR) // overlay itself bumps R
+
+    // X arrives — it has no e root = R, but overlayAwaiting[X] contains R
+    state = applyStoreDelta(state, { kind: 'observe', events: [x] })
+    expect(r.id in state.chainEpoch).toBe(true)
+    const epochAfterX = state.chainEpoch[r.id] as number
+
+    // RC-3 assertion: X's arrival must bump chainEpoch[R] because R's resolution depends on X's observedness
+    expect(epochAfterX).toBeGreaterThan(epochAfterOverlay)
+
+    // Verify stale-vs-fresh resolution agreement: a fresh resolve over the same final set
+    // must produce the same answer as the memo-invalidated resolve
+    const memo = createResolveMemo()
+    const staleServed = resolveRoot(state, r.id, memo)
+
+    const freshState = [r, x, overlayEvent].reduce(
+      (s, e) => applyStoreDelta(s, { kind: 'observe', events: [e] }),
+      EMPTY_STORE_STATE,
+    )
+    const freshResolution = resolveRoot(freshState, r.id, createResolveMemo())
+
+    expect(staleServed).toEqual(freshResolution) // RC-3: no stale bytes served
   })
 })
