@@ -73,6 +73,12 @@ export {
 export { hasError, issue, ruleOf, type Issue, type Severity } from './errors.js'
 
 /**
+ * The applier's type vocabulary — ceilings (`ApplyOptions`) and halt classification. Moved here
+ * per mandate §2 so a consumer can name these without reaching the unexported applier (D32).
+ */
+export type { ApplyOptions, HaltReason, HaltRule, LimitKind } from './patch-types.js'
+
+/**
  * Trust admission — reason sets, refcounting, and the `TrustedView`/`OpenView` distinction (D22).
  * `TrustProvider` (D21) is re-exported here rather than from its own subpath: it is one of D16's
  * four extension interfaces, not a rule-bearing module, so it has no `exports` entry of its own.
@@ -120,7 +126,7 @@ export {
   createInMemoryEventStorage,
   createResolveMemo,
   createStore,
-  resolveRoot,
+  resolveRootMemoized,
   sig1RejectionIssue,
   toStoreView,
   type AddResult,

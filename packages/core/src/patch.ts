@@ -30,28 +30,16 @@ import {
   spliceAt,
   toLines,
 } from './patch-matcher.js'
+import type { ApplyOptions, HaltReason, HaltRule, LimitKind } from './patch-types.js'
 import { findPatchPayload } from './validate.js'
 
 // ---------------------------------------------------------------------------
-// Result
+// Result (HaltReason/LimitKind/HaltRule/ApplyOptions live in `./patch-types.js` since
+// Phase 20 — re-exported here so existing import paths keep working; the barrel
+// (`index.ts`) pulls them from the type module directly per mandate §2)
 // ---------------------------------------------------------------------------
 
-/** Why a patch failed to apply. Each maps to one rule; see {@link PatchHalt.issues}. */
-export type HaltReason =
-  /** T1: the hunk's pattern occurs nowhere in the current content. */
-  | 'no-match'
-  /** T1: the pattern occurs two or more times, and `@@` line numbers may not disambiguate. */
-  | 'ambiguous-match'
-  /** C5: a `\ No newline at end of file` marker contradicts where the hunk actually matched. */
-  | 'eof-mismatch'
-  /** The payload could not be parsed, or carries no header block. */
-  | 'malformed-payload'
-
-/** Which ceiling was hit. Never a HALT — see {@link PatchLimit}. */
-export type LimitKind = 'hunks' | 'work'
-
-/** The rule a halt cites alongside H1. Surfaced so a caller need not re-scan {@link Issue}s. */
-export type HaltRule = 'T1' | 'C5' | 'H1'
+export type { ApplyOptions, HaltReason, HaltRule, LimitKind } from './patch-types.js'
 
 export interface PatchApplied {
   readonly status: 'applied'
@@ -122,13 +110,6 @@ export type ApplyResult = PatchApplied | PatchNoop | PatchHalt | PatchLimit
  * RL-2 asks consumers to bound *total work* in bytes compared rather than trusting hunk counts,
  * because an adversary optimises against whichever unit is counted.
  */
-export interface ApplyOptions {
-  /** §5.4: hunks per patch payload ≤ 64. */
-  readonly maxHunks?: number
-  /** Characters compared across the whole patch. */
-  readonly maxWork?: number
-}
-
 const DEFAULT_MAX_HUNKS = 64
 const DEFAULT_MAX_WORK = 16 * 1024 * 1024
 

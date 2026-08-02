@@ -72,8 +72,8 @@ describe('buildProduct / buildMetadata', () => {
 describe('buildBinding', () => {
   it('emits root/link e tags in §4.3’s exact shape', () => {
     const { template, issues } = buildBinding(
-      { id: 'aaa111', relay: 'wss://relay.example', authorPubkey: 'vendor_pk' },
-      { id: 'bbb222', authorPubkey: 'researcher_pk' },
+      { id: 'aaa111', relay: 'wss://relay.example', authorHint: 'vendor_pk' },
+      { id: 'bbb222', authorHint: 'researcher_pk' },
       'Vulnerability: ROCA affects this chip.',
       1714000020,
     )
@@ -87,7 +87,7 @@ describe('buildBinding', () => {
     expect(issues).toEqual([])
   })
 
-  it('omitted relay/authorPubkey become "" (BD-8/BD-12 advisory, not required)', () => {
+  it('omitted relay/authorHint become "" (BD-8/BD-12 advisory, not required)', () => {
     const { template } = buildBinding({ id: 'r' }, { id: 'l' }, 'edge', 1)
     expect(template.tags[3]).toEqual(['e', 'r', '', 'root', ''])
     expect(template.tags[4]).toEqual(['e', 'l', '', 'link', ''])
