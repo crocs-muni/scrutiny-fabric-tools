@@ -9,8 +9,7 @@ import { strict as assert } from 'node:assert'
 import { before, describe, it } from 'node:test'
 import { schnorr } from '@noble/curves/secp256k1'
 import { sha256 } from '@noble/hashes/sha256'
-import { bytesToHex, hexToBytes } from '@noble/hashes/utils'
-import { utf8ToBytes } from '@noble/hashes/utils'
+import { bytesToHex, hexToBytes, utf8ToBytes } from '@noble/hashes/utils'
 import type { NostrEvent, UnsignedEvent } from '@scrutiny-fabric/core/events.js'
 import { serializeForId } from '@scrutiny-fabric/core/id.js'
 import { createSigner, generateSecretKey, secretKeyToHex, verifyEvent } from './noble-signer.ts'
@@ -152,7 +151,7 @@ describe('noble-signer', () => {
 
     const template: UnsignedEvent = {
       kind: 1,
-      created_at: Date.now(),
+      created_at: Math.floor(Date.now() / 1000),
       tags: [],
       content: 'test',
     }

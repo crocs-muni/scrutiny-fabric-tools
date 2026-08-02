@@ -64,13 +64,16 @@ export function createSigner(secretKey?: string | Uint8Array): {
    * @returns A fully signed `NostrEvent` with `id`, `pubkey`, and `sig` fields populated.
    */
   function sign(template: UnsignedEvent): NostrEvent {
-    // First, create a partial event with pubkey so serializeForId can compute the correct id
-    const partialEvent = {
+    // Full-shaped event for the id computation — serializeForId reads only the serialized
+    // fields (id/sig ignored), so placeholder values keep this honest without a cast.
+    const eventForId: NostrEvent = {
       ...template,
       pubkey: publicKey,
+      id: '',
+      sig: '',
     }
     // Serialize per NIP-01 and compute id hash
-    const serialized = serializeForId(partialEvent as NostrEvent)
+    const serialized = serializeForId(eventForId)
     const idHash = sha256(utf8ToBytes(serialized))
     const id = bytesToHex(idHash)
 
@@ -78,12 +81,13 @@ export function createSigner(secretKey?: string | Uint8Array): {
     const sigBytes = schnorr.sign(idHash, skBytes)
     const sig = bytesToHex(sigBytes)
 
+    // Structurally satisfies NostrEvent — no assertion needed.
     return {
       ...template,
       id,
       pubkey: publicKey,
       sig,
-    } as NostrEvent
+    }
   }
 
   return { publicKey, sign }
@@ -107,17 +111,15 @@ export function createSigner(secretKey?: string | Uint8Array): {
  * in `examples/`, never in `packages/* /src`.
  */
 export function verifyEvent(event: NostrEvent): boolean {
-  // Step 1: Recompute id and compare
+  // One hash serves both checks: the declared id must equal sha256(serialized), and the
+  // signature is verified over that same 32-byte hash.
   const serialized = serializeForId(event)
-  const computedId = bytesToHex(sha256(utf8ToBytes(serialized)))
+  const idHash = sha256(utf8ToBytes(serialized))
+  const computedId = bytesToHex(idHash)
 
   if (computedId.toLowerCase() !== event.id.toLowerCase()) {
     return false
   }
-
-  // Step 2: Verify Schnorr signature
-  // The signature was computed over sha256(serialized), NOT over sha256(id)
-  const idHash = sha256(utf8ToBytes(serialized))
   try {
     const pubKeyBytes = hexToBytes(event.pubkey)
     const sigBytes = hexToBytes(event.sig)

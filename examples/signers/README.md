@@ -21,7 +21,7 @@ Copy this folder out if you want to use it. Do not add it as a dependency.
 ## Install
 
 ```bash
-pnpm add @noble/curves @noble/hashes
+pnpm add @scrutiny-fabric/core @noble/curves @noble/hashes
 ```
 
 ## Usage
@@ -29,7 +29,7 @@ pnpm add @noble/curves @noble/hashes
 ### Basic signing
 
 ```ts
-import { createSigner } from './noble-signer.js'
+import { createSigner } from './noble-signer.ts'
 import { buildProduct } from '@scrutiny-fabric/core/build.js'
 
 // Create a signer (generates a random key — for production, inject your own)
@@ -38,7 +38,7 @@ const signer = createSigner()
 // Build an unsigned template
 const { template } = buildProduct(
   '{"name":"My Product","version":"1.0.0"}',
-  Date.now(),
+  Math.floor(Date.now() / 1000), // NIP-01 timestamps are Unix seconds
   ['cpe:2.3:h:vendor:product:-:*:*:*:*:*:*:*']
 )
 
@@ -52,7 +52,7 @@ console.log('Signed event:', event)
 
 ```ts
 import { createStore } from '@scrutiny-fabric/core/store.js'
-import { verifyEvent } from './noble-signer.js'
+import { verifyEvent } from './noble-signer.ts'
 
 const store = createStore({
   verify: verifyEvent, // Matches CreateStoreOptions.verify shape exactly
@@ -64,7 +64,7 @@ await store.add([event])
 ### Using your own secret key
 
 ```ts
-import { createSigner, generateSecretKey, secretKeyToHex } from './noble-signer.js'
+import { createSigner, generateSecretKey, secretKeyToHex } from './noble-signer.ts'
 
 // Generate once and store securely (NEVER commit to version control!)
 const sk = generateSecretKey()
