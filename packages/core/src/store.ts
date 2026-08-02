@@ -9,7 +9,10 @@
  *
  * The design, including the pending-reference buffer's actual shape, the epoch data structure, why
  * BD-7's rejection cache and DEL-8/9's deletion cache cannot cross-contaminate, and a design gap
- * found and fixed before any code existed, is in `docs/STORE.md`.
+ * found and fixed before any code existed, is in `docs/STORE.md`. Phase 14
+ * (`docs/VALIDATION-WIRING.md`) wires `validateEvent` into the observe path, generalizing the
+ * Binding-only `rejectedBindings`/`bindingsAwaiting` fields into rule-agnostic `invalidIds`/
+ * `pendingAwaiting` and excluding `invalidIds` from `resolveRoot`'s event feed.
  */
 
 import {
@@ -17,7 +20,6 @@ import {
   type AdmitState,
   EMPTY_ADMIT_STATE,
   applyDelta as applyAdmitDelta,
-  bindingEndpoints,
   toIndex,
 } from './admit.js'
 import { type Issue, issue } from './errors.js'
@@ -26,6 +28,7 @@ import type { EventFilter, EventStorage } from './interfaces.js'
 import { storageSymbol } from './interfaces.js'
 import type { ApplyOptions } from './patch.js'
 import { type Resolution, type ResolveOptions, resolve } from './resolve.js'
+import { validateEvent } from './validate.js'
 
 // ---------------------------------------------------------------------------
 // State
@@ -44,13 +47,25 @@ export interface StoreState {
    */
   readonly admit: AdmitState
 
-  /** BD-7's permanent rejection cache. Sorted, for deep-equality-friendly plain data. */
-  readonly rejectedBindings: readonly string[]
+  /**
+   * Every id whose current V-verdict is `'invalid'` (VALIDATION-WIRING.md §3). Generalizes the
+   * pre-Phase-14 `rejectedBindings` — BD-7 was never a special case, it was the only rejection rule
+   * `store` happened to check before every V rule was wired through `validateEvent`. Sorted, for
+   * deep-equality-friendly plain data. Monotone: no V rule re-examines an already-resolved
+   * dependency and reverses course, so nothing is ever removed from this set on `unobserve` either.
+   */
+  readonly invalidIds: readonly string[]
 
   /** Patch/overlay event id -> the root id it declared via `e root`. See STORE.md §2. */
   readonly chainMembership: Readonly<Record<string, string>>
-  /** Endpoint event id -> ids of Bindings still missing that endpoint. See STORE.md §2. */
-  readonly bindingsAwaiting: Readonly<Record<string, readonly string[]>>
+  /**
+   * Awaited event id -> ids of events whose V-verdict is still `'pending'` on it
+   * (VALIDATION-WIRING.md §2). Generalizes the pre-Phase-14 `bindingsAwaiting` (Binding-endpoint-only)
+   * into a rule-agnostic buffer driven entirely by `validateEvent`'s own `awaiting` field — BD-6's
+   * two endpoints, UR-2's patch root, and PT-7's foreign-overlay reply target are three instances of
+   * one mechanism, not three separate ones.
+   */
+  readonly pendingAwaiting: Readonly<Record<string, readonly string[]>>
 
   readonly trustEpoch: number
   readonly observedEpoch: number
@@ -60,9 +75,9 @@ export interface StoreState {
 
 export const EMPTY_STORE_STATE: StoreState = Object.freeze({
   admit: EMPTY_ADMIT_STATE,
-  rejectedBindings: Object.freeze([]),
+  invalidIds: Object.freeze([]),
   chainMembership: Object.freeze({}),
-  bindingsAwaiting: Object.freeze({}),
+  pendingAwaiting: Object.freeze({}),
   trustEpoch: 0,
   observedEpoch: 0,
   chainEpoch: Object.freeze({}),
@@ -70,93 +85,65 @@ export const EMPTY_STORE_STATE: StoreState = Object.freeze({
 
 /**
  * The confluence-tested projection (STORE.md §3/§9). Excludes `chainEpoch`/`chainMembership`/
- * `bindingsAwaiting`, whose exact values are legitimately arrival-order-dependent cache bookkeeping
+ * `pendingAwaiting`, whose exact values are legitimately arrival-order-dependent cache bookkeeping
  * — the same move `admit.ts`'s own `toIndex` makes over `AdmitState`'s order-sensitive
  * `liveBindings`.
  */
 export interface StoreView {
   readonly observedIds: readonly string[]
   readonly admission: AdmissionIndex
-  readonly rejectedBindings: readonly string[]
+  readonly invalidIds: readonly string[]
 }
 
 export function toStoreView(state: StoreState): StoreView {
   return {
     observedIds: Object.keys(state.admit.observedById).sort(),
     admission: toIndex(state.admit),
-    rejectedBindings: state.rejectedBindings,
+    invalidIds: state.invalidIds,
   }
 }
 
 // ---------------------------------------------------------------------------
-// BD-3/BD-4/BD-7 — Binding endpoint typing
+// The pending-reference buffer (VALIDATION-WIRING.md §2) — rule-agnostic, driven by
+// `validateEvent`'s own `awaiting` field for any V rule that produces one.
 // ---------------------------------------------------------------------------
 
-// `bindingEndpoints`/`BindingEndpoints` come from admit.ts (see its own comment on why this is
-// imported rather than restated — store already depends on admit directly, unlike resolve.ts's
-// deliberate independence from it).
-
-function addAwaiting(
-  awaiting: Map<string, Set<string>>,
-  endpointId: string,
-  bindingId: string,
-): void {
-  const set = awaiting.get(endpointId)
-  if (set) set.add(bindingId)
-  else awaiting.set(endpointId, new Set([bindingId]))
+function addAwaiting(awaiting: Map<string, Set<string>>, awaitedId: string, eventId: string): void {
+  const set = awaiting.get(awaitedId)
+  if (set) set.add(eventId)
+  else awaiting.set(awaitedId, new Set([eventId]))
 }
 
 function removeAwaiting(
   awaiting: Map<string, Set<string>>,
-  endpointId: string,
-  bindingId: string,
+  awaitedId: string,
+  eventId: string,
 ): void {
-  const set = awaiting.get(endpointId)
+  const set = awaiting.get(awaitedId)
   if (set === undefined) return
-  set.delete(bindingId)
-  if (set.size === 0) awaiting.delete(endpointId)
+  set.delete(eventId)
+  if (set.size === 0) awaiting.delete(awaitedId)
 }
 
 /**
- * BD-6/BD-7 — the pending/permanent-rejection lifecycle. Called when a Binding is first observed
- * and again whenever one of its awaited endpoints arrives (STORE.md §2). Both endpoints observed is
- * a final verdict either way, so `bindingsAwaiting` is always cleaned up on that branch; neither
- * observed yet leaves (or re-registers) the missing one(s) for a future arrival to retrigger.
+ * Runs `validateEvent` once and folds the verdict into `invalidIds`/`pendingAwaiting`
+ * (VALIDATION-WIRING.md §2/§3) — the single place this reducer decides what the V layer currently
+ * says about an event. `checkBindingTyping`'s hand-rolled BD-3/BD-4/BD-7 comparison is gone: this
+ * calls the public `validateEvent`, which dispatches to `checkBinding` (and every other per-type
+ * checker) internally, so there is exactly one implementation of each rule, not two.
  */
-function checkBindingTyping(
-  binding: NostrEvent,
+function applyVerdict(
+  event: NostrEvent,
   observedById: Readonly<Record<string, NostrEvent>>,
-  bindingsAwaiting: Map<string, Set<string>>,
-  rejectedBindings: Set<string>,
+  pendingAwaiting: Map<string, Set<string>>,
+  invalidIds: Set<string>,
 ): void {
-  const endpoints = bindingEndpoints(binding)
-  if (endpoints === undefined) return
-
-  const rootEvent = observedById[endpoints.rootId]
-  const linkEvent = observedById[endpoints.linkId]
-
-  if (rootEvent === undefined || linkEvent === undefined) {
-    if (rootEvent === undefined) addAwaiting(bindingsAwaiting, endpoints.rootId, binding.id)
-    if (linkEvent === undefined) addAwaiting(bindingsAwaiting, endpoints.linkId, binding.id)
-    return
+  const verdict = validateEvent(event, { lookupEvent: (id) => observedById[id] })
+  if (verdict.status === 'invalid') {
+    invalidIds.add(event.id)
+  } else if (verdict.status === 'pending') {
+    for (const id of verdict.awaiting) addAwaiting(pendingAwaiting, id, event.id)
   }
-
-  removeAwaiting(bindingsAwaiting, endpoints.rootId, binding.id)
-  removeAwaiting(bindingsAwaiting, endpoints.linkId, binding.id)
-
-  if (scrutinyEventType(rootEvent) === 'product' && scrutinyEventType(linkEvent) === 'metadata') {
-    return
-  }
-  rejectedBindings.add(binding.id)
-}
-
-/** BD-7's rejection issue, constructed by diffing `rejectedBindings` before/after a delta — §8. */
-export function bindingRejectionIssue(bindingId: string): Issue {
-  return issue(
-    'BD-7',
-    'warning',
-    `binding ${bindingId}: endpoint typing contradicts BD-3/BD-4 once both endpoints were observed; permanently rejected`,
-  )
 }
 
 // ---------------------------------------------------------------------------
@@ -208,35 +195,48 @@ function chainEpochTargets(
   return []
 }
 
-/** The per-event chainMembership/chainEpoch bookkeeping in STORE.md §3, plus BD-7's check. */
+/**
+ * The per-event chainMembership/chainEpoch bookkeeping in STORE.md §3, plus the V-layer verdict
+ * wiring (VALIDATION-WIRING.md §2) that populates/drains `invalidIds`/`pendingAwaiting`.
+ */
 function processObservedEvent(
   event: NostrEvent,
   observedById: Readonly<Record<string, NostrEvent>>,
   chainMembership: Map<string, string>,
-  bindingsAwaiting: Map<string, Set<string>>,
+  pendingAwaiting: Map<string, Set<string>>,
   chainEpoch: Map<string, number>,
-  rejectedBindings: Set<string>,
+  invalidIds: Set<string>,
 ): void {
   const type = scrutinyEventType(event)
 
   if (type === 'patch') {
     const root = rootTarget(event)
     if (root !== undefined) chainMembership.set(event.id, root)
-  } else if (type === 'binding') {
-    checkBindingTyping(event, observedById, bindingsAwaiting, rejectedBindings)
   }
 
   for (const id of chainEpochTargets(event, (refId) => chainMembership.get(refId))) {
     bump(chainEpoch, id)
   }
 
-  // This event's own id may be an endpoint some other (already-observed) Binding is still awaiting.
-  const waiting = bindingsAwaiting.get(event.id)
+  applyVerdict(event, observedById, pendingAwaiting, invalidIds)
+
+  // This event's own id may be an id some other, already-observed event's V-verdict is still
+  // awaiting (BD-6's two endpoints, UR-2's patch root, PT-7's foreign-overlay reply target).
+  const waiting = pendingAwaiting.get(event.id)
   if (waiting !== undefined) {
-    for (const bindingId of [...waiting]) {
-      const pendingBinding = observedById[bindingId]
-      if (pendingBinding !== undefined) {
-        checkBindingTyping(pendingBinding, observedById, bindingsAwaiting, rejectedBindings)
+    for (const pendingId of [...waiting]) {
+      // Remove only this one resolved slot (VALIDATION-WIRING.md §2) — a still-unresolved awaited
+      // id from an earlier partial check is re-derived, not pruned, by the re-validation below.
+      removeAwaiting(pendingAwaiting, event.id, pendingId)
+      const pendingEvent = observedById[pendingId]
+      if (pendingEvent === undefined) continue
+      applyVerdict(pendingEvent, observedById, pendingAwaiting, invalidIds)
+      // A previously-pending event's verdict resolving on this arrival can itself change a root's
+      // resolve() output — the same chain-epoch bump a first-time observation already gets.
+      // Bindings need no special-case guard here (BD-9): chainEpochTargets already returns `[]` for
+      // one, so this is provably a no-op for them, not a case requiring its own branch.
+      for (const root of chainEpochTargets(pendingEvent, (refId) => chainMembership.get(refId))) {
+        bump(chainEpoch, root)
       }
     }
   }
@@ -279,9 +279,9 @@ export function applyStoreDelta(state: StoreState, delta: StoreDelta): StoreStat
       const admitAfter = applyAdmitDelta(state.admit, { kind: 'observe', events: delta.events })
 
       const chainMembership = recordToMap(state.chainMembership)
-      const bindingsAwaiting = recordToSetMap(state.bindingsAwaiting)
+      const pendingAwaiting = recordToSetMap(state.pendingAwaiting)
       const chainEpoch = recordToMap(state.chainEpoch)
-      const rejectedBindings = new Set(state.rejectedBindings)
+      const invalidIds = new Set(state.invalidIds)
 
       for (const event of delta.events) {
         if (Object.hasOwn(priorObserved, event.id) || newlySeen.has(event.id)) continue
@@ -290,17 +290,17 @@ export function applyStoreDelta(state: StoreState, delta: StoreDelta): StoreStat
           event,
           admitAfter.observedById,
           chainMembership,
-          bindingsAwaiting,
+          pendingAwaiting,
           chainEpoch,
-          rejectedBindings,
+          invalidIds,
         )
       }
 
       return {
         admit: admitAfter,
-        rejectedBindings: [...rejectedBindings].sort(),
+        invalidIds: [...invalidIds].sort(),
         chainMembership: mapToRecord(chainMembership),
-        bindingsAwaiting: setMapToSortedRecord(bindingsAwaiting),
+        pendingAwaiting: setMapToSortedRecord(pendingAwaiting),
         trustEpoch: state.trustEpoch,
         observedEpoch: state.observedEpoch + 1,
         chainEpoch: mapToRecord(chainEpoch),
@@ -310,21 +310,26 @@ export function applyStoreDelta(state: StoreState, delta: StoreDelta): StoreStat
     case 'unobserve': {
       if (delta.eventIds.length === 0) return state
 
-      // Snapshot Binding endpoint memberships and chain membership BEFORE folding into admit, whose
-      // observedById is about to lose these ids.
-      const bindingsAwaiting = recordToSetMap(state.bindingsAwaiting)
+      // Snapshot pending-awaiting registrations and chain membership BEFORE folding into admit,
+      // whose observedById is about to lose these ids.
+      const pendingAwaiting = recordToSetMap(state.pendingAwaiting)
       const chainEpoch = recordToMap(state.chainEpoch)
 
       for (const id of delta.eventIds) {
         const event = state.admit.observedById[id]
         if (event === undefined) continue
 
-        if (scrutinyEventType(event) === 'binding') {
-          const endpoints = bindingEndpoints(event)
-          if (endpoints !== undefined) {
-            removeAwaiting(bindingsAwaiting, endpoints.rootId, event.id)
-            removeAwaiting(bindingsAwaiting, endpoints.linkId, event.id)
-          }
+        // If this event's own V-verdict was pending, stop waiting for whatever it awaited — it can
+        // no longer resolve to anything once it leaves the observed set (VALIDATION-WIRING.md §2's
+        // generalization of the pre-Phase-14 BD-6-only cleanup). `invalidIds` needs no equivalent
+        // cleanup (VALIDATION-WIRING.md §4): a verdict already resolved to `invalid` is permanent —
+        // no V rule re-examines an already-resolved dependency and reverses course — and it simply
+        // also leaves `observedById`, at which point `resolveRoot`'s exclusion filter is moot for it.
+        const verdict = validateEvent(event, {
+          lookupEvent: (refId) => state.admit.observedById[refId],
+        })
+        if (verdict.status === 'pending') {
+          for (const awaitedId of verdict.awaiting) removeAwaiting(pendingAwaiting, awaitedId, id)
         }
 
         // Symmetric to observe (STORE.md §3): removing an event can affect a root's resolve()
@@ -341,9 +346,9 @@ export function applyStoreDelta(state: StoreState, delta: StoreDelta): StoreStat
 
       return {
         admit: admitAfter,
-        rejectedBindings: state.rejectedBindings,
+        invalidIds: state.invalidIds, // monotone — never touched on unobserve
         chainMembership: state.chainMembership, // stale-but-still-correct entries left in place
-        bindingsAwaiting: setMapToSortedRecord(bindingsAwaiting),
+        pendingAwaiting: setMapToSortedRecord(pendingAwaiting),
         trustEpoch: state.trustEpoch,
         observedEpoch: state.observedEpoch + 1,
         chainEpoch: mapToRecord(chainEpoch),
@@ -424,10 +429,15 @@ export function resolveRoot(
     return cached.resolution
   }
 
+  // Excludes `invalidIds` (VALIDATION-WIRING.md §4) — no separate cache key is needed for it: the
+  // only way `invalidIds` changes is within the same `observe` delta that also produces a fresh
+  // `observedById` (`applyStoreDelta` never mutates either in place), so the existing reference
+  // check below already re-filters exactly when `invalidIds` could have changed.
   if (memo.eventsCache?.observedById !== state.admit.observedById) {
+    const invalid = new Set(state.invalidIds)
     memo.eventsCache = {
       observedById: state.admit.observedById,
-      events: Object.values(state.admit.observedById),
+      events: Object.values(state.admit.observedById).filter((e) => !invalid.has(e.id)),
     }
   }
   const resolution = resolve(rootId, memo.eventsCache.events, options)
@@ -463,26 +473,40 @@ export interface IngestMeta {
 
 export interface RejectedEvent {
   readonly event: NostrEvent
-  readonly issue: Issue
+  readonly issues: readonly Issue[]
+}
+
+/** An event whose V-verdict is `pending` — `validateEvent`'s own `awaiting`, verbatim. */
+export interface PendingEvent {
+  readonly event: NostrEvent
+  readonly awaiting: readonly string[]
+  readonly issues: readonly Issue[]
 }
 
 /**
- * `accepted` and `rejected` are NOT mutually exclusive. SIG-1 rejections (failed `verify()`) never
- * reach `accepted` — they're dropped before `applyStoreDelta` runs. But a BD-7 rejection is a warning
- * on a Binding that already passed verification and was observed, so its id is in both: `accepted`
- * answers "what got observed," `rejected` answers "what has an issue attached," and for BD-7 the
- * answer to both is yes.
+ * `accepted` answers "did this id get folded into `applyStoreDelta`'s `observe` case" — a storage
+ * question, never a validity one (VALIDATION-WIRING.md §0/§1): every event that passes the SIG-1
+ * gate is accepted, full stop, regardless of what `validateEvent` later says about it. A validator
+ * bug must never be indistinguishable from a real protocol violation by silently discarding the
+ * event — the DEL-4 "never silently drop, preserve for audit" argument, applied to this failure mode.
+ *
+ * `rejected`/`pending` answer "what does the V layer currently say about this id," and are NOT
+ * mutually exclusive with `accepted`: an id whose verdict is `'invalid'` or `'pending'` is still
+ * folded into storage, so it appears in `accepted` too. The one case `rejected` does not imply
+ * `accepted`: a SIG-1 failure never reaches `applyStoreDelta` at all, so its id is `rejected`-only.
+ * `rejected` and `pending` never overlap each other for the same id — `validateEvent` checks
+ * `hasError` before checking `awaiting.length`, so a single verdict cannot be both.
  */
 export interface AddResult {
   readonly accepted: readonly string[]
   readonly rejected: readonly RejectedEvent[]
+  readonly pending: readonly PendingEvent[]
 }
 
 /**
- * SIG-1's enforcement-half rejection issue (§8's `emitted` entry). Exported alongside
- * {@link bindingRejectionIssue} for the same reason: SG4's coverage test constructs it directly over
- * a synchronous scenario rather than through `add()`'s async wrapper, and it is the identical
- * function `add()` itself calls, not a re-derivation of the same logic.
+ * SIG-1's enforcement-half rejection issue (§8's `emitted` entry). Exported so SG4's coverage test
+ * can construct it directly over a synchronous scenario rather than through `add()`'s async wrapper
+ * — it is the identical function `add()` itself calls, not a re-derivation of the same logic.
  */
 export const sig1RejectionIssue = (event: NostrEvent): Issue =>
   issue(
@@ -600,12 +624,13 @@ export function createStore(options: CreateStoreOptions): Store {
   async function add(events: readonly NostrEvent[], meta: IngestMeta = {}): Promise<AddResult> {
     const accepted: NostrEvent[] = []
     const rejected: RejectedEvent[] = []
+    const pending: PendingEvent[] = []
 
     for (const event of events) {
       const passes =
         meta.trustUnverified === true || meta.verified === true || options.verify(event)
       if (passes) accepted.push(event)
-      else rejected.push({ event, issue: sig1RejectionIssue(event) })
+      else rejected.push({ event, issues: [sig1RejectionIssue(event)] })
     }
 
     if (accepted.length > 0) {
@@ -614,22 +639,27 @@ export function createStore(options: CreateStoreOptions): Store {
       // instead of strictly preceding it — a real overlap once a genuinely async adapter is wired
       // in, and a same-tick no-op for the synchronous in-memory default.
       const putDone = storage.put(accepted)
-      const beforeRejected = new Set(state.rejectedBindings)
       state = applyStoreDelta(state, { kind: 'observe', events: accepted })
-      for (const id of state.rejectedBindings) {
-        if (!beforeRejected.has(id)) rejected.push(bindingRejection(state, id))
+
+      // Report this batch's own accepted events' current V-verdict (VALIDATION-WIRING.md §1) — a
+      // second, cheap call to the same pure function the reducer already ran internally, not a
+      // re-derivation of its logic. `lookupEvent` already sees every sibling in this batch, since
+      // the reducer folded the whole batch before this loop runs.
+      for (const event of accepted) {
+        const verdict = validateEvent(event, {
+          lookupEvent: (id) => state.admit.observedById[id],
+        })
+        if (verdict.status === 'invalid') {
+          rejected.push({ event, issues: verdict.issues })
+        } else if (verdict.status === 'pending') {
+          pending.push({ event, awaiting: verdict.awaiting, issues: verdict.issues })
+        }
       }
+
       await putDone
     }
 
-    return { accepted: accepted.map((e) => e.id), rejected }
-  }
-
-  function bindingRejection(current: StoreState, bindingId: string): RejectedEvent {
-    const event = current.admit.observedById[bindingId]
-    if (event === undefined)
-      throw new Error(`unreachable: rejected binding ${bindingId} not observed`)
-    return { event, issue: bindingRejectionIssue(bindingId) }
+    return { accepted: accepted.map((e) => e.id), rejected, pending }
   }
 
   async function unobserve(eventIds: readonly string[]): Promise<void> {
