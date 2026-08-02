@@ -170,7 +170,9 @@ function build(s: {
   // a reply tag naming an event X that has no relationship to R1. Reuses the exported overlayPatch()
   // helper verbatim — the same constructor the store.test.ts permanent regressions use, whose
   // overlayAwaiting-population assertion anchors this shape as non-vacuous (a t-tag-less lookalike
-  // here would silently exercise nothing — exactly what SG5 exists to forbid).
+  // here would silently exercise nothing — exactly what SG5 exists to forbid). Under PT-7 the
+  // overlay flips pending→invalid once X lands (X is a root, not a root-author patch), so the
+  // permutations also exercise the feed-exclusion flip, not only the epoch row.
   if (s.overlayCrossRoot) {
     // Canonical order is the §7 regression shape itself (overlay precedes its reply target);
     // SG1's permutations still exercise every other order.
@@ -209,6 +211,9 @@ export function overlayPatch(label: string): readonly [NostrEvent, NostrEvent, N
   // Build an overlay patch manually: e root = R1, e reply = X (where X has no e root = R1)
   // Preserve the t tags from diffPatch so scrutinyEventType returns 'patch'
   // Use PK_FOREIGN so this is actually classified as an overlay (foreign patch)
+  // NOTE: X is a Metadata *root*, so once X is observed this patch is INVALID under PT-7 (a
+  // foreign reply target must be the root or a root-author patch) — landing on the post-Phase-14
+  // exclusion path the permanent regressions pin, never on orphaned/α (unreachable for this shape).
   const base = genuine(diffPatch(`${label}-overlay`, r.id, r.id, 'a\n', 'a\noverlay\n'))
   const overlay: NostrEvent = {
     ...base,

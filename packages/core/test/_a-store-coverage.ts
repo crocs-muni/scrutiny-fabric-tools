@@ -71,7 +71,10 @@ export const A_STORE_COVERAGE: CoverageTable = {
       'fresh resolve() call (a new Resolution reference). Strengthened per OVERLAY-AWAITING.md §8: ' +
       'the cross-root regression now exists — an event X with no relationship to root R in any of ' +
       'the four original dispatch rows, arriving after an overlay on R names it as a reply target, ' +
-      'must bump chainEpoch[R]. This is recorded as a permanent regression in store.test.ts.',
+      'must bump chainEpoch[R]. This is recorded as a permanent regression in store.test.ts. Under ' +
+      'PT-7 the DEL-7 α reclassification the audit trace names is unreachable for that shape (the ' +
+      'overlay flips pending→invalid once X is observable and leaves the resolveRoot feed — store.test.ts ' +
+      'pins that exclusion-driven staleness through a shared memo as a second permanent regression).',
   ),
   'RC-4': notCovered('As RC-3, and a SHOULD rather than a MUST. Same mechanism, same coverage.'),
   'BD-6': notCovered(

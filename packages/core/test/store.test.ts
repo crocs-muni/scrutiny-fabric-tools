@@ -16,7 +16,7 @@ import {
   resolveRoot,
 } from '../src/store.js'
 import { PK_ROOT, fenced } from './_fixtures.js'
-import { deletion, diffPatch, root } from './_resolve.js'
+import { deletion, diffPatch, foreignPatch, root } from './_resolve.js'
 import { overlayPatch } from './_store-generators.js'
 import { bindingAt, genuine, metadataAt, verifyBySig } from './_store.js'
 
@@ -356,13 +356,17 @@ describe('the default in-memory EventStorage adapter', () => {
 
 describe('OVERLAY-AWAITING.md §7 — the P1 worked trace (permanent regression)', () => {
   it('memoized store vs fresh store agreement for a cross-root overlay target arrival', () => {
-    // Worked trace from OVERLAY-AWAITING.md §7, verbatim:
-    // Root R (a Product), then foreign overlay O (e root = R, e reply = X) observed while X is absent →
-    // store.resolveRoot(R) through the store's memo classifies O as orphaned/β; then X (an unrelated
-    // Metadata event, no relationship to R in any of the four original dispatch rows) is observed →
-    // resolving R again through the SAME store/memo must now yield orphaned/α. Additionally assert
-    // memoized-store vs fresh-store agreement: build a second, fresh store over the same final event set
-    // and assert both resolutions match. This is AUDIT-2026-07-31.md §2 P1 reproduction closed.
+    // Scenario from OVERLAY-AWAITING.md §7, read in its post-Phase-14 form: Root R (a Product),
+    // then foreign overlay O (e root = R, e reply = X) observed while X is absent → resolveRoot(R)
+    // through the store's memo includes O (PT-7-pending) as orphaned/β; then X (an unrelated
+    // Metadata event, no relationship to R in any of the four original dispatch rows) is observed
+    // → O's verdict flips pending→invalid (PT-7: X is neither R's root nor a root-author patch of
+    // R) and O leaves resolveRoot's event feed. The mini-spec's own trace says "orphaned/α" at
+    // this step, but that state is unreachable for this shape under PT-7 — the stale bytes the
+    // memo hole would otherwise leak are O's *continued presence* after it went invalid. What
+    // this test genuinely pins is therefore exclusion-driven staleness: the SAME memo must
+    // recompute after X's arrival (fifth-row bump) and agree with a fresh store over the same
+    // final set. AUDIT-2026-07-31.md §2 P1's reproduction, closed in its post-Phase-14 form.
     const events = overlayPatch('overlay-awaiting-p1')
     const r = events[0]
     const x = events[1]
@@ -399,6 +403,9 @@ describe('OVERLAY-AWAITING.md §7 — the P1 worked trace (permanent regression)
     // Step 5: resolve R again through SAME memo → must recompute (memo invalidated by epoch bump)
     const afterX = resolveRoot(state, r.id, memo)
     expect(afterX).not.toBe(beforeX) // memo invalidated, recomputed
+    // The post-Phase-14 shape of the flip (PT-7): O is invalid and excluded — never orphaned/α.
+    expect(state.invalidIds).toContain(overlayEvent.id)
+    expect(afterX.overlays.some((v) => v.id === overlayEvent.id)).toBe(false)
 
     // Fresh store over same final set must agree (D29 oracle property)
     const freshState = [r, x, overlayEvent].reduce(
@@ -468,5 +475,46 @@ describe('OVERLAY-AWAITING.md §8 — RC-3 cross-root regression (permanent regr
       EMPTY_STORE_STATE,
     )
     expect(resolveRoot(freshState, r.id, createResolveMemo())).toEqual(afterX)
+  })
+})
+
+describe('OVERLAY-AWAITING × VALIDATION-WIRING — exclusion-driven staleness (permanent regression)', () => {
+  it("a pending foreign overlay that flips to invalid on its awaited target's arrival leaves the resolveRoot feed AND invalidates the memo", () => {
+    // The memo hole the audit caught (AUDIT-2026-07-31.md §2 P1 / DECISIONS C5), in its
+    // post-Phase-14 form: a foreign overlay passes PT-7 while its reply target is unobserved
+    // (pending), so a memoized resolution includes it as orphaned/β; the target's arrival flips
+    // the verdict to invalid (PT-7: neither the root nor a root-author patch — validate.ts), and
+    // VALIDATION-WIRING.md §4 says it must then leave resolveRoot's event feed. The only signal
+    // that R's resolution changed on that arrival is the fifth chainEpochTargets row
+    // (overlayAwaiting[target] -> [R]): without it, chainEpoch[R] never moves and the memo keeps
+    // serving the stale resolution with the now-invalid overlay still listed as orphaned/β.
+    // Asserted end-to-end through a single shared memo, against a fresh store (D29).
+    const r = genuine(root(A, 'pt7-r'))
+    const x = genuine(metadataAt('pt7-x', 'metadata'))
+    const o = genuine(foreignPatch('pt7-o', r.id, x.id, A, AB))
+
+    let s = applyStoreDelta(EMPTY_STORE_STATE, { kind: 'observe', events: [r] })
+    s = applyStoreDelta(s, { kind: 'observe', events: [o] })
+    const memo = createResolveMemo()
+    const pre = resolveRoot(s, r.id, memo)
+    const preO = pre.overlays.find((v) => v.id === o.id)
+    expect(preO?.state).toBe('orphaned') // pending verdict → included (VALIDATION-WIRING §2)
+    expect(preO?.degradation).toBe('beta') // target not yet observable → DEL-7 β
+
+    const epochPre = s.chainEpoch[r.id] as number
+    s = applyStoreDelta(s, { kind: 'observe', events: [x] })
+
+    expect(s.chainEpoch[r.id] as number).toBeGreaterThan(epochPre) // fifth row fires on X's arrival
+    expect(s.invalidIds).toContain(o.id) // PT-7 flips pending→invalid once X is observable
+
+    const post = resolveRoot(s, r.id, memo)
+    expect(post).not.toBe(pre) // memo invalidated — no stale serve (RC-3)
+    expect(post.overlays.find((v) => v.id === o.id)).toBeUndefined() // feed exclusion (§4)
+
+    const freshState = [r, x, o].reduce(
+      (st, e) => applyStoreDelta(st, { kind: 'observe', events: [e] }),
+      EMPTY_STORE_STATE,
+    )
+    expect(resolveRoot(freshState, r.id, createResolveMemo())).toEqual(post) // D29 oracle agreement
   })
 })
