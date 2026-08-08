@@ -18,12 +18,21 @@
     "rules:check": "node tools/gen-rules.mjs --check",
     "ownership:gen": "node tools/gen-ownership.mjs",
     "ownership:check": "node tools/gen-ownership.mjs --check",
-    "verify": "pnpm lint && pnpm typecheck && pnpm rules:check && pnpm ownership:check && pnpm build && pnpm attw && pnpm test"
+    "knip": "knip",
+    "publint": "publint packages/core",
+    "api-report:gen": "api-extractor run --local --verbose -c packages/core/api-extractor.json",
+    "api-report:check": "api-extractor run -c packages/core/api-extractor.json",
+    "verify": "pnpm lint && pnpm typecheck && pnpm rules:check && pnpm ownership:check && pnpm knip && pnpm build && pnpm publint && pnpm api-report:check && pnpm attw && pnpm test"
   },
   "devDependencies": {
     "@arethetypeswrong/cli": "^0.18.5",
     "@biomejs/biome": "1.9.4",
     "@changesets/cli": "^2.27.11",
+    "@microsoft/api-extractor": "^7.58.12",
+    "@size-limit/preset-small-lib": "^13.0.3",
+    "knip": "^6.32.0",
+    "publint": "^0.3.23",
+    "size-limit": "^13.0.3",
     "typescript": "^5.8"
   },
   "//pnpm": "vitest 3.2.7 resolves vite 5.4.21 transitively, which carries a high-severity server.fs.deny bypass and two path-traversal advisories; esbuild <0.25 lets any website reach the dev server. All are dev-only — vitest is a devDependency and the package ships only `diff` at runtime — but overriding is cheap and keeps `pnpm audit` clean so a real advisory is not lost in the noise. Drop these once vitest depends on patched versions directly.",

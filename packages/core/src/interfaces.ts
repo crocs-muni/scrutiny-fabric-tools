@@ -51,8 +51,9 @@ export const storageSymbol = Symbol.for('@scrutiny-fabric/storage')
  * it reaches a real relay, since NIP-01 ignores unrecognised filter members.
  *
  * A `type` alias, not an `interface`, because only a `type` receives an implicit index signature in
- * TypeScript (confirmed by compiling both under this repo's own `--strict` TS 5.8) — `` { [key:
- * `#${string}`]: readonly string[] } `` could not be added to an `interface` version of this shape.
+ * TypeScript (confirmed by compiling both under this repo's own `--strict` TS 5.8) — an index
+ * signature keyed on the `#${string}` tag pattern could not be added to an `interface` version of
+ * this shape.
  * Arrays stay `readonly`, unlike nostr-tools/NDK/nostrify's mutable convention: TypeScript's
  * structural typing already makes this type assignable to and from theirs with zero copying, so
  * matching their mutability would buy nothing while breaking this project's own readonly-everywhere

@@ -455,7 +455,7 @@ function resync(w: Working): void {
  * Apply one delta to `state`, returning the new state.
  *
  * Every primitive mutation below is a guarded transition (already-observed ids are skipped,
- * already-(un)trusted pubkeys are skipped), and {@link resync} re-derives Binding liveness and
+ * already-(un)trusted pubkeys are skipped), and `resync` re-derives Binding liveness and
  * root-chain membership from the guard tables rather than from a running counter — see
  * `docs/ADMIT.md` §5 for why that is what actually prevents D23's sticky-admission bug, and §9 for
  * why `unobserve` un-cascades a removed root's membership *before* deleting it (its members are

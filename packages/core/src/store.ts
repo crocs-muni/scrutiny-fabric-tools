@@ -72,10 +72,10 @@ export interface StoreState {
    */
   readonly invalidIds: readonly string[]
 
-  /** Patch/overlay event id -> the root id it declared via `e root`. See STORE.md §2. */
+  /** Patch/overlay event id → the root id it declared via `e root`. See STORE.md §2. */
   readonly chainMembership: Readonly<Record<string, string>>
   /**
-   * Awaited event id -> ids of events whose V-verdict is still `'pending'` on it
+   * Awaited event id → ids of events whose V-verdict is still `'pending'` on it
    * (VALIDATION-WIRING.md §2). Generalizes the pre-Phase-14 `bindingsAwaiting` (Binding-endpoint-only)
    * into a rule-agnostic buffer driven entirely by `validateEvent`'s own `awaiting` field — BD-6's
    * two endpoints, UR-2's patch root, and PT-7's foreign-overlay reply target are three instances of
@@ -83,7 +83,7 @@ export interface StoreState {
    */
   readonly pendingAwaiting: Readonly<Record<string, readonly string[]>>
   /**
-   * Overlay-reply target id -> root id(s) whose resolution reads that target's observedness.
+   * Overlay-reply target id → root id(s) whose resolution reads that target's observedness.
    * See docs/OVERLAY-AWAITING.md §3/§4. Never cleared, in either direction.
    */
   readonly overlayAwaiting: Readonly<Record<string, readonly string[]>>

@@ -220,7 +220,7 @@ function longestBacktickRun(payload: string): number {
   return max
 }
 
-/** E4 — `max(3, N + 1)`, where `N` is {@link longestBacktickRun}. */
+/** E4 — `max(3, N + 1)`, where `N` is `longestBacktickRun`. */
 export function fenceLength(payload: string): number {
   return Math.max(3, longestBacktickRun(payload) + 1)
 }

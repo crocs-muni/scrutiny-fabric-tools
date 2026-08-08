@@ -32,7 +32,7 @@ export interface Issue {
   /** The spec section defining the rule. Derived from {@link RULES}. */
   readonly section: string
   readonly severity: Severity
-  /** Human-readable detail. The rule's own summary is available via {@link Issue.rule}. */
+  /** Human-readable detail. The rule's own summary is available via {@link Issue.code}. */
   readonly message: string
 }
 

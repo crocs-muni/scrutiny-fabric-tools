@@ -1,0 +1,23 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema.json",
+  "ignoreDependencies": ["@arethetypeswrong/cli"],
+  "rules": {
+    "exports": "warn",
+    "types": "warn"
+  },
+  "workspaces": {
+    ".": {
+      "entry": ["tools/*.mjs!"],
+      "project": ["tools/*.mjs"]
+    },
+    "packages/core": {
+      "vitest": false,
+      "entry": ["src/index.ts", "test/**/*.ts"],
+      "project": ["src/**/*.ts", "test/**/*.ts"]
+    },
+    "examples/signers": {
+      "entry": ["noble-signer.ts"],
+      "project": ["*.ts"]
+    }
+  }
+}
