@@ -4,7 +4,7 @@
 // Regenerate:  pnpm rules:gen
 // Verify:      pnpm rules:check
 //
-// 139 rules: V=44, A=63, D=31, 1 reserved.
+// 141 rules: V=46, A=63, D=31, 1 reserved.
 
 /**
  * The layer a rule belongs to (§6.0). The partition is by *subject*, not by normative strength —
@@ -64,6 +64,8 @@ export type RuleId =
   | 'PT-7'
   | 'PT-8'
   | 'PT-9'
+  | 'PT-10'
+  | 'PT-11'
   | 'IX-1'
   | 'IX-2'
   | 'IX-3'
@@ -194,7 +196,7 @@ export const RULES: Readonly<Record<RuleId, Rule>> = Object.freeze({
     section: '3',
     layer: 'V',
     inheritsFrom: null,
-    summary: 'Exactly one version `t` tag matching `^scrutiny-v\\d{3}$`.',
+    summary: 'Exactly one version `t` tag matching `^scrutiny-v\\d+\\.\\d+\\.\\d+$`.',
     reserved: false,
   },
   'TAG-3': {
@@ -226,7 +228,7 @@ export const RULES: Readonly<Record<RuleId, Rule>> = Object.freeze({
     section: '3',
     layer: 'V',
     inheritsFrom: null,
-    summary: '`scrutiny-vMMP` digits encode MAJOR/MINOR/PATCH; lexicographic ordering.',
+    summary: 'Version-tag ordering is a per-field numeric `(MAJOR, MINOR, PATCH)` tuple comparison, never lexicographic.',
     reserved: false,
   },
   'VER-2': {
@@ -523,6 +525,22 @@ export const RULES: Readonly<Record<RuleId, Rule>> = Object.freeze({
     layer: 'A',
     inheritsFrom: null,
     summary: 'Patches append-only; removal only via author\'s own kind 5.',
+    reserved: false,
+  },
+  'PT-10': {
+    id: 'PT-10',
+    section: '4.4',
+    layer: 'V',
+    inheritsFrom: null,
+    summary: '`e root` MUST reference a `scrutiny-product` or `scrutiny-metadata` event.',
+    reserved: false,
+  },
+  'PT-11': {
+    id: 'PT-11',
+    section: '4.4',
+    layer: 'V',
+    inheritsFrom: null,
+    summary: 'Patch with an observed `e root` violating PT-10 MUST NOT be admitted.',
     reserved: false,
   },
   'IX-1': {

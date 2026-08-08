@@ -13,8 +13,8 @@
     "section": "3",
     "layer": "V",
     "inheritsFrom": null,
-    "summary": "Exactly one version `t` tag matching `^scrutiny-v\\d{3}$`.",
-    "text": "Every SCRUTINY event MUST carry exactly one version `t` tag matching `^scrutiny-v\\d{3}$`.",
+    "summary": "Exactly one version `t` tag matching `^scrutiny-v\\d+\\.\\d+\\.\\d+$`.",
+    "text": "Every SCRUTINY event MUST carry exactly one version `t` tag matching `^scrutiny-v\\d+\\.\\d+\\.\\d+$`.",
     "reserved": false
   },
   {
@@ -49,8 +49,8 @@
     "section": "3",
     "layer": "V",
     "inheritsFrom": null,
-    "summary": "`scrutiny-vMMP` digits encode MAJOR/MINOR/PATCH; lexicographic ordering.",
-    "text": "The three digits in `scrutiny-vMMP` encode MAJOR/MINOR/PATCH. Lexicographic comparison coincides with semantic ordering.",
+    "summary": "Version-tag ordering is a per-field numeric `(MAJOR, MINOR, PATCH)` tuple comparison, never lexicographic.",
+    "text": "Ordering between two version tags is a per-field numeric tuple comparison of `(MAJOR, MINOR, PATCH)`; never a lexicographic string comparison.",
     "reserved": false
   },
   {
@@ -384,6 +384,24 @@
     "inheritsFrom": null,
     "summary": "Patches append-only; removal only via author's own kind 5.",
     "text": "Patches are append-only. A patch cannot be inserted between two existing patches, and its parent pointer cannot be changed after publication. Removal is only via kind 5 deletion by the patch's own author (§10).",
+    "reserved": false
+  },
+  {
+    "id": "PT-10",
+    "section": "4.4",
+    "layer": "V",
+    "inheritsFrom": null,
+    "summary": "`e root` MUST reference a `scrutiny-product` or `scrutiny-metadata` event.",
+    "text": "The event referenced by `e root` MUST be a `scrutiny-product` or `scrutiny-metadata` event.",
+    "reserved": false
+  },
+  {
+    "id": "PT-11",
+    "section": "4.4",
+    "layer": "V",
+    "inheritsFrom": null,
+    "summary": "Patch with an observed `e root` violating PT-10 MUST NOT be admitted.",
+    "text": "A Patch whose OBSERVED `e root` violates PT-10 is invalid and MUST NOT be admitted.",
     "reserved": false
   },
   {
