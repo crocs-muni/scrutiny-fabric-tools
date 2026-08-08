@@ -69,14 +69,14 @@ export const V_COVERAGE: CoverageTable = {
   ),
   'VER-2': notCovered(
     'A permission (higher-version events MAY be admitted opaquely), so it has no failure mode. ' +
-      'Covered behaviourally: a scrutiny-v099 event that satisfies every V invariant is valid.',
+      'Covered behaviourally: a scrutiny-v0.99.0 event that satisfies every V invariant is valid.',
   ),
   'VER-3': emitted(() =>
     issuesOf(
       ev({
         tags: [
           ['t', 'scrutiny-fabric'],
-          ['t', 'scrutiny-v099'],
+          ['t', 'scrutiny-v0.99.0'],
           ['t', 'scrutiny-attestation'],
         ],
       }),

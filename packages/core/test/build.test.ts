@@ -29,7 +29,7 @@ describe('buildProduct / buildMetadata', () => {
       created_at: 1714000000,
       tags: [
         ['t', 'scrutiny-fabric'],
-        ['t', 'scrutiny-v061'],
+        ['t', 'scrutiny-v0.7.0'],
         ['t', 'scrutiny-product'],
       ],
       content: 'A product.',
@@ -47,7 +47,7 @@ describe('buildProduct / buildMetadata', () => {
     ])
     expect(template.tags).toEqual([
       ['t', 'scrutiny-fabric'],
-      ['t', 'scrutiny-v061'],
+      ['t', 'scrutiny-v0.7.0'],
       ['t', 'scrutiny-metadata'],
       ['i', 'cve:CVE-2017-15361'],
       ['i', 'cwe:CWE-310'],
@@ -60,7 +60,7 @@ describe('buildProduct / buildMetadata', () => {
     const { template } = buildProduct('x', 1, ['not-a-valid-indexer'])
     expect(template.tags).toEqual([
       ['t', 'scrutiny-fabric'],
-      ['t', 'scrutiny-v061'],
+      ['t', 'scrutiny-v0.7.0'],
       ['t', 'scrutiny-product'],
       ['i', 'not-a-valid-indexer'],
     ])
@@ -77,7 +77,7 @@ describe('buildBinding', () => {
     )
     expect(template.tags).toEqual([
       ['t', 'scrutiny-fabric'],
-      ['t', 'scrutiny-v061'],
+      ['t', 'scrutiny-v0.7.0'],
       ['t', 'scrutiny-binding'],
       ['e', 'aaa111', 'wss://relay.example', 'root', 'vendor_pk'],
       ['e', 'bbb222', '', 'link', 'researcher_pk'],
