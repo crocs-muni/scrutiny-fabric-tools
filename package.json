@@ -22,7 +22,8 @@
     "publint": "publint packages/core",
     "api-report:gen": "api-extractor run --local --verbose -c packages/core/api-extractor.json",
     "api-report:check": "api-extractor run -c packages/core/api-extractor.json",
-    "verify": "pnpm lint && pnpm typecheck && pnpm rules:check && pnpm ownership:check && pnpm knip && pnpm build && pnpm publint && pnpm api-report:check && pnpm attw && pnpm test"
+    "size": "size-limit",
+    "verify": "pnpm lint && pnpm typecheck && pnpm rules:check && pnpm ownership:check && pnpm knip && pnpm build && pnpm publint && pnpm api-report:check && pnpm attw && pnpm size && pnpm test"
   },
   "devDependencies": {
     "@arethetypeswrong/cli": "^0.18.5",
