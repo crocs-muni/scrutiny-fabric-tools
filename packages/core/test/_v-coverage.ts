@@ -33,6 +33,7 @@ const ROOT = product()
 const META = metadata({ pubkey: PK_FOREIGN })
 const OTHER_PRODUCT = product()
 const FOREIGN_PATCH = patch(ROOT.id, ROOT.id, '', { pubkey: PK_FOREIGN })
+const WRONG_TYPE_ROOT = binding(ROOT.id, META.id)
 
 const patchOf = (content: string) => () => issuesOf(patch(ROOT.id, ROOT.id, content), lookup(ROOT))
 
@@ -68,14 +69,14 @@ export const V_COVERAGE: CoverageTable = {
   ),
   'VER-2': notCovered(
     'A permission (higher-version events MAY be admitted opaquely), so it has no failure mode. ' +
-      'Covered behaviourally: a scrutiny-v099 event that satisfies every V invariant is valid.',
+      'Covered behaviourally: a scrutiny-v0.99.0 event that satisfies every V invariant is valid.',
   ),
   'VER-3': emitted(() =>
     issuesOf(
       ev({
         tags: [
           ['t', 'scrutiny-fabric'],
-          ['t', 'scrutiny-v099'],
+          ['t', 'scrutiny-v0.99.0'],
           ['t', 'scrutiny-attestation'],
         ],
       }),
@@ -149,6 +150,13 @@ export const V_COVERAGE: CoverageTable = {
       patch(ROOT.id, FOREIGN_PATCH.id, '', { pubkey: PK_OTHER }),
       lookup(ROOT, FOREIGN_PATCH),
     ),
+  ),
+  // New in v0.7.0 (F13): mirrors BD-3/BD-5's typed/rejected pattern for a Patch's own e root.
+  'PT-10': emitted(() =>
+    issuesOf(patch(WRONG_TYPE_ROOT.id, WRONG_TYPE_ROOT.id, ''), lookup(WRONG_TYPE_ROOT)),
+  ),
+  'PT-11': emitted(() =>
+    issuesOf(patch(WRONG_TYPE_ROOT.id, WRONG_TYPE_ROOT.id, ''), lookup(WRONG_TYPE_ROOT)),
   ),
 
   // --- §4.6 imeta -----------------------------------------------------------

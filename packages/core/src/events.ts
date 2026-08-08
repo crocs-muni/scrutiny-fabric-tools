@@ -52,8 +52,15 @@ export const FABRIC_TAG = 'scrutiny-fabric'
 /** Every SCRUTINY event uses this Nostr kind (§3) — short text notes, disambiguated by `t` tags. */
 export const SCRUTINY_KIND = 1
 
-/** Version tag grammar (TAG-2). Three digits encoding MAJOR, MINOR, PATCH (VER-1). */
-export const VERSION_TAG_PATTERN = /^scrutiny-v\d{3}$/
+/**
+ * Version tag grammar (TAG-2, amended in spec v0.7.0 — SPEC-FEEDBACK F14).
+ *
+ * Unpadded decimal integers encoding MAJOR.MINOR.PATCH (VER-1), with no fixed width and no
+ * digit-count ceiling in any field. Retires the old fixed-width `^scrutiny-v\d{3}$` form outright —
+ * no dual-path acceptance of it anywhere, since no real corpus exists to preserve compatibility
+ * with.
+ */
+export const VERSION_TAG_PATTERN = /^scrutiny-v(\d+)\.(\d+)\.(\d+)$/
 
 /** Indexer prefix grammar (IR-1): lowercase ASCII. */
 export const INDEXER_PREFIX_PATTERN = /^[a-z0-9-]+$/
@@ -176,7 +183,7 @@ export function versionTag(event: NostrEvent): string | undefined {
   return found.length === 1 ? found[0] : undefined
 }
 
-/** A version tag decomposed into its three digits (VER-1). */
+/** A version tag decomposed into its three fields (VER-1). */
 export interface ProtocolVersion {
   readonly major: number
   readonly minor: number
@@ -185,26 +192,28 @@ export interface ProtocolVersion {
 
 /** Parse a version tag, or `undefined` if it does not match the grammar. */
 export function parseVersionTag(tag: string): ProtocolVersion | undefined {
-  if (!VERSION_TAG_PATTERN.test(tag)) return undefined
-  const digits = tag.slice('scrutiny-v'.length)
-  return {
-    major: Number(digits[0]),
-    minor: Number(digits[1]),
-    patch: Number(digits[2]),
-  }
+  const match = VERSION_TAG_PATTERN.exec(tag)
+  if (match === null) return undefined
+  const [, major, minor, patch] = match
+  if (major === undefined || minor === undefined || patch === undefined) return undefined
+  return { major: Number(major), minor: Number(minor), patch: Number(patch) }
 }
 
 /**
  * Compare two version tags: negative if `a` precedes `b`, zero if equal, positive if `a` follows.
  *
- * VER-1 guarantees lexicographic comparison of the three-digit suffix coincides with semantic
- * ordering, because the digits are zero-padded and fixed-width. Non-matching tags sort before all
- * valid ones rather than throwing.
+ * VER-1 (amended in spec v0.7.0 — F14): ordering is a per-field numeric tuple comparison, never a
+ * lexicographic or wholesale string comparison. The retired three-digit form's "zero-padded, so
+ * lexicographic coincides with numeric" claim does not survive an unpadded field — this replaces it
+ * rather than layering on top of it. Non-matching tags sort before all valid ones rather than
+ * throwing.
  */
 export function compareVersionTags(a: string, b: string): number {
-  const sa = VERSION_TAG_PATTERN.test(a) ? a.slice('scrutiny-v'.length) : ''
-  const sb = VERSION_TAG_PATTERN.test(b) ? b.slice('scrutiny-v'.length) : ''
-  return sa < sb ? -1 : sa > sb ? 1 : 0
+  const va = parseVersionTag(a)
+  const vb = parseVersionTag(b)
+  if (va === undefined) return vb === undefined ? 0 : -1
+  if (vb === undefined) return 1
+  return va.major - vb.major || va.minor - vb.minor || va.patch - vb.patch
 }
 
 /** A parsed `i` tag value (§9). */

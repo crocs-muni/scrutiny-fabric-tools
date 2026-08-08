@@ -46,9 +46,9 @@ describe('§3 tag invariants', () => {
         }),
       ),
     ).toContain('TAG-2')
-    expect(codesOf(product({ tags: [...baseTags('product'), ['t', 'scrutiny-v059']] }))).toContain(
-      'TAG-2',
-    )
+    expect(
+      codesOf(product({ tags: [...baseTags('product'), ['t', 'scrutiny-v0.6.1']] })),
+    ).toContain('TAG-2')
   })
 
   it('rejects zero or several event-type tags (TAG-3)', () => {
@@ -77,7 +77,7 @@ describe('version handling (§3)', () => {
     const e = product({
       tags: [
         ['t', 'scrutiny-fabric'],
-        ['t', 'scrutiny-v099'],
+        ['t', 'scrutiny-v0.99.0'],
         ['t', 'scrutiny-product'],
       ],
     })
@@ -90,7 +90,7 @@ describe('version handling (§3)', () => {
     const e = ev({
       tags: [
         ['t', 'scrutiny-fabric'],
-        ['t', 'scrutiny-v099'],
+        ['t', 'scrutiny-v0.99.0'],
         ['t', 'scrutiny-attestation'],
       ],
     })
@@ -104,7 +104,7 @@ describe('version handling (§3)', () => {
     const e = ev({
       tags: [
         ['t', 'scrutiny-fabric'],
-        ['t', 'scrutiny-v059'],
+        ['t', 'scrutiny-v0.6.1'],
         ['t', 'scrutiny-attestation'],
       ],
     })

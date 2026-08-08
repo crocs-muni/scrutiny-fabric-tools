@@ -13,10 +13,14 @@ import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 
-/** Pinned in Appendix G.1, verified 2026-07-30 against the spec repo's committed `vectors/`. */
+/**
+ * Pinned in Appendix G.1, re-verified 2026-08-02 against the spec repo's `fix/spec-feedback-f13-f14`
+ * branch (landed F13/F14, spec v0.7.0) — the vectors were regenerated under the amended version-tag
+ * scheme, so their digests moved even though F13/F14 did not otherwise touch these two files' cases.
+ */
 const PINNED_SHA256: Readonly<Record<string, string>> = {
-  'application.json': 'e32652c69a508de319c82fd753740b770ab4ecad710fc2725d575f0dfb380cd9',
-  'validity.json': 'bf1af55a8687c6380acd597fd7dd1488f997736b7afdf9813f78c349e849f90f',
+  'application.json': '969e93e95a3b818daedda8a7b47d3cfcafcfc0d5b3848e1e13a5d4fcffaefdf9',
+  'validity.json': 'bff8eaca6c85e8676c15b63b87f836a59a45d4ea9117b0bce8807eb9d4b43f1e',
 }
 
 describe('vendored vector checksum (D33, Appendix G.1)', () => {

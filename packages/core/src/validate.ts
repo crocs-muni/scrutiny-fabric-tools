@@ -379,6 +379,21 @@ function checkPatch(
     return
   }
 
+  const rootType = scrutinyEventType(rootEvent)
+  if (rootType !== 'product' && rootType !== 'metadata') {
+    issues.push(
+      issue(
+        'PT-10',
+        'error',
+        `e root ${root.id} is ${rootType ?? 'not a SCRUTINY event'}, but must be a scrutiny-product or scrutiny-metadata event`,
+      ),
+    )
+    // No BD-7-equivalent caching rule: UR-3 already forbids caching while the root is unobserved,
+    // and a root's own type cannot change on further observation once it is, so this rejection is
+    // safe to treat as permanent without a dedicated rule (see SPEC-FEEDBACK F13).
+    issues.push(issue('PT-11', 'error', 'Patch e root violates the typing rule; not admitted'))
+  }
+
   // PT-7 constrains foreign patches only; a root-author patch's lineage is PT-6, an A rule that
   // resolve.ts applies when building the canonical chain.
   if (event.pubkey === rootEvent.pubkey) return
