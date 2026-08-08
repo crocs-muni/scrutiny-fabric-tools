@@ -1,10 +1,11 @@
 /**
- * Extension points not yet owned by any implemented module.
+ * Branded extension points (D16) claimed by their first consumer.
  *
  * D16 names four branded interfaces (`RelayTransport`, `EventStorage`, `ScrutinySigner`,
- * `TrustProvider`); this file grows to hold whichever of them a module needs first. `admit` was the
- * first consumer (`TrustProvider`, D21); `store` is the second (`EventStorage`, D15/D37).
- * `RelayTransport`/`ScrutinySigner` belong to whichever of `query`/`build` needs them first.
+ * `TrustProvider`); this file holds the ones an implemented module already consumes: `admit`
+ * brought `TrustProvider` (D21), `store` brought `EventStorage` (D15/D37), and `RelayTransport`
+ * landed here in Phase 17 (docs/RELAY-TRANSPORT.md). `ScrutinySigner` remains deferred to its
+ * first consumer (the CLI, Phase 10).
  *
  * Not a subpath export (see the plan's exports map) — these types are re-exported from the root
  * barrel only.
@@ -26,8 +27,9 @@ export const trustSymbol = Symbol.for('@scrutiny-fabric/trust')
  * web-of-trust expansion, a reputation score) is out of scope for the specification (§6.1) and for
  * this interface — it assumes only that a pubkey can be classified trusted or not.
  *
- * `version` and `deltaSince` exist for Phase 5's incremental recompute against `trustEpoch` (D24)
- * and are not called anywhere in Phase 4. `deltaSince` returning `null` means "rebuild from
+ * `version` and `deltaSince` exist for the incremental recompute Phase 16 introduces
+ * (trust-filtered views over trust changes, docs/TRUST-VIEW.md); nothing in the codebase calls
+ * them today. `deltaSince` returning `null` means "rebuild from
  * scratch" and MUST be legal — a subtly wrong delta is worse than an occasional full rebuild.
  */
 export interface TrustProvider {

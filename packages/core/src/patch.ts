@@ -27,6 +27,7 @@ import {
   lineCount,
   occurrences,
   reduceHunk,
+  scanCost,
   spliceAt,
   toLines,
 } from './patch-matcher.js'
@@ -104,12 +105,7 @@ export interface PatchLimit {
  */
 export type ApplyResult = PatchApplied | PatchNoop | PatchHalt | PatchLimit
 
-/**
- * Ceilings, per §5.4. Defaults are the spec's recommended bounds.
- *
- * RL-2 asks consumers to bound *total work* in bytes compared rather than trusting hunk counts,
- * because an adversary optimises against whichever unit is counted.
- */
+/** Ceilings for {@link ApplyOptions} — see its doc comment in `./patch-types.js` for the RL-2 rationale. */
 const DEFAULT_MAX_HUNKS = 64
 const DEFAULT_MAX_WORK = 16 * 1024 * 1024
 
@@ -276,14 +272,9 @@ export function applyPatchPayload(
 
   for (const [index, hunk] of hunks.entries()) {
     // Charge the scan's exact upper bound *before* running it, so an adversarial patch is refused
-    // rather than executed and then regretted (RL-2).
-    // One unit per pattern line on top of its characters, so a pattern of *empty* lines is not
-    // free: `occurrences` still runs `|L| x |oldPat|` element comparisons for it, and charging the
-    // character total alone bills that scan at zero. RL-2's stated unit is "bytes compared", which
-    // is the hole — §5.4's own reasoning is that an adversary optimises against whichever unit is
-    // counted. Recorded as SPEC-FEEDBACK F12.
-    const patternChars = hunk.oldPat.reduce((sum, line) => sum + line.length + 1, 0)
-    const cost = lines.length * patternChars
+    // rather than executed and then regretted (RL-2). The formula is F12's per-element floor —
+    // see `scanCost`.
+    const cost = scanCost(lines, hunk.oldPat)
     if (work + cost > maxWork) {
       return limitReached(
         'work',

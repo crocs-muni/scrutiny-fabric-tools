@@ -437,14 +437,16 @@ interface MemoEntry {
 export interface ResolveMemo {
   readonly entries: Map<string, MemoEntry>
   /**
-   * The materialised event array shares across every root as long as `observedById` hasn't changed
-   * — `applyStoreDelta` always produces a fresh `admit`/`observedById` object per `observe`/
-   * `unobserve` delta (never mutated in place), so identity comparison is exactly "has anything been
-   * observed or unobserved since this array was built." Without this, resolving R roots after one
-   * ingest batch would re-materialise the same, unchanged observed set R times over.
+   * The materialised event array shares across every root as long as `observedEpoch` hasn't
+   * moved. Gate on the epoch, not on `observedById` identity: `applyStoreDelta` produces a fresh
+   * `observedById` object on *every* delta kind (including `trust`/`untrust`, which never touch
+   * its content), so identity comparison cannot distinguish "observed set changed" from "any delta
+   * happened" — `observedEpoch` bumps only on `observe`/`unobserve`. Without this cache,
+   * resolving R roots after one ingest batch would re-materialise the same, unchanged observed
+   * set R times over.
    */
   eventsCache?: {
-    readonly observedById: Readonly<Record<string, NostrEvent>>
+    readonly observedEpoch: number
     readonly events: readonly NostrEvent[]
   }
 }
@@ -479,13 +481,13 @@ export function resolveRootMemoized(
   }
 
   // Excludes `invalidIds` (VALIDATION-WIRING.md §4) — no separate cache key is needed for it: the
-  // only way `invalidIds` changes is within the same `observe` delta that also produces a fresh
-  // `observedById` (`applyStoreDelta` never mutates either in place), so the existing reference
-  // check below already re-filters exactly when `invalidIds` could have changed.
-  if (memo.eventsCache?.observedById !== state.admit.observedById) {
+  // only way `invalidIds` changes is within an `observe` delta, and every `observe` delta bumps
+  // `observedEpoch`, so the epoch gate below already re-filters exactly when `invalidIds` could
+  // have changed.
+  if (memo.eventsCache?.observedEpoch !== state.observedEpoch) {
     const invalid = new Set(state.invalidIds)
     memo.eventsCache = {
-      observedById: state.admit.observedById,
+      observedEpoch: state.observedEpoch,
       events: Object.values(state.admit.observedById).filter((e) => !invalid.has(e.id)),
     }
   }

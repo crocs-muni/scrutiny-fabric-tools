@@ -18,4 +18,4 @@ export const SPEC_VERSION = '0.7.0'
  * in a relay filter: doing so silently drops every higher-version event, which violates VER-4
  * invisibly. The previous implementation did exactly this, and nothing ever reported it.
  */
-export const VERSION_TAG = 'scrutiny-v0.7.0'
+export const VERSION_TAG = `scrutiny-v${SPEC_VERSION}`

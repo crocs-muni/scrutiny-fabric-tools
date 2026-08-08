@@ -10,7 +10,15 @@
 import { type Issue, issue } from './errors.js'
 import { EVENT_TYPE_TAGS, FABRIC_TAG, SCRUTINY_KIND, parseIndexer } from './events.js'
 import type { IndexedEventType, ScrutinyEventType, UnsignedEvent } from './events.js'
-import { type Hunk, diffHunks, lineCount, occurrences, spliceAt, toLines } from './patch-matcher.js'
+import {
+  type Hunk,
+  diffHunks,
+  lineCount,
+  occurrences,
+  scanCost,
+  spliceAt,
+  toLines,
+} from './patch-matcher.js'
 import { type ApplyOptions, applyPatchContent, makePatch } from './patch.js'
 import { VERSION_TAG } from './version.js'
 
@@ -289,7 +297,7 @@ export function widenContext(
     for (const hunk of hunks) {
       if (hunk.oldPat.length === 0) continue // T2's carve-out — no pattern to disambiguate
 
-      const cost = lines.length * hunk.oldPat.reduce((sum, line) => sum + line.length + 1, 0)
+      const cost = scanCost(lines, hunk.oldPat)
       work += cost
       if (work > ceilingWork) return { context: capped, hunks, exhausted: true }
 

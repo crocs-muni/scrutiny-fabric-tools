@@ -157,6 +157,19 @@ export function occurrences(lines: readonly string[], pattern: readonly string[]
   return { count, first, second }
 }
 
+/**
+ * The RL-2 work charge for scanning `lines` once against `pattern`: `|lines| x (pattern
+ * characters plus one unit per pattern line)`, so a pattern of *empty* lines is not free —
+ * {@link occurrences} still runs `|L| x |pattern|` element comparisons for it, and charging the
+ * character total alone would bill that scan at zero. RL-2's stated unit is "bytes compared",
+ * which is the hole — §5.4's own reasoning is that an adversary optimises against whichever unit
+ * is counted. Recorded as SPEC-FEEDBACK F12; shared by `patch.ts`'s applier and `build.ts`'s
+ * widening loop (docs/CONTEXT-WIDENING.md §3).
+ */
+export function scanCost(lines: readonly string[], pattern: readonly string[]): number {
+  return lines.length * pattern.reduce((sum, line) => sum + line.length + 1, 0)
+}
+
 export type SpliceOutcome = { ok: true; lines: string[] } | { ok: false; detail: string }
 
 /**

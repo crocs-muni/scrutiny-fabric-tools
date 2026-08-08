@@ -462,7 +462,7 @@ export interface ResolveMemo {
     // (undocumented)
     readonly entries: Map<string, MemoEntry>;
     eventsCache?: {
-        readonly observedById: Readonly<Record<string, NostrEvent>>;
+        readonly observedEpoch: number;
         readonly events: readonly NostrEvent[];
     };
 }
