@@ -102,14 +102,16 @@ syncpack/Bun, Socket Security, mitata, jazzer.js-as-permanent-adoption.
 
 ### Step 3 findings (multi-agent module review)
 
-Method: 17 review passes (dual-lens on all 15 modules + thermo-nuclear on patch/resolve/admit/
-store), 3 independent adversarial refuters per finding, majority-of-valid-votes survival rule.
+Method: 17 review passes (13 dual-lens — `patch-types.ts`/`patch-matcher.ts` ride inside the
+`patch.ts` task — + 4 thermo-nuclear on patch/resolve/admit/store), 3 independent adversarial
+refuters per finding, majority-of-valid-votes survival rule.
 Severity column is the finding's category (correctness=act-now, public-surface/spec-citation/
 architecture=decision-needed, duplication/simplification/test-coverage=triage). Full evidence +
 refuter reasoning per finding: `docs/QUALITY-AUDIT-2026-08-08-STEP3-FINDINGS.json`. **Applied
-directly** rows are in the `refactor(core)`/`docs(core)` commits closing this step; **flagged**
+directly** rows are in the single `refactor(core)` commit closing this step; **flagged**
 rows are written up for human review, NOT auto-applied. Vote notation: ✓ = refuter could not
-refute, R = refuted; "orig run" = fully verified in the first run.
+refute, R = refuted; "orig run" = verified in the first run (vote booleans since recovered
+from the workflow journal — see the JSON).
 
 | # | Module | Finding | Severity | Verdict | Action |
 |---|---|---|---|---|---|
@@ -140,7 +142,7 @@ refute, R = refuted; "orig run" = fully verified in the first run.
 | S3-29 | `admit.ts` | [test-coverage] untrust-narrowing hazard (`invertDelta` must reject standalone untrust) enforced only by the ForwardDelta type + doc comments; no named, greppable regression case | test-coverage | verified 2/3 | human decision — natural Step 4 input |
 | S3-30 | `resolve.ts` | [test-coverage] root-retraction path through `resolve()` unpinned — chain preservation rests on an undocumented-in-tests removed-vs-deleted seeding distinction | test-coverage | verified 3/3 | human decision — natural Step 4 input |
 | S3-31 | `events.ts` | [duplication] event-type tag strings independently re-derived in `validate.ts`/`store.ts` | — | refuted 0/3 survived (orig run) | no action |
-| S3-32 | `events.ts` | [simplification] `eTags` repeats the same conditional-spread pattern twice inline | — | refuted (orig run) | no action |
+| S3-32 | `events.ts` | [simplification] `eTags` repeats the same conditional-spread pattern twice inline | — | refuted 0/3 survived (orig run) | no action |
 | S3-33 | `patch.ts` | [public-surface] "1b re-verified: `HaltRule` gap already fixed" — the framing overstated the remaining gap | — | refuted 0/3 survived (R R R) | no action (substance recorded at S3-20) |
 | S3-34 | `patch.ts` | [correctness] T1's uniqueness count ignores the `oldNoEol` marker, causing a spurious ambiguous-match halt | — | refuted 1/3 survived | no action |
 | S3-35 | `store.ts` | [correctness] `pendingAwaiting` leaks a stale entry on asymmetric Binding endpoint resolution | — | refuted 0/3 survived | no action |
