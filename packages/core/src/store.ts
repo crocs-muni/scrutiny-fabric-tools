@@ -41,7 +41,7 @@ import {
 } from './events.js'
 import type { EventFilter, EventStorage } from './interfaces.js'
 import { storageSymbol } from './interfaces.js'
-import type { ApplyOptions } from './patch.js'
+import type { ApplyOptions } from './patch-types.js'
 import { type Resolution, type ResolveOptions, resolve } from './resolve.js'
 import { validateEvent } from './validate.js'
 

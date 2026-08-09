@@ -10,17 +10,9 @@
 import { type Issue, issue } from './errors.js'
 import { EVENT_TYPE_TAGS, FABRIC_TAG, SCRUTINY_KIND, parseIndexer } from './events.js'
 import type { IndexedEventType, ScrutinyEventType, UnsignedEvent } from './events.js'
-import {
-  type Hunk,
-  diffHunks,
-  lineCount,
-  occurrences,
-  scanCost,
-  spliceAt,
-  toLines,
-  widenContext,
-} from './patch-matcher.js'
-import { type ApplyOptions, applyPatchContent, makePatch } from './patch.js'
+import { toLines, widenContext } from './patch-matcher.js'
+import type { ApplyOptions } from './patch-types.js'
+import { applyPatchContent, makePatch } from './patch.js'
 import { VERSION_TAG } from './version.js'
 
 /** The result of every builder in this module. `issues` is always present (see the module doc). */
@@ -253,7 +245,7 @@ export function fencePatchPayload(payload: string, info = 'diff'): string {
  */
 const DEFAULT_MAX_WIDEN_WORK = 16 * 1024 * 1024
 
-/** The widening machinery lives in `./patch-matcher.js` (S3-17 — internal algorithms stay off public modules). */
+// The widening machinery lives in ./patch-matcher.js (S3-17 — internal algorithms stay off public modules).
 
 /**
  * `buildPatch`'s parameters as ONE named-fields object (mandate §10 / `AUDIT-2026-07-31.md` §10

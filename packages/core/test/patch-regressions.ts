@@ -10,7 +10,7 @@
  * `payload` and the expected outcome, with the rule each one pins.
  */
 
-import type { HaltReason } from '../src/patch.js'
+import type { HaltReason } from '../src/patch-types.js'
 import type { RuleId } from '../src/rules.js'
 import { body } from './_patch.js'
 

@@ -44,25 +44,9 @@ import type {
 } from './patch-types.js'
 import { findPatchPayload } from './validate.js'
 
-// ---------------------------------------------------------------------------
-// Result vocabulary (HaltReason/LimitKind/HaltRule/ApplyOptions, and since the 2026-08-08 audit
-// the ApplyResult union and its four variants, live in `./patch-types.js` — re-exported here so
-// existing import paths keep working; the barrel (`index.ts`) pulls them from the type module
-// directly per mandate §2)
-// ---------------------------------------------------------------------------
-
-export type {
-  ApplyOptions,
-  ApplyResult,
-  HaltReason,
-  HaltRule,
-  LimitKind,
-  PatchApplied,
-  PatchHalt,
-  PatchLimit,
-  PatchNoop,
-} from './patch-types.js'
-
+// Result vocabulary lives in `./patch-types.js` (mandate §2) — `patch.ts` imports it for its own
+// use but no longer re-exports it: `./patch.js` is not in the package `exports` map (D32), so the
+// shim was only reachable by in-repo deep imports, and those now point at the type module itself.
 /** Ceilings for {@link ApplyOptions} — see its doc comment in `./patch-types.js` for the RL-2 rationale. */
 const DEFAULT_MAX_HUNKS = 64
 const DEFAULT_MAX_WORK = 16 * 1024 * 1024

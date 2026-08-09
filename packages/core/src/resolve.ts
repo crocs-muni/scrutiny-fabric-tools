@@ -20,7 +20,8 @@ import {
   rootTarget,
   scrutinyEventType,
 } from './events.js'
-import { type ApplyOptions, type HaltReason, type LimitKind, applyPatchContent } from './patch.js'
+import type { ApplyOptions, HaltReason, LimitKind } from './patch-types.js'
+import { applyPatchContent } from './patch.js'
 
 // ---------------------------------------------------------------------------
 // Result
