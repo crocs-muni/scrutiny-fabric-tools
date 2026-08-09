@@ -275,6 +275,29 @@ describe('S3-29 — the untrust-narrowing hazard is pinned behaviorally (2026-08
   })
 })
 
+describe('S5-14 — a kind 5 whose membership depended on an unobserved sibling loses its credit (AG1 counterexample)', () => {
+  // Shrunk by fast-check from the S5-5 unobserve-generator's failure (seed 248381514): observe a
+  // root-author kind 5 targeting a patch, trust the root author, observe the patch and the root,
+  // then unobserve the patch. resyncRootChain recomputes membership from the *current* observed
+  // set, and a dropped-out member is never visited by that recompute — the kind 5 kept its stale
+  // root-chain:<root> until resyncRootLearned to revoke non-members explicitly.
+  const root = product('root')
+  const left = rootPatch('left', root.id, root.id)
+  const delLeft = deletion('del-left', [left.id], PK_ROOT)
+
+  it('incremental repeats the oracle, not its own history', () => {
+    let state = applyDelta(EMPTY_ADMIT_STATE, { kind: 'observe', events: [delLeft, left] })
+    state = applyDelta(state, { kind: 'trust', pubkeys: [PK_ROOT] })
+    state = applyDelta(state, { kind: 'observe', events: [root] })
+    expect(toIndex(state).reasons[delLeft.id]).toEqual(['direct-trust', `root-chain:${root.id}`])
+    state = applyDelta(state, { kind: 'unobserve', eventIds: [left.id] })
+    expect(toIndex(state).reasons[delLeft.id]).toEqual(['direct-trust'])
+    expect(toIndex(state).reasons).toEqual(
+      computeAdmission([delLeft, root], fakeTrust([PK_ROOT])).reasons,
+    )
+  })
+})
+
 describe('DEL-4 — root retraction hides from the default view but never revokes admission', () => {
   it('a retracted root stays admitted', () => {
     const root = product('root')

@@ -484,9 +484,20 @@ function resyncRootChain(
   kind5s: readonly NostrEvent[],
 ): void {
   const admitted = isAdmittedIn(w, root.id)
-  for (const memberId of rootChainMembers(root, patches, kind5s)) {
-    if (admitted) credit(w, memberId, rootChainReason(root.id))
-    else uncredit(w, memberId, rootChainReason(root.id))
+  const reason = rootChainReason(root.id)
+  const members = rootChainMembers(root, patches, kind5s)
+  for (const memberId of members) {
+    if (admitted) credit(w, memberId, reason)
+    else uncredit(w, memberId, reason)
+  }
+  // Revoke credits whose membership no longer holds. A member set is recomputed from the
+  // *current* observed set, so an id dropped out of it is never visited by the loop above and
+  // would otherwise keep its credit forever: the AG1 counterexample (Step-5/Stryker) is a kind 5
+  // whose membership depended on a sibling patch being observed — unobserving the patch leaves
+  // the kind 5's `root-chain:` stranded. Any `root-chain:<root>` on a non-member is stale by
+  // TR-5's own definition of the set, regardless of which path stranded it.
+  for (const [id, reasons] of w.reasons) {
+    if (!members.has(id) && reasons.has(reason)) uncredit(w, id, reason)
   }
 }
 
