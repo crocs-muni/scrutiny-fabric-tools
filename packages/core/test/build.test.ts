@@ -16,6 +16,7 @@ import {
 import { diffHunks, occurrences, toLines, widenContext } from '../src/patch-matcher.js'
 import { applyPatchContent } from '../src/patch.js'
 import { findFencedBlocks } from '../src/validate.js'
+import { VERSION_TAG } from '../src/version.js'
 import { ambiguousPatchPair } from './_a-build-coverage.js'
 import { distinctPair, repeatyContent } from './_generators.js'
 
@@ -30,7 +31,7 @@ describe('buildProduct / buildMetadata', () => {
       created_at: 1714000000,
       tags: [
         ['t', 'scrutiny-fabric'],
-        ['t', 'scrutiny-v0.7.0'],
+        ['t', VERSION_TAG],
         ['t', 'scrutiny-product'],
       ],
       content: 'A product.',
@@ -48,7 +49,7 @@ describe('buildProduct / buildMetadata', () => {
     ])
     expect(template.tags).toEqual([
       ['t', 'scrutiny-fabric'],
-      ['t', 'scrutiny-v0.7.0'],
+      ['t', VERSION_TAG],
       ['t', 'scrutiny-metadata'],
       ['i', 'cve:CVE-2017-15361'],
       ['i', 'cwe:CWE-310'],
@@ -61,7 +62,7 @@ describe('buildProduct / buildMetadata', () => {
     const { template } = buildProduct('x', 1, ['not-a-valid-indexer'])
     expect(template.tags).toEqual([
       ['t', 'scrutiny-fabric'],
-      ['t', 'scrutiny-v0.7.0'],
+      ['t', VERSION_TAG],
       ['t', 'scrutiny-product'],
       ['i', 'not-a-valid-indexer'],
     ])
@@ -78,7 +79,7 @@ describe('buildBinding', () => {
     )
     expect(template.tags).toEqual([
       ['t', 'scrutiny-fabric'],
-      ['t', 'scrutiny-v0.7.0'],
+      ['t', VERSION_TAG],
       ['t', 'scrutiny-binding'],
       ['e', 'aaa111', 'wss://relay.example', 'root', 'vendor_pk'],
       ['e', 'bbb222', '', 'link', 'researcher_pk'],
