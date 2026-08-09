@@ -292,14 +292,25 @@ function recordToSetMap(
   return new Map(Object.entries(record).map(([k, v]) => [k, new Set(v)]))
 }
 
+/**
+ * Null-prototype output record: keys here are attacker-reachable event ids, and `'__proto__'` as a
+ * key on a plain object would target its prototype chain instead of an own entry — the same hazard
+ * admit.ts's `collectToRecord` is documented against (2026-08-08 audit, S3-26).
+ */
+function toNullProtoRecord<T>(entries: Iterable<readonly [string, T]>): Record<string, T> {
+  const out: Record<string, T> = Object.create(null) as Record<string, T>
+  for (const [k, v] of entries) out[k] = v
+  return out
+}
+
 function mapToRecord<T>(map: ReadonlyMap<string, T>): Record<string, T> {
-  return Object.fromEntries(map)
+  return toNullProtoRecord(map)
 }
 
 function setMapToSortedRecord(
   map: ReadonlyMap<string, ReadonlySet<string>>,
 ): Record<string, readonly string[]> {
-  return Object.fromEntries([...map].map(([k, v]) => [k, [...v].sort()]))
+  return toNullProtoRecord([...map].map(([k, v]) => [k, [...v].sort()] as const))
 }
 
 /**

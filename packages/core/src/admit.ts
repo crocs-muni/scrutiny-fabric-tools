@@ -238,8 +238,9 @@ export function computeAdmission(
     }
   }
 
-  const out: Record<string, readonly Reason[]> = {}
-  for (const [id, set] of reasons) if (set.size > 0) out[id] = [...set].sort()
+  const out = collectToRecord(
+    [...reasons].flatMap(([id, set]) => (set.size > 0 ? [[id, [...set].sort()] as const] : [])),
+  )
   return { reasons: out }
 }
 
@@ -384,16 +385,27 @@ function fromState(state: AdmitState): Working {
   }
 }
 
+/**
+ * Shape an output record copied from mutable working state. Null-prototype by deliberate choice:
+ * record keys here are event ids — attacker-reachable strings before SIG-1 has run — and
+ * `'__proto__'` as a key on a plain `{}` would target the output's prototype chain instead of an
+ * own entry, silently diverging the incremental path from the oracle (2026-08-08 audit, S3-26).
+ */
+function collectToRecord<V>(entries: Iterable<readonly [string, V]>): Record<string, V> {
+  const out: Record<string, V> = Object.create(null) as Record<string, V>
+  for (const [k, v] of entries) out[k] = v
+  return out
+}
+
 function toState(w: Working): AdmitState {
-  const reasons: Record<string, readonly Reason[]> = {}
-  for (const [id, set] of w.reasons) if (set.size > 0) reasons[id] = [...set].sort()
-  const liveBindings: Record<string, BindingEndpoints> = {}
-  for (const [id, endpoints] of w.liveBindings) liveBindings[id] = endpoints
+  const reasons = collectToRecord(
+    [...w.reasons].flatMap(([id, set]) => (set.size > 0 ? [[id, [...set].sort()] as const] : [])),
+  )
   return {
     reasons,
-    liveBindings,
+    liveBindings: collectToRecord(w.liveBindings),
     trusted: [...w.trusted].sort(),
-    observedById: Object.fromEntries(w.observedById),
+    observedById: collectToRecord(w.observedById),
   }
 }
 
