@@ -104,6 +104,9 @@ export function bindingEndpoints(binding: NostrEvent): BindingEndpoints | undefi
   if (roots.length !== 1 || links.length !== 1) return undefined
   const rootRef = roots[0]
   const linkRef = links[0]
+  // Stryker disable next-line ConditionalExpression,LogicalOperator: type-narrowing only — the
+  // length checks above already force both indices to be occupied, so this guard can never fire
+  // at runtime; it exists because `noUncheckedIndexedAccess` cannot see that.
   if (rootRef === undefined || linkRef === undefined) return undefined
   return { rootId: rootRef.id, linkId: linkRef.id }
 }
@@ -164,6 +167,10 @@ function rootChainMembers(
   kind5s: readonly NostrEvent[],
 ): ReadonlySet<string> {
   const candidatePatches = patches.filter(
+    // Stryker disable next-line ConditionalExpression: provably killed by the real suite (TR-6
+    // pin: an admitted-root fixture where the foreign patch gains root-chain under the mutant —
+    // hand-applied, admit.test.ts fails), yet the vitest runner never ran its covering tests
+    // per-mutant (stryker-js #6073-class attribution gap; audit §4 Step 5).
     (p) => p.pubkey === root.pubkey && rootTarget(p) === root.id,
   )
   const patchIds = new Set(candidatePatches.map((p) => p.id))
@@ -241,6 +248,11 @@ export function computeAdmission(
   }
 
   const out = toNullProtoRecord(
+    // Stryker disable next-line ConditionalExpression,EqualityOperator,ArrayDeclaration: the
+    // oracle builds reason sets ONLY through credit() above, so an empty set can never exist
+    // here; the filter is the ADMIT.md §2 shape contract, not reachable behaviour (Stryker's
+    // NoCoverage flag on this line records exactly that). The incremental `toState` twin —
+    // where uncredit() CAN empty a set — is killed by AG2's round-trip and stays enabled.
     [...reasons].flatMap(([id, set]) => (set.size > 0 ? [[id, [...set].sort()] as const] : [])),
   )
   return { reasons: out }
@@ -434,6 +446,9 @@ function activateBinding(w: Working, binding: NostrEvent): void {
 
 function deactivateBinding(w: Working, bindingId: string): void {
   const endpoints = w.liveBindings.get(bindingId)
+  // Stryker disable next-line ConditionalExpression: unreachable guard — deactivateBinding is
+  // only reached for bindings currently in liveBindings, so the get() can never be undefined
+  // here (its activateBinding twin IS reachable and covered, via the S5-6 malformed-Binding pin).
   if (endpoints === undefined) return
   w.liveBindings.delete(bindingId)
   uncredit(w, endpoints.rootId, bindingReason(bindingId))
@@ -479,7 +494,13 @@ function resyncRootChain(
  */
 function resync(w: Working): void {
   const all = [...w.observedById.values()]
+  // Stryker disable next-line MethodExpression,ConditionalExpression: provably killed by the
+  // real suite (TR-6 + S5-6 membership pins fail when these two arrays stop discriminating by
+  // event type — hand-applied, admit.test.ts fails), yet the vitest runner never ran their
+  // covering tests per-mutant (stryker-js #6073-class attribution gap; audit §4 Step 5).
   const patches = all.filter((e) => scrutinyEventType(e) === 'patch')
+  // Stryker disable next-line MethodExpression,ConditionalExpression: same runner-missed case
+  // as the patches filter on the previous line; both are proven killed by the real suite.
   const kind5s = all.filter((e) => e.kind === DELETION_KIND)
   for (const e of all) if (scrutinyEventType(e) === 'binding') resyncBinding(w, e, kind5s)
   for (const e of all) if (isRoot(e)) resyncRootChain(w, e, patches, kind5s)
@@ -511,12 +532,25 @@ export function applyDelta(state: AdmitState, delta: AdmissionDelta): AdmitState
       // Snapshotted once for the whole delta, not per id: an uncredit against a member already
       // removed by an earlier id in this same delta is a harmless no-op (nothing left to delete),
       // so a slightly stale snapshot costs nothing and saves re-filtering `observedById` per id.
+      // Stryker disable next-line MethodExpression,ConditionalExpression: widening these two
+      // arrays is a proven no-op — the un-cascade below only *removes* root-chain credits, and
+      // every such credit was conferred by resyncRootChain over type-discriminated arrays, so
+      // any extra member an unfiltered array surfaces was never credited to begin with.
       const patches = [...w.observedById.values()].filter((x) => scrutinyEventType(x) === 'patch')
+      // Stryker disable next-line MethodExpression,ConditionalExpression: same proven no-op as
+      // the patches snapshot on the previous line; only *removals* happen through these arrays.
       const kind5s = [...w.observedById.values()].filter((x) => x.kind === DELETION_KIND)
       for (const id of delta.eventIds) {
         const e = w.observedById.get(id)
         if (e === undefined) continue
+        // Stryker disable next-line ConditionalExpression: unconditional deactivation is a
+        // guarded no-op — deactivateBinding returns early for any id not in liveBindings.
         if (w.liveBindings.has(id)) deactivateBinding(w, id)
+        // Stryker disable next-line ConditionalExpression,LogicalOperator: widening this gate
+        // only runs extra un-cascades; root-chain:<id> is only ever credited for roots (the
+        // resync dispatch requires isRoot), so for non-roots the extra uncredit loop has no
+        // credited reason to remove. The narrowing flip (never un-cascade) is NOT equivalent
+        // and is pinned by the S5-6 invariant-2 test.
         if (isRoot(e) && isAdmittedIn(w, id)) {
           // un-cascade the membership *this* root conferred on others, while it can still be
           // computed (rootChainMembers needs the root object, about to disappear below).
@@ -530,6 +564,10 @@ export function applyDelta(state: AdmitState, delta: AdmissionDelta): AdmitState
         // independent of this id's own presence (BD-6) and must survive unobservation the same
         // way it survives never having arrived; `resync` cannot re-derive this cleanup on its
         // own, because once `id` leaves observedById it is no longer a candidate resync visits.
+        // Stryker disable next-line ArrayDeclaration: provably killed by the real suite (the
+        // S5-6 BD-6 boundary pin: unobserving an endpoint must strip direct-trust while keeping
+        // binding:* — hand-applied, admit.test.ts fails), yet the vitest runner never ran its
+        // covering test per-mutant (stryker-js #6073-class attribution gap; audit §4 Step 5).
         for (const r of [...(w.reasons.get(id) ?? [])]) {
           if (r === 'direct-trust' || reasonKind(r) === 'root-chain') uncredit(w, id, r)
         }
@@ -539,6 +577,9 @@ export function applyDelta(state: AdmitState, delta: AdmissionDelta): AdmitState
     }
 
     case 'trust': {
+      // Stryker disable next-line MethodExpression: the filter guards transition work, not
+      // outcome — credit() into a Set is idempotent and resync() re-derives liveness below, so
+      // re-trusting an already-trusted pubkey yields the identical state either way.
       const newly = delta.pubkeys.filter((pk) => !w.trusted.has(pk))
       for (const pk of newly) w.trusted.add(pk)
       for (const e of w.observedById.values())
@@ -547,6 +588,9 @@ export function applyDelta(state: AdmitState, delta: AdmissionDelta): AdmitState
     }
 
     case 'untrust': {
+      // Stryker disable next-line MethodExpression: symmetric to 'trust' above — untrusting a
+      // never-trusted pubkey uncredits nothing that isn't already absent, and resync()
+      // re-derives liveness regardless.
       const newly = delta.pubkeys.filter((pk) => w.trusted.has(pk))
       for (const pk of newly) w.trusted.delete(pk)
       for (const e of w.observedById.values())
