@@ -268,6 +268,32 @@ describe('F5 / C8 — a payload with two header blocks (multiple file-sections)'
   })
 })
 
+describe('D31 / F8 — produced payloads are spec-canonical bytes', () => {
+  // Step-5/Stryker pinning: the round-trip gates only require that `applyPatchPayload` can parse
+  // what `makePatch` emits, and jsdiff tolerates exactly the bytes F8 strips. Nothing therefore
+  // observed the producer's actual byte shape — the `===` separator strip, the `a/content` /
+  // `b/content` header names, the single header pair — until these assertions. 14 mutants
+  // survived here on the first mutation pass; every one of them turns on bytes, not verdicts.
+
+  it('emits header pair, hunks, and no separator or Index preamble for a normal change', () => {
+    expect(makePatch('a\nb\nc\n', 'a\nB\nc\n')).toBe(
+      '--- a/content\n+++ b/content\n@@ -1,3 +1,3 @@\n a\n-b\n+B\n c\n',
+    )
+  })
+
+  it('emits the N2 header-only shape for identical content', () => {
+    // jsdiff's producer emits 'Index: a/content\n===…===\n--- a/content\n+++ b/content\n' here;
+    // F8 strips back to the header pair alone.
+    expect(makePatch('a\nb\n', 'a\nb\n')).toBe('--- a/content\n+++ b/content\n')
+  })
+
+  it('emits the zero-context shape without separators at context 0', () => {
+    expect(makePatch('x\ny\n', 'x\nz\n', 0)).toBe(
+      '--- a/content\n+++ b/content\n@@ -2,1 +2,1 @@\n-y\n+z\n',
+    )
+  })
+})
+
 // `makePatch(a, b, 0)` gives a hunk whose pattern is exactly its removed lines. Zero context is
 // what a hand-written or minimising producer emits, and the shape under which T1 ambiguity stops
 // being rare — see the comment on the property below.
