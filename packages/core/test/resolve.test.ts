@@ -490,3 +490,37 @@ describe('UR-4 — a root-author patch whose `e reply` target is unobserved is h
     expect(res2.pending).toEqual([])
   })
 })
+
+describe('S3-30 — retracting the ROOT itself preserves the canonical chain for audit (DEL-4, 2026-08-08 audit)', () => {
+  // DEL-4: the root leaves the default view, but the canonical chain is preserved — `cascade()`
+  // seeds `removed` from chain candidates ∩ honouredly-deleted, never from raw `deleted`, so a
+  // kind-5 *on the root Event* cannot cascade into its patches. That removed-vs-deleted
+  // seeding distinction was what the property generator could not reach (deleteAt ≥ 1 skips the
+  // root) and no unit test pinned either — three of the four verification shapes below were
+  // previously only true incidentally.
+  it('resolve() still applies every chain patch after the root author retracts the root', () => {
+    const r = root(A)
+    const p1 = diffPatch('p1', r.id, r.id, A, AB)
+    const p2 = diffPatch('p2', r.id, p1.id, AB, ABC)
+    const retract = deletion('retract-root', [r.id], PK_ROOT)
+    const res = resolve(r.id, [r, p1, p2, retract])
+    expect(res.chain).toEqual({
+      status: 'resolved',
+      content: ABC,
+      tipId: p2.id,
+      applied: [p1.id, p2.id],
+    })
+    expect(res.pending).toEqual([])
+  })
+
+  it('a same-author kind-5 on a root-authored PATCH still cascades — the distinction holds in both directions', () => {
+    const r = root(A)
+    const p1 = diffPatch('p1', r.id, r.id, A, AB)
+    const p2 = diffPatch('p2', r.id, p1.id, AB, ABC)
+    const retractPatch = deletion('retract-p1', [p1.id], PK_ROOT)
+    const res = resolve(r.id, [r, p1, p2, retractPatch])
+    // deleting p1 removes p1 AND its descendant p2 from the canonical walk (DEL-2) — the root's
+    // own deletion above removes nothing but the root's default-view presence.
+    expect(res.chain).toEqual({ status: 'resolved', content: A, tipId: r.id, applied: [] })
+  })
+})
