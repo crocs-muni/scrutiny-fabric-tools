@@ -438,6 +438,9 @@ function bindingIsLive(w: Working, binding: NostrEvent, kind5s: readonly NostrEv
 
 function activateBinding(w: Working, binding: NostrEvent): void {
   const endpoints = bindingEndpoints(binding)
+  // Stryker disable next-line ConditionalExpression: layering-unreachable — activateBinding is
+  // only reached from resyncBinding when bindingIsLive(cfg) held, and bindingIsLive already
+  // requires defined endpoints, so this guard can never fire here.
   if (endpoints === undefined) return
   w.liveBindings.set(binding.id, endpoints)
   credit(w, endpoints.rootId, bindingReason(binding.id))
@@ -522,6 +525,9 @@ export function applyDelta(state: AdmitState, delta: AdmissionDelta): AdmitState
   switch (delta.kind) {
     case 'observe':
       for (const e of delta.events) {
+        // Stryker disable next-line ConditionalExpression: skipping the re-observe is provably
+        // a no-op — Nostr ids are content hashes (D18), so re-observing an id writes byte-
+        // identical event data over itself, and the direct-trust credit below it is a Set add.
         if (w.observedById.has(e.id)) continue
         w.observedById.set(e.id, e)
         if (w.trusted.has(e.pubkey)) credit(w, e.id, 'direct-trust')
