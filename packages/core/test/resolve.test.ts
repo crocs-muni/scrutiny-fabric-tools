@@ -626,3 +626,99 @@ describe('S5 — Step-5 pins: walk termination, marker floors, deterministic ann
     expect(rlOverlay.message).toContain('ceiling and was not classified')
   })
 })
+
+describe('S5-11 — Step-5 pins: cascade fixpoint, absent-shape fields, partition floors', () => {
+  it('cascades a patch deletion through every canonical descendant, however deep (DEL-2/CHN-2)', () => {
+    const r = root(A)
+    const p1 = diffPatch('p1', r.id, r.id, A, AB)
+    const p2 = diffPatch('p2', r.id, p1.id, AB, ABC)
+    const p3 = diffPatch('p3', r.id, p2.id, ABC, 'a\nb\nc\nd\n')
+    const del = deletion('del-p1', [p1.id], PK_ROOT)
+    const res = resolve(r.id, [r, p1, p2, p3, del])
+    // Two levels below the deletion must also be gone — a first-order cascade leaves the
+    // grandchild hanging and the chain wrongly extensible past the deletion.
+    expect(res.chain).toEqual({
+      status: 'resolved',
+      content: A,
+      tipId: r.id,
+      applied: [],
+    })
+    // And the same holds when the edges arrive in the worst possible order for a one-pass scan:
+    // the fixed point, not the array order, decides membership.
+    const res2 = resolve(r.id, [del, p3, p2, r, p1])
+    expect(res2.chain).toEqual(res.chain)
+  })
+
+  it('a binding root yields a fully absent resolution, overlay/pending/annotations empty (BD-9 fields)', () => {
+    const b = binding('some-root', 'some-link')
+    const res = resolve(b.id, [b])
+    expect(res).toEqual({
+      chain: { status: 'absent', reason: 'root-not-patchable' },
+      overlays: [],
+      pending: [],
+      annotations: [],
+    })
+  })
+
+  it('an unobserved root reports every held patch, sorted, with nothing else attached (UR-2 fields)', () => {
+    const ghost = idOf('ghost-root')
+    const p1 = diffPatch('p1', ghost, ghost, A, AB)
+    const p2 = diffPatch('p2', ghost, ghost, A, ABC)
+    const res = resolve(ghost, [p2, p1])
+    expect(res).toEqual({
+      chain: { status: 'absent', reason: 'root-unobserved' },
+      overlays: [],
+      pending: [p1.id, p2.id].sort((x, y) => (x < y ? -1 : x > y ? 1 : 0)),
+      annotations: [],
+    })
+  })
+
+  it('a Product wearing patch markers is not partitioned as a patch (kind discriminates, PT-5 floor)', () => {
+    const r = root(A)
+    const p1 = diffPatch('p1', r.id, r.id, A, AB)
+    // §5.2 tolerance means tag-soup can exist; here the tags scream "patch" but the t-tag says
+    // product, so it must never enter the patch bucket (and never the chain).
+    const impostor = diffPatch('impostor', r.id, p1.id, AB, ABC, {
+      tags: [
+        ...baseTags('product'),
+        ['e', r.id, '', 'root', PK_ROOT],
+        ['e', p1.id, '', 'reply', PK_ROOT],
+      ],
+    })
+    const res = resolve(r.id, [r, p1, impostor])
+    expect(res.chain).toEqual({
+      status: 'resolved',
+      content: AB,
+      tipId: p1.id,
+      applied: [p1.id],
+    })
+    expect(res.chain).not.toHaveProperty('forkParentId')
+  })
+
+  it('a patch belonging to a different root is neither chained nor held here (partition pollution)', () => {
+    const r = root(A)
+    const other = root('x\n', 'other-root')
+    const alien = diffPatch('alien', other.id, other.id, 'x\n', 'x\ny\n')
+    const res = resolve(r.id, [r, alien])
+    expect(res.chain).toEqual({ status: 'resolved', content: A, tipId: r.id, applied: [] })
+    expect(res.pending).toEqual([])
+  })
+
+  it('a root-author patch replying to a FOREIGN patch never enters the chain, even well-parented (PT-6)', () => {
+    const r = root(A)
+    const p1 = diffPatch('p1', r.id, r.id, A, AB)
+    const fA = diffPatch('fA', r.id, p1.id, AB, ABC, { pubkey: PK_FOREIGN })
+    const adopted = diffPatch('adopted', r.id, fA.id, ABC, 'a\nb\nc\nd\n')
+    const res = resolve(r.id, [r, p1, fA, adopted])
+    // The PT-6 patch carries a real, uniquely-matchable diff — if it were chained, content
+    // would advance past ABC. It is ignored as a link, and it is not held: its parent IS
+    // observed, the hold is for unobserved lineage only.
+    expect(res.chain).toEqual({
+      status: 'resolved',
+      content: AB,
+      tipId: p1.id,
+      applied: [p1.id],
+    })
+    expect(res.pending).toEqual([])
+  })
+})
