@@ -30,6 +30,7 @@ import {
 } from './admit.js'
 import { type Issue, issue } from './errors.js'
 import {
+  DELETION_KIND,
   EVENT_TYPE_TAGS,
   type NostrEvent,
   eTags,
@@ -209,7 +210,7 @@ function chainEpochTargets(
   } else if (type === 'patch') {
     const root = rootTarget(event)
     if (root !== undefined) targets.push(root)
-  } else if (event.kind === 5) {
+  } else if (event.kind === DELETION_KIND) {
     for (const ref of eTags(event)) {
       const owningRoot = lookupOwningRoot(ref.id)
       if (owningRoot !== undefined) targets.push(owningRoot)
@@ -608,11 +609,11 @@ export interface Store {
 function honouredlyDeletedIds(byId: ReadonlyMap<string, NostrEvent>): Set<string> {
   const deleted = new Set<string>()
   for (const event of byId.values()) {
-    if (event.kind !== 5) continue
+    if (event.kind !== DELETION_KIND) continue
     for (const ref of eTags(event)) {
       const target = byId.get(ref.id)
       if (target === undefined) continue // DEL-8 — not yet available, nothing to hide yet
-      if (target.kind === 5) continue // DEL-6
+      if (target.kind === DELETION_KIND) continue // DEL-6
       if (target.pubkey !== event.pubkey) continue // DEL-1
       deleted.add(ref.id)
     }

@@ -52,6 +52,9 @@ export const FABRIC_TAG = 'scrutiny-fabric'
 /** Every SCRUTINY event uses this Nostr kind (§3) — short text notes, disambiguated by `t` tags. */
 export const SCRUTINY_KIND = 1
 
+/** NIP-09 kind 5 deletions (§10). The single named source, exactly as {@link SCRUTINY_KIND} is for kind 1. */
+export const DELETION_KIND = 5
+
 /**
  * Version tag grammar (TAG-2, amended in spec v0.7.0 — SPEC-FEEDBACK F14).
  *

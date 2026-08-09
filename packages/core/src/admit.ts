@@ -17,6 +17,7 @@
  */
 
 import {
+  DELETION_KIND,
   type NostrEvent,
   dedupeById,
   eTags,
@@ -177,7 +178,7 @@ export function computeAdmission(
 ): AdmissionIndex {
   const all = [...dedupeById(events).values()]
 
-  const kind5s = all.filter((e) => e.kind === 5)
+  const kind5s = all.filter((e) => e.kind === DELETION_KIND)
   const bindingEvents = all.filter((e) => scrutinyEventType(e) === 'binding')
   const patches = all.filter((e) => scrutinyEventType(e) === 'patch')
   const roots = all.filter(isRoot)
@@ -446,7 +447,7 @@ function resyncRootChain(
 function resync(w: Working): void {
   const all = [...w.observedById.values()]
   const patches = all.filter((e) => scrutinyEventType(e) === 'patch')
-  const kind5s = all.filter((e) => e.kind === 5)
+  const kind5s = all.filter((e) => e.kind === DELETION_KIND)
   for (const e of all) if (scrutinyEventType(e) === 'binding') resyncBinding(w, e, kind5s)
   for (const e of all) if (isRoot(e)) resyncRootChain(w, e, patches, kind5s)
 }
@@ -478,7 +479,7 @@ export function applyDelta(state: AdmitState, delta: AdmissionDelta): AdmitState
       // removed by an earlier id in this same delta is a harmless no-op (nothing left to delete),
       // so a slightly stale snapshot costs nothing and saves re-filtering `observedById` per id.
       const patches = [...w.observedById.values()].filter((x) => scrutinyEventType(x) === 'patch')
-      const kind5s = [...w.observedById.values()].filter((x) => x.kind === 5)
+      const kind5s = [...w.observedById.values()].filter((x) => x.kind === DELETION_KIND)
       for (const id of delta.eventIds) {
         const e = w.observedById.get(id)
         if (e === undefined) continue

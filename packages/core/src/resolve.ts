@@ -11,6 +11,7 @@
 
 import { type Issue, issue } from './errors.js'
 import {
+  DELETION_KIND,
   type NostrEvent,
   dedupeById,
   eTags,
@@ -186,7 +187,7 @@ function honouredDeletions(
     for (const ref of eTags(deletion)) {
       const target = byId.get(ref.id)
       if (target === undefined) continue // DEL-8
-      if (target.kind === 5) continue // DEL-6
+      if (target.kind === DELETION_KIND) continue // DEL-6
       if (target.pubkey !== deletion.pubkey) continue // DEL-1
       deleted.add(ref.id)
     }
@@ -238,7 +239,7 @@ export function resolve(
   const patches: NostrEvent[] = []
   const deletions: NostrEvent[] = []
   for (const event of byId.values()) {
-    if (event.kind === 5) deletions.push(event)
+    if (event.kind === DELETION_KIND) deletions.push(event)
     else if (scrutinyEventType(event) === 'patch' && rootTarget(event) === rootId) {
       patches.push(event)
     }

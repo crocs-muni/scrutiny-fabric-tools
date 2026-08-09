@@ -8,12 +8,16 @@
  * AG3 partition).
  */
 
-import { EVENT_TYPE_TAGS, FABRIC_TAG, SCRUTINY_KIND, eTags, scrutinyEventType } from './events.js'
+import {
+  DELETION_KIND,
+  EVENT_TYPE_TAGS,
+  FABRIC_TAG,
+  SCRUTINY_KIND,
+  eTags,
+  scrutinyEventType,
+} from './events.js'
 import type { IndexedEventType, NostrEvent, ScrutinyEventType } from './events.js'
 import type { EventFilter } from './interfaces.js'
-
-/** NIP-09 kind 5 deletions (§10). */
-const DELETION_KIND = 5
 
 // ---------------------------------------------------------------------------
 // §8.1 — discovery

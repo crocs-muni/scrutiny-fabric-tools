@@ -16,6 +16,7 @@
 export { SPEC_VERSION, VERSION_TAG } from './version.js'
 
 export {
+  DELETION_KIND,
   EVENT_TYPE_TAGS,
   FABRIC_TAG,
   INDEXER_PREFIX_PATTERN,
