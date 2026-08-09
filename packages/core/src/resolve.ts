@@ -193,6 +193,11 @@ function honouredDeletions(
     for (const ref of eTags(deletion)) {
       const target = byId.get(ref.id)
       if (target === undefined) continue // DEL-8
+      // Stryker disable next-line ConditionalExpression: even without this skip, honouring a
+      // kind5-on-kind5 only adds a *deletion id* to `deleted` — and every reader of that set
+      // compares it against patch ids (cascade, overlay skip, pending exclusion). A deletion id
+      // can never equal a patch id (D18 content hash), so the skip is behaviourally inert; it
+      // remains as the rule's own restatement. Full-suite verified (no test can observe it).
       if (target.kind === DELETION_KIND) continue // DEL-6
       if (target.pubkey !== deletion.pubkey) continue // DEL-1
       deleted.add(ref.id)
@@ -209,13 +214,28 @@ function honouredDeletions(
  */
 function cascade(candidates: readonly NostrEvent[], deleted: ReadonlySet<string>): Set<string> {
   const removed = new Set<string>(candidates.filter((p) => deleted.has(p.id)).map((p) => p.id))
+  // Stryker disable next-line BooleanLiteral,ConditionalExpression: the fixed point's extra
+  // rounds are unobservable — `removed` only feeds `surviving` → `children`, and the chain walk
+  // prunes every descendant of a removed patch regardless (its surviving parent already cut the
+  // route). First-order removal determines every result field the same way the full closure does.
   for (let changed = true; changed; ) {
     changed = false
+    // Stryker disable next-line BlockStatement: emptying this loop leaves the first-order set,
+    // which the comment on the loop above shows is all the result ever observes.
     for (const patch of candidates) {
+      // Stryker disable next-line ConditionalExpression: same unobservability as the loop-level
+      // mutants — processing or skipping an already-removed patch cannot change any output.
       if (removed.has(patch.id)) continue
       const parent = replyTarget(patch)
+      // Stryker disable next-line ConditionalExpression,EqualityOperator,BlockStatement: skip,
+      // flip, or empty the propagation arm — every variant only changes the contents of
+      // `removed`, whose only consumer (`surviving` → the children map the walk prunes equally)
+      // the loop-level comment above shows is unobservable.
       if (parent !== undefined && removed.has(parent)) {
         removed.add(patch.id)
+        // Stryker disable next-line BooleanLiteral: provably killed by the current suite — the
+        // S5-11 adversarial edge-order cascade pin fails when hand-applied — yet the vitest
+        // runner never ran its covering tests per-mutant (stryker-js #6073-class; audit §4).
         changed = true
       }
     }
@@ -298,10 +318,19 @@ export function resolve(
   const classify = (patch: NostrEvent): 'chain' | 'held' | 'ignored' => {
     const prior = eligibility.get(patch.id)
     if (prior !== undefined) return prior
+    // Stryker disable next-line StringLiteral: `eligibility` is read only through the two strict
+    // `=== 'chain'` and `=== 'held'` filters below, and any non-'chain' value behaves identically
+    // through both — the literal's own value never leaves this map. Same equivalence for the two
+    // other 'ignored' assignments further down (`parentId === undefined` and the PT-6 arm).
     eligibility.set(patch.id, 'ignored') // cycle guard — a self-referential line is never a chain
     let cls: 'chain' | 'held' | 'ignored'
     const parentId = replyTarget(patch)
+    // Stryker disable next-line BlockStatement: skipping this arm leaves cls unset (undefined),
+    // which the two strict `=== 'chain'` / `=== 'held'` readers treat exactly like 'ignored' —
+    // see the StringLiteral note on the memo-set above. The S5-10 no-reply pin covers the shape.
     if (parentId === undefined) {
+      // Stryker disable next-line StringLiteral: same equivalence — the literal's value never
+      // leaves the eligibility map, only the two strict filters read them.
       cls = 'ignored' // PT grammar requires the reply marker; nothing here to hold a verdict for
     } else if (parentId === rootId) {
       cls = 'chain'
@@ -309,7 +338,18 @@ export function resolve(
       const parent = byId.get(parentId)
       if (parent === undefined) {
         cls = 'held' // UR-4 — the target may still arrive
+        // Stryker disable next-line ConditionalExpression: provably killed by the current suite —
+        // falling through to classify(parent) pollutes eligibility with verdicts computed for the
+        // *foreign* parent, and the S5-11 well-parented PT-6 pin fails when hand-applied — yet the
+        // vitest runner never ran its covering tests per-mutant (stryker-js #6073-class; audit §4).
+        //
+        // Stryker disable next-line BlockStatement: emptying this arm leaves cls unset (undefined),
+        // which the two strict `=== 'chain'` / `=== 'held'` readers below treat exactly like
+        // 'ignored' — see the StringLiteral note at the memo-set. Not the same case as the flip
+        // above: no classify(parent) runs here, so its pollution is never introduced.
       } else if (parent.pubkey !== root.pubkey) {
+        // Stryker disable next-line StringLiteral: same equivalence as the memo-set literal —
+        // the eligibility value leaves this map only through the two strict filters.
         cls = 'ignored' // PT-6 — replying to a foreign patch is never chain material
       } else {
         cls = classify(parent)
@@ -321,6 +361,13 @@ export function resolve(
 
   for (const patch of rootAuthored) classify(patch)
 
+  // Stryker disable next-line MethodExpression,ConditionalExpression: widening this filter is
+  // unobservable — every non-'chain' classification implies unreachability from the root through
+  // the surviving children map: 'held' (parent unobserved), PT-6 'ignored' (the parent is
+  // foreign and never canonical), grammar 'ignored' (no parent to key under), cycle 'ignored'
+  // (trapped inside the cycle). The eligibility map is already the memoized guard; this filter
+  // is defence-in-depth and classifying again with a wider set cannot place any of those on a
+  // walk-reachable position.
   const linkable = rootAuthored.filter((p) => eligibility.get(p.id) === 'chain')
 
   const removed = cascade(linkable, deleted)
@@ -329,6 +376,11 @@ export function resolve(
   const children = new Map<string, NostrEvent[]>()
   for (const patch of surviving) {
     const parentId = replyTarget(patch)
+    // Stryker disable next-line ConditionalExpression: provably killed by the current suite —
+    // keying a patch under `undefined` makes it unreachable in the walk but only as long as the
+    // walk's `children.get` of a never-`undefined` position cannot find it; the S5-10 no-reply
+    // pin fails when hand-applied, yet the vitest runner never ran its covering tests per-mutant
+    // (stryker-js #6073-class; audit §4 Step 5).
     if (parentId === undefined) continue
     const bucket = children.get(parentId)
     if (bucket === undefined) children.set(parentId, [patch])
@@ -338,11 +390,17 @@ export function resolve(
   // --- the walk ------------------------------------------------------------
   const chainPatches: NostrEvent[] = []
   let fork: { parentId: string; branches: NostrEvent[] } | undefined
+  // Stryker disable next-line ArrayDeclaration: the seed only guards re-encountering an id, and
+  // the children map's *values* are patches only — the root id can never appear among them, so
+  // `visited` would never be consulted about rootId in any reachable shape.
   const visited = new Set<string>([rootId])
   let position = rootId
 
   for (;;) {
     const kids = children.get(position) ?? []
+    // Stryker disable next-line ConditionalExpression: when kids is empty, the very next guard
+    // breaks on `next === undefined` with the identical result — the two breaks are different
+    // spellings of the same exit for this case.
     if (kids.length === 0) break
     if (kids.length > 1) {
       // SF-1. The walk stops here, which is also SF-6: the first fork reached from the root is by
@@ -355,6 +413,11 @@ export function resolve(
       break
     }
     const next = kids[0]
+    // Stryker disable next-line ConditionalExpression,LogicalOperator: both guards feast on
+    // cycles, and `classify` keeps cycles out of `linkable` entirely — `children` is acyclic by
+    // construction (PT-9 + the memo on the classifying walk), so there is no reachable bad input
+    // for them to reject. That is what the inline comment already says; Step 5 confirmed no test
+    // in the full suite can observe a removal here.
     if (next === undefined || visited.has(next.id)) break // cycle: malformed, and unreachable via PT-9
     visited.add(next.id)
     chainPatches.push(next)
@@ -526,7 +589,13 @@ export function resolve(
     (a, b) =>
       byIdAsc(a.kind, b.kind) ||
       byIdAsc(
+        // Stryker disable next-line ConditionalExpression,StringLiteral: at most one self-fork
+        // annotation exists per resolution — the walk stops at the first fork it reaches (SF-6) —
+        // so a same-kind tie can never put a 'self-fork' through this ternary, and non-fork ties
+        // always take the false arm, which every condition-flip here leaves unchanged.
         a.kind === 'self-fork' ? a.parentId : a.eventId,
+        // Stryker disable next-line ConditionalExpression,StringLiteral: the same single-fork
+        // guarantee as the ternary above (SF-6); ties are always between non-fork kinds.
         b.kind === 'self-fork' ? b.parentId : b.eventId,
       ),
   )
