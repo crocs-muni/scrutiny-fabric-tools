@@ -200,7 +200,51 @@ describe('RL-3 — a resource limit is never a HALT', () => {
   it('reports the work ceiling as a limit, and charges it before scanning', () => {
     const result = applyPatchPayload(content, manyHunks, { maxWork: 1 })
     expect(result.status).toBe('limit')
-    if (result.status === 'limit') expect(result.limit).toBe('work')
+    if (result.status === 'limit') {
+      expect(result.limit).toBe('work')
+      // Charged before scanning: the first hunk's bound is what is reported (Step-5 pin — the
+      // existing assertions passed even when the charge tripped three hunks later, Stryker S5-4).
+      expect(result.observed).toBe(33)
+      expect(result.ceiling).toBe(1)
+    }
+  })
+
+  // Each hunk's charge is the F12 upper bound |L| × Σ(len + 1): 11 lines × 3 = 33 here.
+  it('permits counts and work exactly at the ceilings (Step-5 boundary pins)', () => {
+    // The ceilings are inclusive allowances: the operators are '>', not '>='.
+    expect(applyPatchPayload(content, manyHunks, { maxHunks: 10 }).status).toBe('applied')
+    expect(applyPatchPayload(content, manyHunks, { maxWork: 330 }).status).toBe('applied')
+    // One below the total work: the tenth hunk pushes 297 + 33 = 330 over, and that is reported.
+    const just = applyPatchPayload(content, manyHunks, { maxWork: 329 })
+    expect(just).toMatchObject({ status: 'limit', limit: 'work', observed: 330, ceiling: 329 })
+  })
+
+  it('refuses a single hunk that breaches the ceiling before any work is banked', () => {
+    // `work + cost`, charged before scanning: 2 × (1 + 1) = 4 against a budget of 3. Subtracting
+    // instead of adding proceeds past this point and applies the hunk — by hunk 3 the running
+    // total trips to the *same observable verdict* on the 10-hunk fixture above, which is why
+    // this needs the single-hunk case (Stryker surviver #75, S5-4).
+    const result = applyPatchPayload('A\n', body('@@ -1,1 +1,1 @@', '-A', '+B'), { maxWork: 3 })
+    expect(result).toMatchObject({ status: 'limit', limit: 'work', observed: 4, ceiling: 3 })
+  })
+
+  it('charges exactly the F12 bound, accumulated across hunks', () => {
+    const result = applyPatchPayload(content, manyHunks)
+    if (result.status !== 'applied') expect.fail(`expected applied, got ${result.status}`)
+    expect(result.work).toBe(330)
+  })
+
+  it('surfaces the §5.4 wording — an abandoned application, never a HALT — on both limit kinds', () => {
+    for (const r of [
+      applyPatchPayload(content, manyHunks, { maxHunks: 4 }),
+      applyPatchPayload(content, manyHunks, { maxWork: 32 }),
+    ]) {
+      if (r.status !== 'limit') expect.fail(`expected limit, got ${r.status}`)
+      expect(r.issues).toHaveLength(1)
+      expect(r.issues[0]?.message).toContain('application was abandoned')
+      expect(r.issues[0]?.message).toContain('remains valid')
+      expect(r.issues[0]?.message).toContain('not a HALT')
+    }
   })
 
   it('carries no content, so there is nothing to cache as canonical (RL-4)', () => {
