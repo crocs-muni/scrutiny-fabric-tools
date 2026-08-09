@@ -123,7 +123,7 @@ from the workflow journal — see the JSON).
 | S3-10 | `interfaces.ts` | [simplification] `TrustProvider` docstring stale about Phase 5 and where `version`/`deltaSince` are called | simplification | verified 3/3 | **applied** — now points at Phase 16 / TRUST-VIEW.md |
 | S3-11 | `events.ts` | [correctness] `compareVersionTags` loses precision on version fields wider than 2^53, silently reintroducing a digit-count ceiling | correctness | verified 3/3 (orig run) | human decision |
 | S3-12 | `validate.ts` | [duplication] checkBinding's BD-3/4/5 endpoint typing vs checkPatch's PT-10/11 typing: **coincidental similarity, not worth extracting** — this answers the module's specific review question | duplication | verified 3/3 (orig run) | human decision (endorsed verdict: leave separate) |
-| S3-13 | `query.ts` | [test-coverage] `classifyByRole`'s Patch (root/reply) path never exercised by a test, despite the module's gate documentation promising it | test-coverage | verified 3/3 (orig run) | human decision — natural Step 4 input |
+| S3-13 | `query.ts` | [test-coverage] `classifyByRole`'s Patch (root/reply) path never exercised by a test, despite the module's gate documentation promising it | test-coverage | verified 3/3 (orig run) | **closed** — pinned by two segments in `test/query.test.ts` (`14121ba`) |
 | S3-14 | `errors.ts` | [spec-citation] module doc understates TR-1: says D-layer only, but spec and the actual invariant test cover A-layer too | spec-citation | verified 3/3 (orig run) | human decision |
 | S3-15 | `errors.ts` | [architecture] `issue()` accepts reserved RuleIds (e.g. OV-1) with no builder- or type-level guard | architecture | verified 3/3 (orig run) | human decision |
 | S3-16 | `query.ts` | [duplication] kind-5 (NIP-09 deletion) is a repeated hand-typed magic number across four modules, unlike `SCRUTINY_KIND`'s single-source treatment for kind 1 | duplication | verified 3/3 | human decision |
@@ -139,8 +139,8 @@ from the workflow journal — see the JSON).
 | S3-26 | `admit.ts` | [correctness] **record-key prototype hazard: an event id of `"__proto__"` silently corrupts `AdmissionIndex`/`AdmitState` and diverges the incremental path from the oracle** | correctness | verified 3/3 | human decision |
 | S3-27 | `admit.ts` | [public-surface] barrel omission is real, but un-exporting is the wrong fix — `BindingEndpoints` is already on the public surface via `AdmitState.liveBindings` | public-surface | verified 3/3 | human decision — the coherent resolution for 1a/S3-23/S3-25: add to barrel |
 | S3-28 | `admit.ts` | [correctness] **`EMPTY_ADMIT_STATE` is only shallow-frozen — nested records/arrays are mutable, diverging from `store.ts`'s deep-freeze convention** | correctness | verified 3/3 | human decision |
-| S3-29 | `admit.ts` | [test-coverage] untrust-narrowing hazard (`invertDelta` must reject standalone untrust) enforced only by the ForwardDelta type + doc comments; no named, greppable regression case | test-coverage | verified 2/3 | human decision — natural Step 4 input |
-| S3-30 | `resolve.ts` | [test-coverage] root-retraction path through `resolve()` unpinned — chain preservation rests on an undocumented-in-tests removed-vs-deleted seeding distinction | test-coverage | verified 3/3 | human decision — natural Step 4 input |
+| S3-29 | `admit.ts` | [test-coverage] untrust-narrowing hazard (`invertDelta` must reject standalone untrust) enforced only by the ForwardDelta type + doc comments; no named, greppable regression case | test-coverage | verified 2/3 | **closed** — two named pins (round-trip exactness + order-load-bearing asymmetry) in `test/admit.test.ts` (`52e643f`) |
+| S3-30 | `resolve.ts` | [test-coverage] root-retraction path through `resolve()` unpinned — chain preservation rests on an undocumented-in-tests removed-vs-deleted seeding distinction | test-coverage | verified 3/3 | **closed** — two named pins (root-retraction preserves the chain; patch deletion still cascades — the distinction in both directions) in `test/resolve.test.ts` (`151d77d`) |
 | S3-31 | `events.ts` | [duplication] event-type tag strings independently re-derived in `validate.ts`/`store.ts` | — | refuted 0/3 survived (orig run) | no action |
 | S3-32 | `events.ts` | [simplification] `eTags` repeats the same conditional-spread pattern twice inline | — | refuted 0/3 survived (orig run) | no action |
 | S3-33 | `patch.ts` | [public-surface] "1b re-verified: `HaltRule` gap already fixed" — the framing overstated the remaining gap | — | refuted 0/3 survived (R R R) | no action (substance recorded at S3-20) |
@@ -228,7 +228,7 @@ Housekeeping left by the interrupted session, stashed (not deleted) to unblock `
 ## 4. Steps 4–9 status
 
 - [x] Step 3 — multi-agent module review (both lenses, thermo-nuclear on store/patch/resolve/admit, adversarial verification). **Complete with an interruption caveat**: 45/89 agents completed in the original run; the remaining 44 were re-run from on-disk state (see §3 process note). 6 apply-directly findings applied + committed (`14f4795`); **all 20 flag-for-human findings resolved in the 2026-08-09 decision batch D1–D11, one commit per decision — `d8ce649..068606e` + api-report `341cd39` (see §3 triage outcome; spec track in `452f687`)**
-- [ ] Step 4 — regression-test backfill (`test/resolve-regressions.ts`, `test/admit-regressions.ts`, `test/store-regressions.ts`)
+- [x] Step 4 — regression backfill, **closed with a documented shape deviation** (`14121ba`, `52e643f`, `151d77d`; S3-21 had been consumed earlier by UR-4). Remaining named inputs arrived as **named describe blocks with full provenance inside the existing per-module suites** rather than new `*-regressions.ts` table+runner files: only 1–2 cases remained per module, and a table+runner for that size is over-machinery. If Step 5/corpus growth pushes any module past a handful of cases, pull them into the frozen table format (`patch-regressions.ts` template, `vectorCandidate` tagging) at that point
 - [ ] Step 5 — Stryker mutation testing (patch.ts, admit.ts, resolve.ts scoped)
 - [ ] Step 6 — browser memory investigation (closes `AUDIT-2026-07-31.md` hazard #4)
 - [ ] Step 7 — doc debt (IMPLEMENTATION-PLAN status table refresh beyond the ownership table; DECISIONS §5's 5 open questions; retire spent planning docs)
@@ -253,10 +253,17 @@ pins (`24d0489`), the rule registry and ownership table are regenerated at 142 r
 owned by resolve (`964e4dd`), and `SPEC_VERSION` is 0.8.0 (`afbb81f`). The vendored-copy
 consequence for this repo's pinned digests is recorded in the spec repo's docs/DECISIONS.md (S8).
 
-**Next: Step 4 regression backfill** (`test/admit-regressions.ts`, `test/store-regressions.ts` —
-resolve's named inputs are now closed: S3-21 resolved by UR-4 enforcement at `24d0489`, F17's case
-vendored). Its remaining named inputs are S3-13 (classifyByRole Patch path), S3-29
-(untrust-narrowing), S3-30 (root-retraction). Then Steps 5–9 in order.
+**Steps 0–4 are complete.** Step 4 closed with six named pins in the existing suites (`14121ba`,
+`52e643f`, `151d77d`; shape deviation documented at §4 — table+runner files deferred until a
+module's case count earns one; S3-21 had been consumed earlier by UR-4's enforcement). Suite is
+**553/553 green**, knip silent, **branch pushed to `origin`** (private today and being made public
+soon — a clean secrets/machine-paths sweep was run before the first push). Housekeeping is
+cleaner too: the previous session's scratch stash was inspected and dropped (all value already
+lifted into pins), and `chore/architecture-audit-2026-08-08-wrongbase` is deleted (was a
+duplicate label of `feature/phase-20-public-surface`'s tip, `12dc9f8`, zero unique commits).
+
+**Next: Step 5 — Stryker mutation testing** (scoped to patch.ts, admit.ts, resolve.ts). Then
+Steps 6–9: browser memory investigation, doc debt, close-out, PR reconciliation report.
 
 If resuming in a different tool: `git fetch && git checkout chore/architecture-audit-2026-08-08`,
 read §0–§3 incl. the triage outcome, then Step 4. Housekeeping unchanged: one `git stash` entry
