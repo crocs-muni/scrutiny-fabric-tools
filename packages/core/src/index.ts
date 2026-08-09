@@ -77,7 +77,17 @@ export { hasError, issue, ruleOf, type Issue, type Severity } from './errors.js'
  * The applier's type vocabulary — ceilings (`ApplyOptions`) and halt classification. Moved here
  * per mandate §2 so a consumer can name these without reaching the unexported applier (D32).
  */
-export type { ApplyOptions, HaltReason, HaltRule, LimitKind } from './patch-types.js'
+export type {
+  ApplyOptions,
+  ApplyResult,
+  HaltReason,
+  HaltRule,
+  LimitKind,
+  PatchApplied,
+  PatchHalt,
+  PatchLimit,
+  PatchNoop,
+} from './patch-types.js'
 
 /**
  * Trust admission — reason sets, refcounting, and the `TrustedView`/`OpenView` distinction (D22).

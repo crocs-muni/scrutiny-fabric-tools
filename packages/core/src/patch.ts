@@ -31,79 +31,37 @@ import {
   spliceAt,
   toLines,
 } from './patch-matcher.js'
-import type { ApplyOptions, HaltReason, HaltRule, LimitKind } from './patch-types.js'
+import type {
+  ApplyOptions,
+  ApplyResult,
+  HaltReason,
+  HaltRule,
+  LimitKind,
+  PatchApplied,
+  PatchHalt,
+  PatchLimit,
+  PatchNoop,
+} from './patch-types.js'
 import { findPatchPayload } from './validate.js'
 
 // ---------------------------------------------------------------------------
-// Result (HaltReason/LimitKind/HaltRule/ApplyOptions live in `./patch-types.js` since
-// Phase 20 — re-exported here so existing import paths keep working; the barrel
-// (`index.ts`) pulls them from the type module directly per mandate §2)
+// Result vocabulary (HaltReason/LimitKind/HaltRule/ApplyOptions, and since the 2026-08-08 audit
+// the ApplyResult union and its four variants, live in `./patch-types.js` — re-exported here so
+// existing import paths keep working; the barrel (`index.ts`) pulls them from the type module
+// directly per mandate §2)
 // ---------------------------------------------------------------------------
 
-export type { ApplyOptions, HaltReason, HaltRule, LimitKind } from './patch-types.js'
-
-export interface PatchApplied {
-  readonly status: 'applied'
-  readonly content: string
-  readonly hunksApplied: number
-  /** Characters compared, as charged against `maxWork`. */
-  readonly work: number
-  /** Always empty. Present on every variant so a caller need not switch on `status` to read it. */
-  readonly issues: readonly Issue[]
-}
-
-export interface PatchNoop {
-  readonly status: 'noop'
-  /** Unchanged, per N3. */
-  readonly content: string
-  /** N1 (no fenced block) or N2 (header block, zero hunks). */
-  readonly shape: 'prose-only' | 'header-only'
-  /** Always empty; see {@link PatchApplied.issues}. */
-  readonly issues: readonly Issue[]
-}
-
-/**
- * H1 — the patch genuinely failed to apply.
- *
- * Carries no content: §5.3 defines the patched content as "the state after the last successfully
- * applied patch", which only the chain walker knows. H2's protocol-error annotation needs the event
- * id and author, which never reach this module; `resolve.ts` assembles it from these fields.
- */
-export interface PatchHalt {
-  readonly status: 'halt'
-  readonly reason: HaltReason
-  /** The specific rule cited alongside H1, derived from `reason` — never passed in. */
-  readonly rule: HaltRule
-  /** Index of the offending hunk in document order, or `null` if the payload never parsed. */
-  readonly hunkIndex: number | null
-  readonly detail: string
-  /** One issue citing {@link PatchHalt.rule}, one citing H1. Both `warning` — see below. */
-  readonly issues: readonly Issue[]
-}
-
-/**
- * RL-3 — a configured ceiling was hit before any verdict was reached.
- *
- * Deliberately **not** a halt. §5.4: "Exceeding a ceiling aborts application and MUST be surfaced
- * as a distinct resource-limit-exceeded annotation, never as HALT. The event remains V-valid."
- * Carries no content, which is how RL-4 ("content abandoned for resource reasons MUST NOT be
- * served or cached as canonical bytes") is enforced structurally: there is nothing to cache.
- */
-export interface PatchLimit {
-  readonly status: 'limit'
-  readonly limit: LimitKind
-  readonly observed: number
-  readonly ceiling: number
-  readonly issues: readonly Issue[]
-}
-
-/**
- * The outcome of applying one patch payload.
- *
- * Four variants of a union rather than a nullable content plus an error field, so that no call site
- * can read content from a failure and none can treat a resource limit as a HALT.
- */
-export type ApplyResult = PatchApplied | PatchNoop | PatchHalt | PatchLimit
+export type {
+  ApplyOptions,
+  ApplyResult,
+  HaltReason,
+  HaltRule,
+  LimitKind,
+  PatchApplied,
+  PatchHalt,
+  PatchLimit,
+  PatchNoop,
+} from './patch-types.js'
 
 /** Ceilings for {@link ApplyOptions} — see its doc comment in `./patch-types.js` for the RL-2 rationale. */
 const DEFAULT_MAX_HUNKS = 64
