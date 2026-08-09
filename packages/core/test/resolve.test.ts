@@ -591,6 +591,10 @@ describe('S5 — Step-5 pins: walk termination, marker floors, deterministic ann
     const fork = res.annotations.find((a) => a.kind === 'self-fork')
     if (fork?.kind !== 'self-fork') expect.fail('expected a self-fork annotation')
     expect(fork.issues.map((i) => i.code)).toEqual(['SF-3'])
+    // S5-12: severity is the validity claim's own field (never 'error' — the freeze is
+    // informational), and the issue message is what the SF-3 surface actually reports.
+    expect(fork.issues[0]?.severity).toBe('warning')
+    expect(fork.issues[0]?.message).toContain('frozen at the shared parent')
     expect(fork.message).toContain('root self-fork')
     expect(fork.message).toContain(`2 root-author patches reply to ${r.id}`)
     expect(fork.branches.map((b) => b.id)).toEqual(
