@@ -24,9 +24,6 @@ coverage/
 reports/
 packages/core/stryker-tmp/
 
-# Step-5 session scratch (mutant-reproduction dist copies and probes) — removed at Step 5 close-out
-packages/core/_scratch*
-
 # editor / OS
 .DS_Store
 Thumbs.db

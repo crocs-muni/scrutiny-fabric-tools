@@ -61,7 +61,8 @@ export default {
   // STRYKER_CONCURRENCY=2 on weaker machines.
   concurrency: Number(process.env.STRYKER_CONCURRENCY ?? 6),
   // Non-hidden name: the official troubleshooting note flags hidden temp
-  // dirs as a Windows failure mode. `stryker-tmp/` is gitignored.
+  // dirs as a Windows failure mode. `stryker-tmp/` is gitignored (declared
+  // in the repo root .gitignore).
   tempDirName: 'stryker-tmp',
   cleanTempDir: true,
   // Stale build output and regenerable reports must not enter the sandbox.
