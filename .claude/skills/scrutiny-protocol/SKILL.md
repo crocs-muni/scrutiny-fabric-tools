@@ -112,6 +112,27 @@ Runs lint, typecheck, rule-registry sync, build, ATTW, and tests — the same se
 before every commit. Individual steps: `pnpm lint`, `pnpm typecheck`, `pnpm rules:check`,
 `pnpm build`, `pnpm attw`, `pnpm test`, and `pnpm format` to apply Biome fixes.
 
+## Mutation testing (`packages/core`)
+
+`pnpm test:mutate` runs StrykerJS scoped to `patch.ts`, `admit.ts`, `resolve.ts` (config:
+`packages/core/stryker.config.mjs`; narrow with `--mutate src/patch.ts`). Deliberately **not** in
+`pnpm verify` — run it when a change alters the behaviour of those three modules, and clean up
+every survivor: kill it with a stronger test, or justify it. Accepted justifications, in order of
+preference: a `// Stryker disable next-line <Mutators>: <evidence>` comment for provably
+equivalent mutants, or a landed test the runner attests as a kill.
+
+Do **not** trust Stryker's verdicts at face value — all of these were measured in the 2026-08-09
+audit (evidence in `docs/QUALITY-AUDIT-2026-08-08.md` §3 Step-5; do not re-derive):
+
+- The vitest runner's per-mutant test selection can mark a genuinely suite-killed mutant as
+  Survived (stryker-js #6073-class, ~1 in 30 mutants here). Any disputed survivor gets an
+  offset-spliced hand-check against the **full** suite before it may be called equivalent.
+- Its disable-comment binding fails on some positions (stacked/merged comments, certain
+  `if/else`-chain arms): rerun and confirm the mutant reports as `Ignored` before counting it.
+- Incremental mode replays stale verdicts across test edits: it is `false` in the committed
+  config; acceptance scores come only from plain `pnpm test:mutate`.
+- `coverageAnalysis` is silently ignored by the vitest runner (always perTest).
+
 ## Working conventions
 
 - Branch `feature/…`, `fix/…`, `chore/…`. Conventional commits. **Never push to main; always a PR.**
