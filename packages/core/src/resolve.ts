@@ -338,15 +338,13 @@ export function resolve(
       const parent = byId.get(parentId)
       if (parent === undefined) {
         cls = 'held' // UR-4 — the target may still arrive
-        // Stryker disable next-line ConditionalExpression: provably killed by the current suite —
-        // falling through to classify(parent) pollutes eligibility with verdicts computed for the
-        // *foreign* parent, and the S5-11 well-parented PT-6 pin fails when hand-applied — yet the
-        // vitest runner never ran its covering tests per-mutant (stryker-js #6073-class; audit §4).
-        //
-        // Stryker disable next-line BlockStatement: emptying this arm leaves cls unset (undefined),
-        // which the two strict `=== 'chain'` / `=== 'held'` readers below treat exactly like
-        // 'ignored' — see the StringLiteral note at the memo-set. Not the same case as the flip
-        // above: no classify(parent) runs here, so its pollution is never introduced.
+        // Stryker disable next-line ConditionalExpression,BlockStatement: two different cases —
+        // the flip is provably killed by the full suite (the S5-11 well-parented PT-6 pin fails
+        // when the condition is hand-removed, and classify(parent) pollutes eligibility with a
+        // verdict computed for the *foreign* parent), and the emptying variant leaves cls unset
+        // (undefined), which the two strict `=== 'chain'` / `=== 'held'` readers below treat
+        // exactly like 'ignored'. The vitest runner never ran the covering tests per-mutant
+        // (stryker-js #6073-class); justified in docs/QUALITY-AUDIT-2026-08-08.md §4 Step 5.
       } else if (parent.pubkey !== root.pubkey) {
         // Stryker disable next-line StringLiteral: same equivalence as the memo-set literal —
         // the eligibility value leaves this map only through the two strict filters.
