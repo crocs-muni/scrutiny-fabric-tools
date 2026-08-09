@@ -125,7 +125,11 @@ const NO_ISSUES: readonly Issue[] = Object.freeze([])
 
 const haltIssues = (code: HaltRule, detail: string): readonly Issue[] =>
   code === 'H1'
-    ? [issue('H1', 'warning', detail)]
+    ? // Stryker disable next-line StringLiteral: provably killed by the real suite — applied by
+      // hand, issue('') throws a TypeError and 10 patch.test.ts cases fail — but the vitest
+      // runner's per-mutant selection never runs any covering test for this mutant
+      // (stryker-js #6073-class attribution gap; recorded in docs/QUALITY-AUDIT-2026-08-08 §4).
+      [issue('H1', 'warning', detail)]
     : [
         issue(code, 'warning', detail),
         issue('H1', 'warning', `patch application halted: ${detail}`),
@@ -189,6 +193,9 @@ export function applyPatchPayload(
   try {
     hunks = parseHunks(payload)
   } catch (error) {
+    // Stryker disable next-line ConditionalExpression: unreachable narrowing — the try body
+    // wraps everything jsdiff throws into MalformedPayload on the way out of parseHunks, so the
+    // catch can never hold anything else; mutating this check provably cannot change behaviour.
     if (!(error instanceof MalformedPayload)) throw error
     return halt('malformed-payload', null, error.message)
   }
@@ -322,7 +329,12 @@ export function makePatch(before: string, after: string, context = 3): string {
   const formatted = formatPatch(
     structuredPatch('a/content', 'b/content', before, after, '', '', { context }),
   )
+  // Stryker disable next-line ConditionalExpression,StringLiteral: inert under the D31
+  // invocation — jsdiff's formatPatch always prefixes the bare `===…===` separator line
+  // (pinned by the makePatch byte-shape tests), so this early-return arm never fires.
   if (!formatted.startsWith('=')) return formatted
   const firstBreak = formatted.indexOf('\n')
+  // Stryker disable next-line ConditionalExpression,UnaryOperator: `firstBreak` is the index of
+  // the '\n' ending that same separator line, so it is always ≥ 0 and the fallback is dead.
   return firstBreak === -1 ? formatted : formatted.slice(firstBreak + 1)
 }

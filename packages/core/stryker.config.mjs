@@ -35,8 +35,11 @@ export default {
   // summary + machine-readable JSON + browsable HTML is the useful trio.
   reporters: ['clear-text', 'json', 'html'],
   jsonReporter: { fileName: 'reports/mutation/mutation.json' },
-  incremental: true,
-  incrementalFile: 'reports/mutation/stryker-incremental.json',
+  // Incremental mode is deliberately OFF, measured not assumed: it replayed a pre-fix verdict
+  // for a mutant whose killer test had just been added (patch.ts ABANDONED, baseline vs S5-4),
+  // i.e. test edits did not reliably invalidate cached verdicts. A gate whose scores can lag
+  // the suite it measures is worse than a slow one; scoped runs here take ~1-5 minutes.
+  incremental: false,
   ignoreStatic: false,
   // Property gates measure up to ~8s/file; a 30s floor and 2x factor leave
   // room for real property work while still failing a spinning loop-mutant

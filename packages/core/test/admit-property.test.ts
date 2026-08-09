@@ -126,7 +126,8 @@ const toDelta = (a: Action): AdmissionDelta => {
 /** `forwardSequenceArb` draws observe/trust only (untrust is deliberately uninvertible, and
  * unobserve is only drawn by the S5-5 generator, which feeds `toDelta` instead). */
 const toForwardDelta = (a: Action): ForwardDelta => {
-  if (a.kind === 'observe') return { kind: 'observe', events: [FIXED_EVENTS[a.index] as NostrEvent] }
+  if (a.kind === 'observe')
+    return { kind: 'observe', events: [FIXED_EVENTS[a.index] as NostrEvent] }
   if (a.kind === 'trust') return { kind: 'trust', pubkeys: [a.pk] }
   throw new Error(`unreachable: forwardActionArb never draws ${a.kind}`)
 }
