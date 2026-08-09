@@ -79,9 +79,12 @@ export const isAdmitted = (index: AdmissionIndex, eventId: string): boolean =>
  * non-recursive. If §11's Metadata↔Metadata bindings ever land, this function's two-endpoint
  * assumption breaks and the refcount model below needs revisiting.
  *
- * A malformed Binding (zero or several `root`/`link` markers, or an endpoint typed wrong) is
- * already a BD-2/BD-10/BD-5 validity concern enforced by `validate.ts` before an event would ever
- * reach this module in a real pipeline; `admit` does not re-derive that rejection.
+ * A malformed Binding (zero or several `root`/`link` markers) is a BD-2/BD-10 validity concern —
+ * rejecting it is `validate.ts`'s job, and `admit` deliberately does not re-derive that rejection.
+ * But `admit` is reachable directly (D21's public entry, outside the wired `store.add()` pipeline),
+ * so the typing rule's consequence is guarded locally: a Binding whose *observed* endpoints fail
+ * BD-3/BD-4 credits nothing (`bindingEndpointsWellTyped`, added after the 2026-08-08
+ * audit's S3-22 finding).
  *
  * Exported (not just `BindingEndpoints`) because `store.ts` needs the identical extraction for its
  * own BD-7 typing check — unlike `resolve.ts`'s independence from `admit.ts` (D29's oracle-vs-
@@ -101,6 +104,25 @@ export function bindingEndpoints(binding: NostrEvent): BindingEndpoints | undefi
   const linkRef = links[0]
   if (rootRef === undefined || linkRef === undefined) return undefined
   return { rootId: rootRef.id, linkId: linkRef.id }
+}
+
+/**
+ * BD-3/BD-4's consequence at the admission seam: a Binding whose *observed* endpoints fail the
+ * typing rule credits nothing through this module. Endpoints not yet observed stay creditable —
+ * BD-5's typing applies "once observed", and a reason credited to an unobserved id admits nothing
+ * visible until the event arrives. V-invalidating the Binding itself is `validate.ts`'s job, not
+ * re-derived here; this guard exists because `admit` is reachable directly, outside the wired
+ * `store.add()` pipeline (2026-08-08 audit, S3-22).
+ */
+function bindingEndpointsWellTyped(
+  endpoints: BindingEndpoints,
+  byId: ReadonlyMap<string, NostrEvent>,
+): boolean {
+  const root = byId.get(endpoints.rootId)
+  if (root !== undefined && scrutinyEventType(root) !== 'product') return false
+  const link = byId.get(endpoints.linkId)
+  if (link !== undefined && scrutinyEventType(link) !== 'metadata') return false
+  return true
 }
 
 /** NIP-09's own pubkey check (DEL-1), restated locally so `admit` does not depend on `resolve.ts`. */
@@ -176,7 +198,9 @@ export function computeAdmission(
   events: readonly NostrEvent[],
   trust: TrustProvider,
 ): AdmissionIndex {
-  const all = [...dedupeById(events).values()]
+  const deduped = dedupeById(events)
+  const all = [...deduped.values()]
+  const byId = deduped
 
   const kind5s = all.filter((e) => e.kind === DELETION_KIND)
   const bindingEvents = all.filter((e) => scrutinyEventType(e) === 'binding')
@@ -199,6 +223,7 @@ export function computeAdmission(
   for (const bindingEvent of bindingEvents) {
     const endpoints = bindingEndpoints(bindingEvent)
     if (endpoints === undefined) continue
+    if (!bindingEndpointsWellTyped(endpoints, byId)) continue
     if (!(reasons.get(bindingEvent.id)?.has('direct-trust') ?? false)) continue
     if (isHonouredDeletion(bindingEvent.id, bindingEvent.pubkey, kind5s)) continue
     credit(endpoints.rootId, bindingReason(bindingEvent.id))
@@ -388,6 +413,8 @@ function isAdmittedIn(w: Working, id: string): boolean {
 
 function bindingIsLive(w: Working, binding: NostrEvent, kind5s: readonly NostrEvent[]): boolean {
   if (!w.reasons.get(binding.id)?.has('direct-trust')) return false
+  const endpoints = bindingEndpoints(binding)
+  if (endpoints === undefined || !bindingEndpointsWellTyped(endpoints, w.observedById)) return false
   return !isHonouredDeletion(binding.id, binding.pubkey, kind5s)
 }
 
