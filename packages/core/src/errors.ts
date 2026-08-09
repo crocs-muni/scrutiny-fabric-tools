@@ -47,6 +47,11 @@ export interface Issue {
  */
 export function issue(code: RuleId, severity: Severity, message: string): Issue {
   const rule = RULES[code]
+  if (rule.reserved) {
+    throw new TypeError(
+      `cannot build an Issue citing reserved rule ${code} — reserved ids carry no normative content (2026-08-08 audit, S3-15)`,
+    )
+  }
   return { code, layer: rule.layer, section: rule.section, severity, message }
 }
 
