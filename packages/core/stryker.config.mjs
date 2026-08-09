@@ -23,6 +23,16 @@
  * `changeset:check` it is NOT folded into the verify gate — committed config
  * + script, thresholds ratcheted to the audited baseline (see
  * docs/QUALITY-AUDIT-2026-08-08.md §2 and §4 Step 5).
+ *
+ * Accepted residuals (Stryker-disable comments can't bind to these positions — see
+ * docs/QUALITY-AUDIT-2026-08-08.md §4 Step 5 for the exact justifications):
+ *
+ * - resolve.ts `else if (parent.pubkey !== root.pubkey)` flip mutant: provably
+ *   killed by the full suite (S5-11 PT-6 pin), never run per-mutant (runner
+ *   attribution miss, stryker-js #6073-class).
+ * - resolve.ts same-position block-emptying mutant: equivalent — the arm's
+ *   assignment never lands in `eligibility` unset vs `'ignored'`, and the two
+ *   strict readers below treat them identically.
  */
 
 /** @type {import('@stryker-mutator/api/core').PartialStrykerOptions} */
@@ -57,8 +67,11 @@ export default {
   // Stale build output and regenerable reports must not enter the sandbox.
   ignorePatterns: ['dist', 'reports', 'coverage', 'stryker-tmp'],
   allowEmpty: false,
-  // Ratchet: `break` set from the first audited (post-fix) scores so the
-  // script fails on regression, not on an invented number. high/low are
-  // informational color bands only.
-  thresholds: { high: 85, low: 65, break: null },
+  // Ratcheted to the Step-5 audited end state (2026-08-09): patch 100%,
+  // admit ~99.3%, resolve ~99.3% (two accepted residuals, see config header
+  // and the audit file). `break` deliberately sits well below the current
+  // scores: it exists to catch catastrophic *regression*, and the vitest
+  // runner's per-mutant attribution churns by a couple of mutants run to
+  // run, so an over-tight floor would false-fail clean code.
+  thresholds: { low: 85, high: 95, break: 80 },
 }
