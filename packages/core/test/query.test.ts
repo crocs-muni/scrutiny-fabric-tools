@@ -120,3 +120,33 @@ describe('BQ-2 — classifyByRole', () => {
     expect(classifyByRole([unmarked], anchor.id, 'binding')).toEqual([])
   })
 })
+
+describe('S3-13 — classifyByRole resolves the Patch root/reply roles its own gate doc promises (2026-08-08 audit)', () => {
+  // The module's gate documentation describes the patch-shaped use of the same marker grammar —
+  // "a Patch's own `root`/`reply` markers are the same shape" — but every assertion above uses
+  // expectedType 'binding', leaving the 'patch' path unexecuted. This pins it.
+
+  it('reports "root" for patches anchored at the root they grow from, and "reply" when anchored at the parent patch', () => {
+    const anchor = product()
+    const parent = patch(anchor.id, anchor.id, 'irrelevant-parent')
+    const child = patch(anchor.id, parent.id, 'irrelevant-child')
+
+    // Anchored at the root event: both patches carry `e root = anchor.id` → role root.
+    expect(classifyByRole([parent, child], anchor.id, 'patch')).toEqual([
+      { event: parent, marker: 'root' },
+      { event: child, marker: 'root' },
+    ])
+
+    // Anchored at the parent patch: the child names it via `e reply` → role reply.
+    expect(classifyByRole([child], parent.id, 'patch')).toEqual([{ event: child, marker: 'reply' }])
+  })
+
+  it('keeps roles distinct when one anchor id is satisfied by both a Binding and a Patch', () => {
+    const anchor = product()
+    const b = binding(anchor.id, product().id)
+    const p = patch(anchor.id, anchor.id, 'payloadish')
+
+    expect(classifyByRole([b, p], anchor.id, 'binding')).toEqual([{ event: b, marker: 'root' }])
+    expect(classifyByRole([b, p], anchor.id, 'patch')).toEqual([{ event: p, marker: 'root' }])
+  })
+})
