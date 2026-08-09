@@ -242,9 +242,12 @@ Housekeeping left by the interrupted session, stashed (not deleted) to unblock `
 **Steps 0–3 are complete, and the Step-3 triage batch is done (2026-08-09).** 18 of 20 flagged
 findings applied, **one commit per decision** (`d8ce649..068606e` + api-report `341cd39`; S3-12
 endorsed as-is; S3-13/S3-21/S3-29/S3-30 deferred to Step 4 by design). Full `pnpm verify` green
-at HEAD — **534/534 tests**. Spec-feedback entries F15/F16/F17 are drafted at
-`docs/SPEC-FEEDBACK-v0.7.0.md` (`452f687`), batched for a future spec-repo session per D2 — do
-not amend the spec from this repo.
+at HEAD — **534/534 tests** (538/538 after the review batch). Spec-feedback entries F15/F16/F17
+are drafted at `docs/SPEC-FEEDBACK-v0.7.0.md` (`452f687`), and the **spec-repo session is
+prepared**: `docs/START-SESSION-SPEC-FEEDBACK-F15-F17.md` (`dacbaab`) carries the full context,
+recommended rulings (F16 → hold-pending as UR-4 in UR-2's shape; F17 → clamp-to-range as one T2
+sentence), the release-split recommendation, and the paste-ready session prompt. Do not amend
+the spec from this repo.
 
 **Next: Step 4 regression backfill** (`test/resolve-regressions.ts`, `test/admit-regressions.ts`,
 `test/store-regressions.ts`) — its named inputs are S3-13 (classifyByRole Patch path), S3-21
