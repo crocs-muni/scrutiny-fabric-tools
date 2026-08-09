@@ -49,8 +49,8 @@
     "section": "3",
     "layer": "V",
     "inheritsFrom": null,
-    "summary": "Version-tag ordering is a per-field numeric `(MAJOR, MINOR, PATCH)` tuple comparison, never lexicographic.",
-    "text": "Ordering between two version tags is a per-field numeric tuple comparison of `(MAJOR, MINOR, PATCH)`; never a lexicographic string comparison.",
+    "summary": "Version tags order per-field by digit string (leading zeros ignored; greater length, then lexicographic); never host-number conversion, never whole-tag lexicographic.",
+    "text": "Ordering between two version tags is a per-field numeric tuple comparison of `(MAJOR, MINOR, PATCH)`. Each field compares as a decimal digit string — leading zeros ignored, the longer string the greater, equal lengths lexicographically — never by conversion to a host number type, and never as a lexicographic comparison of the whole tag value.",
     "reserved": false
   },
   {
@@ -355,8 +355,8 @@
     "section": "4.4",
     "layer": "A",
     "inheritsFrom": null,
-    "summary": "Root-author patch `e reply` MUST point at root or root-author patch (otherwise ignored for chain).",
-    "text": "A root-author patch's `e reply` MUST point at the root event or another root-author patch. A root-author patch replying to a foreign patch is ignored for canonical-chain construction (§7.3).",
+    "summary": "Root-author patch `e reply` MUST point at root or root-author patch (otherwise ignored for chain); unevaluable while the target is unobserved — held per UR-4.",
+    "text": "A root-author patch's `e reply` MUST point at the root event or another root-author patch. A root-author patch replying to a foreign patch is ignored for canonical-chain construction (§7.3). While the target is unobserved this rule cannot be evaluated — the parent's authorship class is unknown — so the patch is neither admitted to nor excluded from the chain on its basis; it is retained and held per §7.6 (UR-4).",
     "reserved": false
   },
   {
@@ -715,8 +715,8 @@
     "section": "5.3",
     "layer": "A",
     "inheritsFrom": null,
-    "summary": "Insertion carve-out: pure-insertion hunks apply at the `@@` `-`-line position.",
-    "text": "**Insertion carve-out.** A hunk with no context lines and no `-` lines (e.g., `@@ -0,0 +1,N @@` against empty content, or any pure-insertion hunk) has no pattern to disambiguate. Such a hunk MUST apply at the position implied by its `@@` header's `-` line number; the T1 uniqueness check does not apply. **That line number is interpreted in the coordinates of the patch's pre-application content, and MUST be carried forward by the net line delta of all prior hunks in the same patch.** Without the carry-forward this rule and T3 designate different positions the moment an earlier hunk in the same patch has added or removed lines, and the patch silently produces wrong content; with it, both rules hold simultaneously. This is what `git apply` and jsdiff both do.",
+    "summary": "Insertion carve-out: pure-insertion hunks apply at the `@@` `-`-line position, clamped to the content's line range.",
+    "text": "**Insertion carve-out.** A hunk with no context lines and no `-` lines (e.g., `@@ -0,0 +1,N @@` against empty content, or any pure-insertion hunk) has no pattern to disambiguate. Such a hunk MUST apply at the position implied by its `@@` header's `-` line number; the T1 uniqueness check does not apply. **That line number is interpreted in the coordinates of the patch's pre-application content, and MUST be carried forward by the net line delta of all prior hunks in the same patch.** Without the carry-forward this rule and T3 designate different positions the moment an earlier hunk in the same patch has added or removed lines, and the patch silently produces wrong content; with it, both rules hold simultaneously. This is what `git apply` and jsdiff both do. **If the implied position, after carry-forward, falls outside the current content's line range, it clamps: a position past the last line inserts the `+` lines after the final line, and one before the first line inserts them at the start.** The line count is the count of the content's own lines — a final newline terminates the last line and does not add one, so `a\\nb\\n` has two lines and a `@@ -3,0 +3,1 @@` hunk against it appends after `b`. Clamping defines the position; it is not a failed match, and it never reaches T1 or invokes H1. C6's context-match remedy cannot supply the missing semantics here — a pure-insertion hunk has no context lines by definition — so without this sentence an out-of-range header would be an input the grammar permits with three defensible dispositions (clamp here, clamp elsewhere, or HALT) and no named one.",
     "reserved": false
   },
   {
@@ -752,7 +752,7 @@
     "layer": "A",
     "inheritsFrom": "NIP-10",
     "summary": "Canonical chain walks root-author patches via NIP-10 `e reply`.",
-    "text": "The canonical chain is built by walking root-author patches (those whose `pubkey` equals the root event's `pubkey`) by following NIP-10 `e reply` markers from the root forward.",
+    "text": "The canonical chain is built by walking root-author patches (those whose `pubkey` equals the root event's `pubkey`) by following NIP-10 `e reply` markers from the root forward. A root-author patch whose `e reply` target is unobserved contributes no position to the walk; it is held per UR-4 until re-evaluated on the target's arrival.",
     "reserved": false
   },
   {
@@ -931,8 +931,8 @@
     "section": "7.2",
     "layer": "A",
     "inheritsFrom": null,
-    "summary": "Root self-fork: two root-author patches at same parent → chain undefined.",
-    "text": "A **root self-fork** occurs when two or more root-author patches reply to the same parent event. The canonical chain is undefined while the self-fork is unresolved.",
+    "summary": "Root self-fork: two root-author patches at same parent → chain undefined; a shared pending parent holds both (UR-4), no fork yet.",
+    "text": "A **root self-fork** occurs when two or more root-author patches reply to the same parent event. The canonical chain is undefined while the self-fork is unresolved. Two patches sharing a parent that is itself held pending an unobserved target (UR-4) are not a fork: neither participates in the chain yet, so there is no position to contend for, and detection re-evaluates if and when the target arrives.",
     "reserved": false
   },
   {
@@ -1013,7 +1013,7 @@
     "layer": "A",
     "inheritsFrom": null,
     "summary": "Undefined target content → overlay is orphaned, not clean/conflict/stale.",
-    "text": "If the overlay's `e reply` target has no defined resolved content (downstream of HALT, inside an unresolved self-fork, or itself a sibling in such a fork), the overlay MUST be treated as **orphaned** and MUST NOT be classified as clean / conflict / stale.",
+    "text": "If the overlay's `e reply` target has no defined resolved content (downstream of HALT, inside an unresolved self-fork, itself a sibling in such a fork, or held pending an unobserved reply parent per UR-4), the overlay MUST be treated as **orphaned** and MUST NOT be classified as clean / conflict / stale.",
     "reserved": false
   },
   {
@@ -1095,6 +1095,15 @@
     "inheritsFrom": null,
     "summary": "Classification cached as permanent only when no further observation could change it.",
     "text": "A classification MAY be cached as permanent only when no further observation could change it. A Patch's authorship class MUST NOT be cached while its root is unobserved.",
+    "reserved": false
+  },
+  {
+    "id": "UR-4",
+    "section": "7.6",
+    "layer": "A",
+    "inheritsFrom": null,
+    "summary": "Root-author patch with unobserved `e reply` target is retained and re-evaluated on arrival; no chain or fork participation until then.",
+    "text": "A root-author patch whose `e reply` target is unobserved MUST be retained and re-evaluated on the target's arrival. It does not participate in canonical-chain construction or self-fork detection until then; PT-6 is evaluated if and when the target is observed.",
     "reserved": false
   },
   {
