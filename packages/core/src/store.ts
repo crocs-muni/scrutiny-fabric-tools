@@ -99,12 +99,12 @@ export interface StoreState {
 export const EMPTY_STORE_STATE: StoreState = Object.freeze({
   admit: EMPTY_ADMIT_STATE,
   invalidIds: Object.freeze([]),
-  chainMembership: Object.freeze({}),
-  pendingAwaiting: Object.freeze({}),
-  overlayAwaiting: Object.freeze({}),
+  chainMembership: Object.freeze(Object.create(null) as Record<string, string>),
+  pendingAwaiting: Object.freeze(Object.create(null) as Record<string, readonly string[]>),
+  overlayAwaiting: Object.freeze(Object.create(null) as Record<string, readonly string[]>),
   trustEpoch: 0,
   observedEpoch: 0,
-  chainEpoch: Object.freeze({}),
+  chainEpoch: Object.freeze(Object.create(null) as Record<string, number>),
 })
 
 /**
