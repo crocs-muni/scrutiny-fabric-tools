@@ -148,6 +148,40 @@ from the workflow journal — see the JSON).
 | S3-35 | `store.ts` | [correctness] `pendingAwaiting` leaks a stale entry on asymmetric Binding endpoint resolution | — | refuted 0/3 survived | no action |
 | S3-36 | `resolve.ts` | [simplification] `cascade()` is O(patches × depth) via rescanning candidates each fixpoint round | — | refuted 0/3 survived | no action |
 
+#### Triage outcome (2026-08-09, owner decision batch D1–D11)
+
+Owner philosophy, stated in session: no users yet, break anything freely, maximize correctness and
+elegance, large test suites and conformance infrastructure welcome, layered-but-hardened public
+seams, fix-and-file on spec silence. On that basis, all 20 flagged findings were resolved and landed as **one commit per decision** (the batch was deliberately re-split from an original grouping — commit granularity matches the finding IDs):
+
+- S3-11 `d8ce649` — width-independent per-field digit-string comparison (de-facto standard: Go
+  `x/mod/semver`, RPM, dpkg; F15 drafted)
+- S3-16 `392b773` — `DELETION_KIND` single-sourced from `events.ts`, nine literal sites replaced
+- S3-22 `5100324` — `bindingEndpointsWellTyped` guards credit at oracle + incremental paths
+- S3-26 `35cdb40` — null-proto output records in `admit`/`store`
+- S3-28 `51accc2` — `EMPTY_ADMIT_STATE` deep-frozen
+- S3-24 `069f169` — deletion cache invalidates only on kind-5 arrival, replacement, or a
+  newly-honoured target
+- S3-18/S3-19 `0b97690` — T2 clamp now `lineCount`-bounded + regression case
+- S3-17 `b339490` — `widenContext`/`WidenResult` relocated to `patch-matcher.ts`
+- S3-20 `2b0f70e` — four `ApplyResult` variants moved to `patch-types.ts` and exported (1b closed)
+- S3-27 `56f5026` — `bindingEndpoints`/`BindingEndpoints` added to the barrel (1a resolved)
+- S3-14 `c773140` — TR-1 doc now covers A-layer
+- S3-15 `068606e` — `issue()` throws on reserved rule ids; invariant probe skips reserved
+- api-report regenerated in `341cd39`
+- **Left as-is by endorsement**: S3-12 (verified "coincidental similarity, not worth extracting").
+- **Deferred to Step 4 (regression backfill), as designed**: S3-13, S3-21, S3-29, S3-30 — no code
+  change; they are named test-gap inputs.
+- **Spec-feedback drafted at `docs/SPEC-FEEDBACK-v0.7.0.md`**: F15 (version-field ordering vs the
+  no-ceiling clause), F16 (root-author patch with unobserved `e reply` parent — S3-21's spec
+  question), F17 (T2 out-of-range insertion coordinates — S3-18/19's spec question). Batched for a
+  future spec-repo amendment session per D2; not filed into the spec from here.
+
+Verification after the batch: full `pnpm verify` green, **534/534 tests** (4 new pin cases), gate
+includes regenerated api-report (surface changes: `ProtocolVersion` fields are now decimal text,
+`DELETION_KIND` added, variants + `bindingEndpoints`/`BindingEndpoints` exported,
+`widenContext`/`WidenResult` removed).
+
 Process note (for the record): the original Claude Code run launched all 89 review/verify agents
 and completed 45 before an API usage limit interrupted it with results unconsumed; the workflow's
 on-disk journal + output snapshot preserved the full prompts and partial state. A follow-up
@@ -166,7 +200,7 @@ Housekeeping left by the interrupted session, stashed (not deleted) to unblock `
 
 ## 4. Steps 4–9 status
 
-- [x] Step 3 — multi-agent module review (both lenses, thermo-nuclear on store/patch/resolve/admit, adversarial verification). **Complete with an interruption caveat**: 45/89 agents completed in the original run; the remaining 44 were re-run from on-disk state (see §3 process note). 6 apply-directly findings applied + committed; 20 flag-for-human findings await human triage (`docs/QUALITY-AUDIT-2026-08-08-STEP3-FINDINGS.json`)
+- [x] Step 3 — multi-agent module review (both lenses, thermo-nuclear on store/patch/resolve/admit, adversarial verification). **Complete with an interruption caveat**: 45/89 agents completed in the original run; the remaining 44 were re-run from on-disk state (see §3 process note). 6 apply-directly findings applied + committed (`14f4795`); **all 20 flag-for-human findings resolved in the 2026-08-09 decision batch D1–D11, one commit per decision — `d8ce649..068606e` + api-report `341cd39` (see §3 triage outcome; spec track in `452f687`)**
 - [ ] Step 4 — regression-test backfill (`test/resolve-regressions.ts`, `test/admit-regressions.ts`, `test/store-regressions.ts`)
 - [ ] Step 5 — Stryker mutation testing (patch.ts, admit.ts, resolve.ts scoped)
 - [ ] Step 6 — browser memory investigation (closes `AUDIT-2026-07-31.md` hazard #4)
@@ -178,23 +212,20 @@ Housekeeping left by the interrupted session, stashed (not deleted) to unblock `
 
 ## RESUME FROM HERE
 
-**Steps 0–3 are complete.** Next: **human triage of the 20 flag-for-human findings** (§3, full
-evidence in `docs/QUALITY-AUDIT-2026-08-08-STEP3-FINDINGS.json`) — start with the five correctness
-defects, all verified 3/3 by adversarial refuters:
+**Steps 0–3 are complete, and the Step-3 triage batch is done (2026-08-09).** 18 of 20 flagged
+findings applied, **one commit per decision** (`d8ce649..068606e` + api-report `341cd39`; S3-12
+endorsed as-is; S3-13/S3-21/S3-29/S3-30 deferred to Step 4 by design). Full `pnpm verify` green
+at HEAD — **534/534 tests**. Spec-feedback entries F15/F16/F17 are drafted at
+`docs/SPEC-FEEDBACK-v0.7.0.md` (`452f687`), batched for a future spec-repo session per D2 — do
+not amend the spec from this repo.
 
-1. S3-18/S3-19 — `patch.ts` T2 insertion clamp corrupts content at the trailing-newline sentinel
-   (`lines.length` where `lineCount(lines)` is meant; two review lenses found it independently)
-2. S3-22 — `admit.ts` trusted-but-mistyped Bindings still credit admission (BD-3/4/5 gap)
-3. S3-26 — `admit.ts` record-key prototype hazard (`"__proto__"` as event id)
-4. S3-28 — `admit.ts` `EMPTY_ADMIT_STATE` only shallow-frozen
-5. S3-11 — `events.ts` `compareVersionTags` 2^53 precision ceiling
-
-Then the public-surface decisions (S3-17, S3-20, and the 1a/S3-23/S3-25/S3-27 cluster whose
-verified recommendation is: **add `bindingEndpoints`/`BindingEndpoints` to the barrel**), then
-Step 4 regression backfill (S3-13, S3-21, S3-29, S3-30 are its named inputs).
+**Next: Step 4 regression backfill** (`test/resolve-regressions.ts`, `test/admit-regressions.ts`,
+`test/store-regressions.ts`) — its named inputs are S3-13 (classifyByRole Patch path), S3-21
+(root-authored patch with unobserved parent; pin the *optimistic-include* behaviour explicitly and
+link F16), S3-29 (untrust-narrowing), S3-30 (root-retraction). Then Steps 5–9 in order.
 
 If resuming in a different tool: `git fetch && git checkout chore/architecture-audit-2026-08-08`,
-read §0–§3 above, then triage. Housekeeping: one `git stash` entry holds the interrupted session's
-untracked scratch files (details in §3 process note — pop or drop); `docs/START-SESSION-SPEC-FEEDBACK.md`
-remains untracked and looks intentional; `chore/architecture-audit-2026-08-08-wrongbase` still awaits
-the user's explicit `git branch -D` authorization.
+read §0–§3 incl. the triage outcome, then Step 4. Housekeeping unchanged: one `git stash` entry
+holds the interrupted session's scratch (pop or drop); `docs/START-SESSION-SPEC-FEEDBACK.md` still
+untracked; `chore/architecture-audit-2026-08-08-wrongbase` still awaits the user's explicit
+`git branch -D` authorization.
