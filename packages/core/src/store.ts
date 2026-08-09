@@ -645,7 +645,9 @@ function honouredlyDeletedIds(byId: ReadonlyMap<string, NostrEvent>): Set<string
  * Ordering is deliberately unchanged: candidate pruning narrows the *predicate* work, never the
  * iteration — output arrays remain byte-identical to the pre-index implementation, which the
  * differential property (`storage.test`-side) asserts rather than assumes. The deletion-hiding
- * scan is now cached and invalidated on `put` (any arrival can add a kind 5 or a target).
+ * scan is cached, and `put` invalidates it only on the three transitions that can change it — a
+ * kind-5 arrival, a replacement of an already-stored id, or the late arrival of an honoured
+ * deletion's own target — never on every write (2026-08-08 audit, S3-24).
  */
 export function createInMemoryEventStorage(): EventStorage {
   const byId = new Map<string, NostrEvent>()
@@ -735,10 +737,24 @@ export function createInMemoryEventStorage(): EventStorage {
     put(events) {
       for (const e of events) {
         const old = byId.get(e.id)
-        if (old !== undefined) unindexEvent(old)
+        if (old !== undefined) {
+          unindexEvent(old)
+          deletedCache = undefined
+        } else if (e.kind === DELETION_KIND) {
+          deletedCache = undefined
+        } else {
+          // A newly-arriving event can flip an already-stored kind-5 to *honoured* (DEL-1) when
+          // the deletion was observed before its target.
+          for (const referrerId of eTagIdx.get(e.id) ?? []) {
+            const d = byId.get(referrerId)
+            if (d !== undefined && d.kind === DELETION_KIND && d.pubkey === e.pubkey) {
+              deletedCache = undefined
+              break
+            }
+          }
+        }
         byId.set(e.id, e)
         indexEvent(e)
-        deletedCache = undefined
       }
     },
     query(filters, options) {
