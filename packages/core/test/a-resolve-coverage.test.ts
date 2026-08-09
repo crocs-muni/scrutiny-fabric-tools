@@ -50,6 +50,9 @@ const OWNED: readonly RuleId[] = [
   'SF-7',
   'OV-9',
   'RL-5',
+  // New in spec v0.8.0 (F16) — hold-pending; the six pins in resolve.test.ts + the vendored
+  // chain vector cover it behaviorally; no issue code exists or should.
+  'UR-4',
 ]
 
 describe('Phase 3 gate — resolve-module rule coverage', () => {

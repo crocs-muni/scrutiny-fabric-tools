@@ -563,7 +563,7 @@ export interface Rule {
 export const RULE_IDS: readonly RuleId[];
 
 // @public
-export type RuleId = 'TAG-1' | 'TAG-2' | 'TAG-3' | 'TAG-4' | 'TAG-5' | 'VER-1' | 'VER-2' | 'VER-3' | 'VER-4' | 'OTS-1' | 'SIG-1' | 'CA-1' | 'PR-1' | 'PR-2' | 'PR-3' | 'PR-4' | 'PR-5' | 'MD-1' | 'MD-2' | 'MD-3' | 'MD-4' | 'MD-5' | 'BD-1' | 'BD-2' | 'BD-3' | 'BD-4' | 'BD-5' | 'BD-6' | 'BD-7' | 'BD-8' | 'BD-9' | 'BD-10' | 'BD-11' | 'BD-12' | 'PT-1' | 'PT-2' | 'PT-3' | 'PT-4' | 'PT-5' | 'PT-6' | 'PT-7' | 'PT-8' | 'PT-9' | 'PT-10' | 'PT-11' | 'IX-1' | 'IX-2' | 'IX-3' | 'IX-4' | 'IM-1' | 'IM-2' | 'IM-3' | 'IM-4' | 'IM-5' | 'PB-1' | 'PB-2' | 'E1' | 'E2' | 'E3' | 'E4' | 'E5' | 'E6' | 'E7' | 'N1' | 'N2' | 'N3' | 'C1' | 'C2' | 'C3' | 'C4' | 'C5' | 'C6' | 'C7' | 'C8' | 'P1' | 'P2' | 'P3' | 'P4' | 'T1' | 'T2' | 'T3' | 'H1' | 'H2' | 'CHN-1' | 'CHN-2' | 'CHN-3' | 'RL-1' | 'RL-2' | 'RL-3' | 'RL-4' | 'RL-5' | 'TR-1' | 'TR-2' | 'TR-3' | 'TR-4' | 'TR-5' | 'TR-6' | 'TR-7' | 'RC-1' | 'RC-2' | 'RC-3' | 'RC-4' | 'RC-5' | 'SF-1' | 'SF-2' | 'SF-3' | 'SF-4' | 'SF-5' | 'SF-6' | 'SF-7' | 'OV-1' | 'OV-2' | 'OV-3' | 'OV-4' | 'OV-5' | 'OV-6' | 'OV-7' | 'OV-8' | 'OV-9' | 'UR-1' | 'UR-2' | 'UR-3' | 'DQ-1' | 'DQ-2' | 'DQ-3' | 'DQ-4' | 'IR-1' | 'IR-2' | 'IR-3' | 'IR-4' | 'DEL-1' | 'DEL-2' | 'DEL-3' | 'DEL-4' | 'DEL-5' | 'DEL-6' | 'DEL-7' | 'DEL-8' | 'DEL-9' | 'DEL-10' | 'DEL-11';
+export type RuleId = 'TAG-1' | 'TAG-2' | 'TAG-3' | 'TAG-4' | 'TAG-5' | 'VER-1' | 'VER-2' | 'VER-3' | 'VER-4' | 'OTS-1' | 'SIG-1' | 'CA-1' | 'PR-1' | 'PR-2' | 'PR-3' | 'PR-4' | 'PR-5' | 'MD-1' | 'MD-2' | 'MD-3' | 'MD-4' | 'MD-5' | 'BD-1' | 'BD-2' | 'BD-3' | 'BD-4' | 'BD-5' | 'BD-6' | 'BD-7' | 'BD-8' | 'BD-9' | 'BD-10' | 'BD-11' | 'BD-12' | 'PT-1' | 'PT-2' | 'PT-3' | 'PT-4' | 'PT-5' | 'PT-6' | 'PT-7' | 'PT-8' | 'PT-9' | 'PT-10' | 'PT-11' | 'IX-1' | 'IX-2' | 'IX-3' | 'IX-4' | 'IM-1' | 'IM-2' | 'IM-3' | 'IM-4' | 'IM-5' | 'PB-1' | 'PB-2' | 'E1' | 'E2' | 'E3' | 'E4' | 'E5' | 'E6' | 'E7' | 'N1' | 'N2' | 'N3' | 'C1' | 'C2' | 'C3' | 'C4' | 'C5' | 'C6' | 'C7' | 'C8' | 'P1' | 'P2' | 'P3' | 'P4' | 'T1' | 'T2' | 'T3' | 'H1' | 'H2' | 'CHN-1' | 'CHN-2' | 'CHN-3' | 'RL-1' | 'RL-2' | 'RL-3' | 'RL-4' | 'RL-5' | 'TR-1' | 'TR-2' | 'TR-3' | 'TR-4' | 'TR-5' | 'TR-6' | 'TR-7' | 'RC-1' | 'RC-2' | 'RC-3' | 'RC-4' | 'RC-5' | 'SF-1' | 'SF-2' | 'SF-3' | 'SF-4' | 'SF-5' | 'SF-6' | 'SF-7' | 'OV-1' | 'OV-2' | 'OV-3' | 'OV-4' | 'OV-5' | 'OV-6' | 'OV-7' | 'OV-8' | 'OV-9' | 'UR-1' | 'UR-2' | 'UR-3' | 'UR-4' | 'DQ-1' | 'DQ-2' | 'DQ-3' | 'DQ-4' | 'IR-1' | 'IR-2' | 'IR-3' | 'IR-4' | 'DEL-1' | 'DEL-2' | 'DEL-3' | 'DEL-4' | 'DEL-5' | 'DEL-6' | 'DEL-7' | 'DEL-8' | 'DEL-9' | 'DEL-10' | 'DEL-11';
 
 // @public
 export type RuleLayer = 'V' | 'A' | 'D';
@@ -599,7 +599,7 @@ export type Sha256Hex = (serialized: string) => string;
 export const sig1RejectionIssue: (event: NostrEvent) => Issue;
 
 // @public
-export const SPEC_VERSION = "0.7.0";
+export const SPEC_VERSION = "0.8.0";
 
 // @public
 export const storageSymbol: unique symbol;
@@ -735,7 +735,7 @@ export type Validity = {
 };
 
 // @public
-export const VERSION_TAG = "scrutiny-v0.7.0";
+export const VERSION_TAG = "scrutiny-v0.8.0";
 
 // @public
 export const VERSION_TAG_PATTERN: RegExp;

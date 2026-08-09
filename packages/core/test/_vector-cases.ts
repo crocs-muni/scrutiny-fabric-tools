@@ -72,6 +72,8 @@ export interface ChainCase {
     readonly overlays?: readonly (Record<string, unknown> & { readonly id: string })[]
     readonly annotations?: readonly string[]
     readonly noAnnotations?: readonly string[]
+    /** UR-2/UR-4 (spec v0.8.0): the held-patch ids the resolution is expected to retain as pending. */
+    readonly pending?: readonly string[]
   }
 }
 

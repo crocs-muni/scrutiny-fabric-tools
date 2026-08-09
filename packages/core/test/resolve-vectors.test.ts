@@ -78,6 +78,13 @@ describe('conformance vectors — application.json, kind: chain (Appendix G)', (
         assertPartial(result.chain, c.expect.chain, c.why)
       }
 
+      if (c.expect.pending !== undefined) {
+        expect(
+          result.pending,
+          `${c.why} — held patches (UR-2/UR-4) differ from the case's expectation`,
+        ).toEqual([...c.expect.pending].sort())
+      }
+
       if (c.expect.overlays !== undefined) {
         const byId = new Map(result.overlays.map((o) => [o.id, o]))
         for (const expected of c.expect.overlays) {

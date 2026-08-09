@@ -424,3 +424,69 @@ describe('UR-1 — arrival order does not reach the result', () => {
     expect(resolve(r.id, reversed(events))).toEqual(resolve(r.id, events))
   })
 })
+
+describe('UR-4 — a root-author patch whose `e reply` target is unobserved is held (spec v0.8.0, F16)', () => {
+  it('holds the patch out of the chain, reports it pending, and two siblings sharing the unobserved parent are NOT a fork (SF-1 carve-out)', () => {
+    const r = root(A)
+    const missing = idOf('unobserved-parent')
+    const p1 = diffPatch('held-1', r.id, missing, A, 'a\nx\n')
+    const p2 = diffPatch('held-2', r.id, missing, A, 'a\ny\n')
+    const res = resolve(r.id, [r, p1, p2])
+    expect(res.chain).toEqual({ status: 'resolved', content: A, tipId: r.id, applied: [] })
+    expect(res.pending).toEqual([p1.id, p2.id].sort())
+    expect(res.annotations.filter((a) => a.kind === 'self-fork')).toEqual([])
+  })
+
+  it('re-evaluates on arrival: the patch joins the chain in order once its parent is observed', () => {
+    const r = root(A)
+    const parent = diffPatch('parent', r.id, r.id, A, AB)
+    const late = diffPatch('late', r.id, parent.id, AB, ABC)
+    expect(resolve(r.id, [r, late]).pending).toEqual([late.id])
+    const res = resolve(r.id, [r, late, parent])
+    expect(res.chain).toEqual({
+      status: 'resolved',
+      content: ABC,
+      tipId: late.id,
+      applied: [parent.id, late.id],
+    })
+    expect(res.pending).toEqual([])
+  })
+
+  it('holds transitively: a patch replying to a held patch is held with it (§5.3 step 1)', () => {
+    const r = root(A)
+    const held = diffPatch('held', r.id, idOf('unobserved-grandparent'), A, AB)
+    const child = diffPatch('child', r.id, held.id, AB, ABC)
+    const res = resolve(r.id, [r, held, child])
+    expect(res.chain).toEqual({ status: 'resolved', content: A, tipId: r.id, applied: [] })
+    expect(res.pending).toEqual([child.id, held.id].sort())
+  })
+
+  it('keeps PT-6 distinct: replying to an *observed foreign* patch is ignored permanently, never held', () => {
+    const r = root(A)
+    const foreign = foreignPatch('foreign', r.id, r.id, A, AB)
+    const misdirected = diffPatch('misdirected', r.id, foreign.id, AB, ABC)
+    const res = resolve(r.id, [r, foreign, misdirected])
+    expect(res.chain).toEqual({ status: 'resolved', content: A, tipId: r.id, applied: [] })
+    expect(res.pending).toEqual([])
+  })
+
+  it('orphans an overlay whose target is a held patch, α since the target is observed (§7.3/OV-3)', () => {
+    const r = root(A)
+    const held = diffPatch('held', r.id, idOf('unobserved-parent'), A, AB)
+    const overlay = foreignPatch('overlay-on-held', r.id, held.id, AB, ABC)
+    const res = resolve(r.id, [r, held, overlay])
+    expect(res.pending).toEqual([held.id])
+    expect(res.overlays).toEqual([
+      expect.objectContaining({ id: overlay.id, state: 'orphaned', degradation: 'alpha' }),
+    ])
+  })
+
+  it('excludes a retracted held patch from pending — a completed decision is not a pending one', () => {
+    const r = root(A)
+    const held = diffPatch('held', r.id, idOf('unobserved-parent'), A, AB)
+    const res = resolve(r.id, [r, held, deletion('retract-held', [held.id], PK_OTHER)])
+    expect(res.pending).toEqual([held.id])
+    const res2 = resolve(r.id, [r, held, deletion('retract-held', [held.id], PK_ROOT)])
+    expect(res2.pending).toEqual([])
+  })
+})

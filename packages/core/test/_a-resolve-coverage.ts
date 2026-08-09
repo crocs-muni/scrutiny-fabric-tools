@@ -104,6 +104,18 @@ export const A_RESOLVE_COVERAGE: CoverageTable = {
       'the G2 differential property, which swaps timestamps and id ordering and asserts the chain ' +
       'never moves.',
   ),
+  'UR-4': notCovered(
+    'Hold-pending semantics, new in spec v0.8.0 (F16): while a root-author patch\u2019s `e reply` ' +
+      'parent is unobserved, the patch and its descendants take no walk position, no fork part, ' +
+      'and no PT-6 judgment (eligibility in resolve.ts classifies chain/held/ignored per patch); ' +
+      'they surface in `Resolution.pending` and rejoin on the target\u2019s arrival. Not an ' +
+      'emittable code — the pending list is the surface. Covered by six pins in resolve.test.ts ' +
+      '(direct hold + no-fork sharing an unobserved parent, arrival flip, transitive hold, ' +
+      'PT-6-vs-held distinction, \u03b1-orphaned overlay targeting a held patch, ' +
+      'retracted-while-held exclusion) and by the vendored chain vector ' +
+      '`root-author-patches-sharing-an-unobserved-reply-parent-are-held`, for which the runner ' +
+      'now also asserts `expect.pending`.',
+  ),
   'SF-5': notCovered(
     'The resolution path: a kind 5 on one branch eliminates it by cascade and the chain resolves. ' +
       'A success path emits nothing. Covered positively for both branches.',

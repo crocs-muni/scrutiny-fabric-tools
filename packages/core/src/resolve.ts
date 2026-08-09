@@ -155,7 +155,12 @@ export interface Resolution {
   readonly chain: ChainState
   /** Sorted by `(targetId, id)`. */
   readonly overlays: readonly Overlay[]
-  /** UR-2: patches retained because their `e root` is unobserved. Sorted. */
+  /**
+   * Patches retained pending an observation target — every patch when the root is unobserved
+   * (UR-2, `chain.status` is `absent`), otherwise the root-author patches whose `e reply` parent
+   * lineage reaches an unobserved event (UR-4, spec v0.8.0); re-evaluated on the target's arrival.
+   * Sorted; excludes patches the root author already retracted.
+   */
   readonly pending: readonly string[]
   readonly annotations: readonly Annotation[]
 }
@@ -281,12 +286,42 @@ export function resolve(
   // PT-6 / OV-8 — a root-author patch replying to a foreign patch is not a chain extension. It is
   // not invalid; it simply is not a link, and the root author must re-issue against a canonical
   // parent to adopt the change.
-  const linkable = rootAuthored.filter((p) => {
-    const parentId = replyTarget(p)
-    if (parentId === undefined) return false
-    const parent = byId.get(parentId)
-    return parent === undefined || parent.pubkey === root.pubkey
-  })
+  //
+  // UR-4 (spec v0.8.0, F16): while a root-author patch's `e reply` target is UNOBSERVED, PT-6 is
+  // unevaluable — the parent's authorship class is unknown — so the patch is neither admitted to
+  // nor excluded from the chain on that basis. It is *held*: it takes no position in the walk
+  // (CHN-1), counts for nothing in fork detection (SF-1's carve-out — two patches sharing a held
+  // or unobserved parent are not a fork until the target arrives), is re-evaluated the moment the
+  // target is observed, and its own children are held with it. A patch whose *observed* parent is
+  // foreign is PT-6-ignored instead — permanently, for this event set — and is never pending.
+  const eligibility = new Map<string, 'chain' | 'held' | 'ignored'>()
+  const classify = (patch: NostrEvent): 'chain' | 'held' | 'ignored' => {
+    const prior = eligibility.get(patch.id)
+    if (prior !== undefined) return prior
+    eligibility.set(patch.id, 'ignored') // cycle guard — a self-referential line is never a chain
+    let cls: 'chain' | 'held' | 'ignored'
+    const parentId = replyTarget(patch)
+    if (parentId === undefined) {
+      cls = 'ignored' // PT grammar requires the reply marker; nothing here to hold a verdict for
+    } else if (parentId === rootId) {
+      cls = 'chain'
+    } else {
+      const parent = byId.get(parentId)
+      if (parent === undefined) {
+        cls = 'held' // UR-4 — the target may still arrive
+      } else if (parent.pubkey !== root.pubkey) {
+        cls = 'ignored' // PT-6 — replying to a foreign patch is never chain material
+      } else {
+        cls = classify(parent)
+      }
+    }
+    eligibility.set(patch.id, cls)
+    return cls
+  }
+
+  for (const patch of rootAuthored) classify(patch)
+
+  const linkable = rootAuthored.filter((p) => eligibility.get(p.id) === 'chain')
 
   const removed = cascade(linkable, deleted)
   const surviving = linkable.filter((p) => !removed.has(p.id))
@@ -496,7 +531,15 @@ export function resolve(
       ),
   )
 
-  return { chain, overlays, pending: [], annotations }
+  // UR-4's retained set: held root-author patches, minus any the root author already retracted —
+  // a retracted patch never joins the chain however many targets arrive, and listing it would
+  // misreport a completed decision as a pending one (DEL-1/§10).
+  const pending = rootAuthored
+    .filter((p) => eligibility.get(p.id) === 'held' && !deleted.has(p.id))
+    .map((p) => p.id)
+    .sort(byIdAsc)
+
+  return { chain, overlays, pending, annotations }
 }
 
 /**
