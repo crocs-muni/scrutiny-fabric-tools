@@ -247,6 +247,16 @@ describe('RL-3 — a resource limit is never a HALT', () => {
     }
   })
 
+  it('states what was observed against the ceiling in words, on both limit kinds', () => {
+    // The `what` clause is the human-readable half of the charged-before-scanning contract; the
+    // numbers are pinned as fields above, this pins that the message actually carries them.
+    const hunks = applyPatchPayload(content, manyHunks, { maxHunks: 4 })
+    const work = applyPatchPayload(content, manyHunks, { maxWork: 32 })
+    if (hunks.status !== 'limit' || work.status !== 'limit') expect.fail('expected limits')
+    expect(hunks.issues[0]?.message).toContain('patch carries 10 hunks')
+    expect(work.issues[0]?.message).toContain('compare at least 33 characters')
+  })
+
   it('carries no content, so there is nothing to cache as canonical (RL-4)', () => {
     const result = applyPatchPayload(content, manyHunks, { maxHunks: 1 })
     expect(result).not.toHaveProperty('content')
