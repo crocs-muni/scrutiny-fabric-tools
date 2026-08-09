@@ -82,8 +82,9 @@ All items complete; `pnpm verify` green end-to-end as of commit `8aeb981`.
 | size-limit (bundle-size gate) | ✅ | `.size-limit.json`. Full barrel 18.97 kB (brotli) / 20 kB limit; `id.js` subpath 187 B / 1 kB limit — proves D5 tree-shaking works |
 | zizmor (workflow static analysis) | ✅ | Found + fixed: 3 unpinned-action-uses (now SHA-pinned), 1 credential-persistence warning (`persist-credentials: false` added). Separate CI job, offline mode |
 | `dependabot.yml` | ✅ | `github-actions` ecosystem only, scoped per brief (npm surface too small to justify) |
-| `pnpm audit --prod` | ✅ | **Finding**: `--prod` does not scope to production-only dependencies in this pnpm version's workspace mode (verified: byte-identical output to plain `pnpm audit`). 3 findings, all dev-only chains (`@changesets/cli`→`js-yaml`, `vitest`→`nanoid`); `diff`, the sole runtime dependency, was clean throughout. Pinned both via `pnpm.overrides`, following the existing vite/esbuild precedent, rather than relying on `--prod` to filter |
+| `pnpm audit --prod` | ✅ | **Finding**: `--prod` does not scope to production-only dependencies in this pnpm version's workspace mode (verified: byte-identical output to plain `pnpm audit`). 3 findings, all dev-only chains (`@changesets/cli`→`js-yaml`, `vitest`→`nanoid`); `diff`, the sole runtime dependency, was clean throughout. Pinned via `pnpm.overrides`, following the existing vite/esbuild precedent, rather than relying on `--prod` to filter. Step 5 added a fourth, same shape: `qs@^6.15.2` (Stryker's `typed-rest-client` chain, moderate array-encoding advisory) |
 | Changeset-presence CI gate | ✅ | `pnpm changeset:check` (`changeset status --since=main`), separate CI job, PR-only, `fetch-depth: 0`. **Deliberately not added to local `pnpm verify`** — this branch has no changeset yet (see Findings §2) and won't until its final scope is known at Step 8; forcing one prematurely would just need constant rewriting |
+| StrykerJS mutation testing (Step 5) | ✅ | `packages/core/stryker.config.mjs` (9.6.1 + vitest-runner; Node ≥22, vitest 3.2.7 clears the vitest-4.1 perTest verdict bug). Scoped to `patch.ts`/`admit.ts`/`resolve.ts`; narrow from CLI with `--mutate src/patch.ts`. `pnpm test:mutate` at root and package level. `incremental: false` — measured a stale-verdict replay across test edits (see §4 Step 5). No typescript-checker (9.x default; only runtime semantics are ever exercised). `ignoreStatic: false` — module-level ceilings carry verdicts. Thresholds ratcheted to the audited end state (high 95 / low 85 / break 80). **Deliberately not in `pnpm verify`** — a scoped run is minutes, so like the changeset gate it lives as a permanent script beside it; rationale in the config header |
 
 Declined (per brief, not re-litigated): oxlint, Renovate/npm-scoped Dependabot, CodeQL, Turborepo/
 syncpack/Bun, Socket Security, mitata, jazzer.js-as-permanent-adoption.
@@ -223,13 +224,68 @@ Housekeeping left by the interrupted session, stashed (not deleted) to unblock `
 `packages/core/test/zz-verify-bug.test.ts` — pop it if any of that scratch is wanted, else drop.
 `docs/START-SESSION-SPEC-FEEDBACK.md` is still untracked (not stashed; looks intentional).
 
+#### Step 5 findings (Stryker mutation testing, 2026-08-09)
+
+Method: StrykerJS 9.6.1 + vitest-runner (perTest coverage, which the runner forces), one module at
+a time with full-suite hand-checks for every disputed survivor — each disputed mutant was applied
+to the real source with exact offset splicing and the whole 596-test suite was run against it, so
+residual classifications rest on the suite's own verdicts, never on Stryker's attribution. Baselines
+(first pass): **patch.ts 72.1% (98k/38s/136), admit.ts 81.4% (276k/62s+1nc/339), resolve.ts ~81.7%
+(246+4t/52s+4nc/306)**. Final: **patch.ts 100.00% (126 killed, 10 justified-ignored), admit.ts
+99.34% (299 killed of 301 active, 43 ignored, 2 accepted residuals), resolve.ts 99.26% (266+3t of
+271 active, 35 ignored, 2 accepted residuals)**. Suite grew 553 → **596** (+43). All acceptance
+runs used `incremental: false` — see T5-b.
+
+**Test-strength findings (the test/code finds, one commit each):**
+
+| # | Module | Finding | Disposition |
+|---|---|---|---|
+| S5-1 | patch | The producer's byte shape (D31/F8: `a/content`/`b/content` headers, `===` strip) was never asserted — the round-trip gates only need jsdiff-tolerable bytes | 14 mutants killed by exact-byte `makePatch` pins (`eb8bc0b`) |
+| S5-2 | patch | Header-detection regex `^--- /m` anchor loss and the malformed-payload detail were unobserved (behaviour H2 surfaces, not verdicts) | killed (`bed0794`) |
+| S5-3 | patch | Halt citation shape: citation order, single-vs-double H1 issue, and line-number arithmetic inside halt details were unpinned | 11 killed (`b67634a`) |
+| S5-4 | patch | Ceilings: `>` vs `>=` boundary, `observed` field, first-hunk-before-banking charge, accumulator direction, and §5.4 wording all free to skew — incl. the instructive #75 (`work + cost` → `work − cost` trips THREE hunks later with the identical observable verdict on the natural fixture; a fixture that checks only `(status, limit)` structurally cannot catch it) | killed, boundary fixture 33-charge (`2729d8b`) |
+| S5-5 | admit | **AG1/AG2's generator never emitted `unobserve`** — the entire un-cascade path rested on two unit pins; `replay` already modelled it, the action pool just never drew it | fixed with a 4-action generator + biased cascade describe, floors verified stable (`f531e18`) |
+| S5-6 | admit | Shared-helper blindness: AG1/AG2 compare incremental-vs-oracle built from the SAME helpers (`rootChainReason`, `bindingEndpoints`, `rootChainMembers`), so helper-internal mutants change both sides identically | literal reason bytes, membership discriminations, invasive-fixture pins (`40491ac`) |
+| S5-7 | patch | The limit `what`-clause text (the "compare at least N characters" half) was unpinned | killed (`87f6cbd`) |
+| S5-9 | admit | Proven equivalents retired with evidence comments (narrowing guards, credit-only oracle guard, layered/unreachable guards, idempotent `newly` filters, D18 re-observe) + 4 runner-missed directives verified suite-killed (`74f8095`, `3ac9e7a`) | closed |
+| S5-10 | resolve | Zero-coverage shapes: walk termination on reply cycles/self-loops, markers missing could conflate grammar defects with UR-4 holds, **the annotation sort comparator had never executed** (needs ≥2 annotations) — confluence-facing | pins (`11c71b8`) |
+| S5-11 | resolve | Multi-level cascade fixpoint, UR-2/BD-9 absent-shape fields, partition impostors (Product-in-patch-markers), foreign-root pending pollution, well-parented PT-6 links | pins (`4c78f5a`) |
+| S5-12 | resolve | SF-3 issue `severity` and message fields unpinned (TR-1's own severity claim) | pins (`dc195cf`) |
+| S5-13 | resolve | 25 proven-equivalents retired with evidence comments + 3 runner-missed directives (`9ac4ae6`, `24184c3`) | closed |
+| **S5-14** | admit | **REAL BUG found (the headline)**: a kind 5 whose root-chain membership depended on a *sibling patch id* kept its credit after the patch was unobserved. `resyncRootChain` only uncredited within the *current* member set and never diffed against previously credited ids. fast-check-shrunk counterexample (seed 248381514); fix revokes `root-chain:<root>` from any non-member (TR-5-definitional); named regression pin | fixed (`cf53407`) |
+| S5-15 | config | Accepted-residual disposition + ratcheted thresholds | `c3fcd3e` |
+
+**Tooling findings (measurable, each verified):**
+
+| # | Finding | Evidence / consequence |
+|---|---|---|
+| T5-a | The vitest runner's per-mutant test selection misses covering tests for a small share of mutants (verified suite-kills it marked Survived: patch #26, 4 admit mutants, 3 resolve mutants — stryker-js #6073-class) | Full-suite hand-checks with valid spawn; where mechanically bindable, the mutants were retired with evidence-cited `// Stryker disable` comments (35 admit + 10 patch + 35 resolve ignored); 4 positions could not be comment-bound at all (see Residuals below) |
+| T5-b | **Incremental mode replays stale verdicts across test edits** — a mutant whose killer test was added in the same session was replayed as Survived from cache (patch #2) | `incremental: false` in the committed config; scoped runs are 1–5 min anyway |
+| T5-c | The runner's `static` classification churns run to run (function-internal lines flagged load-time; 62–78% of mutants) | `ignoreStatic` stays `false`: static mutants run all related tests (valid verdicts, higher cost), enabling it would silently skip real ones |
+| T5-d | The runner's perTest coverage is silently *ignored* — `coverageAnalysis: off` accepted but had no effect (measured identical runs) | Documented in config; the audit compensated with full-suite hand-checks |
+| T5-e | **Hand-check harness caveat (process)**: the first execFileSync-based mutant-check harness silently swallowed a spawn ENOENT as "suite kills mutant" | All runner-missed claims were re-verified with a working harness (full suite, valid spawn); nothing in the final record rests on the broken harness |
+
+**Accepted residuals (4) — Stryker-disable comments could not be bound to these positions
+(stacked, merged, single-line placements all verified unbound in rerun):**
+
+| Mutant | Disposition |
+|---|---|
+| resolve `#117` (PT-6 condition flip) | **runner-missed** — full suite kills it when hand-applied (S5-11 well-parented PT-6 pin); left enabled: a future runner fix turns it back into a real kill for free |
+| resolve `#119` (same-position block emptying) | **equivalent** — emptying the arm leaves `cls` unset (`undefined`), which the two strict `=== 'chain'` / `=== 'held'` readers treat exactly like `'ignored'`; vs the flip, no `classify(parent)` runs so its eligibility pollution is never introduced |
+| admit `#324` (unobserve strip condition → strip-everything) | **runner-missed** — full suite kills it (3 failing tests incl. the S5-6 BD-6 boundary pin) |
+| admit `#326` (strip literal `'root-chain'` → `''`) | **equivalent** — unreachable contour since S5-14 made `resyncRootChain` revoke every non-member's `root-chain:<root>` on the same delta; the strip is now a fast path over a backstop |
+
 ---
 
 ## 4. Steps 4–9 status
 
 - [x] Step 3 — multi-agent module review (both lenses, thermo-nuclear on store/patch/resolve/admit, adversarial verification). **Complete with an interruption caveat**: 45/89 agents completed in the original run; the remaining 44 were re-run from on-disk state (see §3 process note). 6 apply-directly findings applied + committed (`14f4795`); **all 20 flag-for-human findings resolved in the 2026-08-09 decision batch D1–D11, one commit per decision — `d8ce649..068606e` + api-report `341cd39` (see §3 triage outcome; spec track in `452f687`)**
 - [x] Step 4 — regression backfill, **closed with a documented shape deviation** (`14121ba`, `52e643f`, `151d77d`; S3-21 had been consumed earlier by UR-4). Remaining named inputs arrived as **named describe blocks with full provenance inside the existing per-module suites** rather than new `*-regressions.ts` table+runner files: only 1–2 cases remained per module, and a table+runner for that size is over-machinery. If Step 5/corpus growth pushes any module past a handful of cases, pull them into the frozen table format (`patch-regressions.ts` template, `vectorCandidate` tagging) at that point
-- [ ] Step 5 — Stryker mutation testing (patch.ts, admit.ts, resolve.ts scoped)
+- [x] Step 5 — Stryker mutation testing, **closed 2026-08-09** (§3 Step-5 findings: baselines
+  patch 72.1% / admit 81.4% / resolve 81.7% → final **patch 100.00% · admit 99.34% · resolve
+  99.26%**, suite 553 → 596; one real bug found and fixed — S5-14's `resyncRootChain`
+  membership-drift revocation; 15 commits S5-1…S5-15; permanent config + `pnpm test:mutate` with
+  ratcheted thresholds; 4 accepted residuals documented)
 - [ ] Step 6 — browser memory investigation (closes `AUDIT-2026-07-31.md` hazard #4)
 - [ ] Step 7 — doc debt (IMPLEMENTATION-PLAN status table refresh beyond the ownership table; DECISIONS §5's 5 open questions; retire spent planning docs)
 - [ ] Step 8 — close out (finalize skill, `pnpm verify` clean, changeset added, tool green-or-justified, doc/issue to 100%)
@@ -253,20 +309,26 @@ pins (`24d0489`), the rule registry and ownership table are regenerated at 142 r
 owned by resolve (`964e4dd`), and `SPEC_VERSION` is 0.8.0 (`afbb81f`). The vendored-copy
 consequence for this repo's pinned digests is recorded in the spec repo's docs/DECISIONS.md (S8).
 
-**Steps 0–4 are complete.** Step 4 closed with six named pins in the existing suites (`14121ba`,
-`52e643f`, `151d77d`; shape deviation documented at §4 — table+runner files deferred until a
-module's case count earns one; S3-21 had been consumed earlier by UR-4's enforcement). Suite is
-**553/553 green**, knip silent, **branch pushed to `origin`** (private today and being made public
-soon — a clean secrets/machine-paths sweep was run before the first push). Housekeeping is
-cleaner too: the previous session's scratch stash was inspected and dropped (all value already
-lifted into pins), and `chore/architecture-audit-2026-08-08-wrongbase` is deleted (was a
-duplicate label of `feature/phase-20-public-surface`'s tip, `12dc9f8`, zero unique commits).
+**Steps 0–5 are complete.** Step 5 closed 2026-08-09: StrykerJS configured permanently
+(`packages/core/stryker.config.mjs`, `pnpm test:mutate`, thresholds ratcheted; deliberately
+outside `pnpm verify`), baselines patch 72.1% / admit 81.4% / resolve 81.7% raised to **patch
+100.00% · admit 99.34% · resolve 99.26%** via 15 small commits (S5-1…S5-15) of test strengthening
+plus one genuine bug fix — S5-14: `resyncRootChain` now revokes `root-chain:<root>` from
+non-members (found by the unobserve-enabled AG1 generator itself; shrink proof seed 248381514).
+Suite is **596/596**, full `pnpm verify` green at HEAD, knip silent. Findings, tooling caveats
+(T5-a…T5-e), and the four accepted residuals are recorded in §3 Step-5 — read those before
+trusting any per-mutant verdict this tool emits (the vitest runner's per-mutant selection and
+disable-comment binding both have measured holes; every residual classification in §3 was
+cross-checked against the *full 596-test suite* by hand).
+**Next: Step 6 — browser memory investigation** (closes `AUDIT-2026-07-31.md` hazard #4). Then
+Steps 7–9: doc debt, close-out, PR reconciliation report. Do NOT start Step 6 without re-reading
+the hazard table first.
 
-**Next: Step 5 — Stryker mutation testing** (scoped to patch.ts, admit.ts, resolve.ts). Then
-Steps 6–9: browser memory investigation, doc debt, close-out, PR reconciliation report.
+Housekeeping state: one `git stash` entry ("step3-resume: prior session's untracked scratch")
+may be dropped on sight — its value was lifted into pins; `docs/START-SESSION-SPEC-FEEDBACK.md`
+remains untracked (intentional, per D2's batch-not-file policy); `reports/` and `stryker-tmp/`
+are regenerable local Stryer output (gitignored); Step-5's `_scratch*` probes were deleted at
+close-out along with their gitignore lines.
 
 If resuming in a different tool: `git fetch && git checkout chore/architecture-audit-2026-08-08`,
-read §0–§3 incl. the triage outcome, then Step 4. Housekeeping unchanged: one `git stash` entry
-holds the interrupted session's scratch (pop or drop); `docs/START-SESSION-SPEC-FEEDBACK.md` still
-untracked; `chore/architecture-audit-2026-08-08-wrongbase` still awaits the user's explicit
-`git branch -D` authorization.
+read §0–§3 incl. the Step-5 block, then start Step 6.
