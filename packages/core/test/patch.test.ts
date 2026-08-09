@@ -271,6 +271,65 @@ describe('failure channels are normalised into one rejection signal', () => {
   })
 })
 
+describe('halt citation shape — Step-5 pins (S5-3)', () => {
+  // D34's coverage claim is that T1's code is emitted on a real ambiguity, and H2 downstream
+  // assembles its protocol-error annotation from these exact fields. Until now the suite only
+  // asserted "contains H1", so the *shape* — which code is cited first, how many issues, and
+  // where the line numbers land in the detail — was unobserved.
+
+  it('a malformed payload cites H1 exactly once and nothing else', () => {
+    const result = applyPatchPayload('a\n', 'total garbage\n')
+    if (result.status !== 'halt') expect.fail(`expected halt, got ${result.status}`)
+    expect(result.rule).toBe('H1')
+    expect(result.hunkIndex).toBeNull()
+    expect(result.issues.map((i) => i.code)).toEqual(['H1'])
+    expect(result.issues[0]?.message).toBe(result.detail)
+  })
+
+  it('a T1 halt cites the violated rule first, then H1, and folds the detail into both', () => {
+    const result = applyPatchPayload('q\n', body('@@ -1,1 +1,1 @@', '-absent', '+x'))
+    if (result.status !== 'halt') expect.fail(`expected halt, got ${result.status}`)
+    expect(result.rule).toBe('T1')
+    expect(result.issues.map((i) => i.code)).toEqual(['T1', 'H1'])
+    expect(result.issues[0]?.message).toBe(result.detail)
+    expect(result.issues[1]?.message).toBe(`patch application halted: ${result.detail}`)
+  })
+
+  it('names the failing hunk in the no-match detail', () => {
+    const result = applyPatchPayload(
+      'a\nb\n',
+      body('@@ -1,1 +1,1 @@', '-a', '+A', '@@ -2,1 +2,1 @@', '-missing', '+x'),
+    )
+    if (result.status !== 'halt') expect.fail(`expected halt, got ${result.status}`)
+    expect(result.detail).toBe(
+      'hunk 2 does not match the current content (T1: the pattern must occur exactly once, found none)',
+    )
+  })
+
+  it('names the failing hunk and both occurrences in the ambiguous-match detail', () => {
+    const result = applyPatchPayload(
+      'a\nDUP\ns\nDUP\n',
+      body('@@ -1,1 +1,1 @@', '-a', '+A', '@@ -2,1 +2,1 @@', '-DUP', '+Q'),
+    )
+    if (result.status !== 'halt') expect.fail(`expected halt, got ${result.status}`)
+    expect(result.hunkIndex).toBe(1)
+    expect(result.detail).toBe(
+      'hunk 2 matches the current content in 2 places (first at lines 2 and 4); T1 requires exactly one, and @@ line numbers may not be used to disambiguate',
+    )
+  })
+
+  it('names the failing hunk in the eof-mismatch detail', () => {
+    const result = applyPatchPayload(
+      'a\nb\nc\n',
+      '--- a/content\n+++ b/content\n@@ -2,1 +2,1 @@\n-b\n+x\n\\ No newline at end of file\n',
+    )
+    if (result.status !== 'halt') expect.fail(`expected halt, got ${result.status}`)
+    expect(result.hunkIndex).toBe(0)
+    // patch-matcher.ts owns the message past the hunk prefix; pin the prefix only.
+    expect(result.detail.startsWith('hunk 1: ')).toBe(true)
+  })
+})
+
 describe('F5 / C8 — a payload with two header blocks (multiple file-sections)', () => {
   it('sequences every parsed hunk under T3 rather than dropping any', () => {
     const payload = `${body('@@ -1,1 +1,1 @@', '-a', '+A')}${body('@@ -2,1 +2,1 @@', '-b', '+B')}`
