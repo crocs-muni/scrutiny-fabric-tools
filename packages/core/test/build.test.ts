@@ -12,9 +12,8 @@ import {
   buildProduct,
   fenceLength,
   fencePatchPayload,
-  widenContext,
 } from '../src/build.js'
-import { diffHunks, occurrences, toLines } from '../src/patch-matcher.js'
+import { diffHunks, occurrences, toLines, widenContext } from '../src/patch-matcher.js'
 import { applyPatchContent } from '../src/patch.js'
 import { findFencedBlocks } from '../src/validate.js'
 import { ambiguousPatchPair } from './_a-build-coverage.js'

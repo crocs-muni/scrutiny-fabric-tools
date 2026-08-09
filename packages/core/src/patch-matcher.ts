@@ -226,3 +226,74 @@ export function diffHunks(before: string, after: string, context: number): reado
     reduceHunk,
   )
 }
+
+/** The widening search's outcome: the context that won (or the last one tried), and its hunks. */
+export interface WidenResult {
+  readonly context: number
+  readonly hunks: readonly Hunk[]
+  readonly exhausted: boolean
+}
+
+/**
+ * Widen linearly — step EXACTLY 1, never a stride or binary search (CONTEXT-WIDENING.md §2.1) —
+ * from `startContext` up to full-file context, stopping at the first context where every hunk's
+ * T1 pattern is unique. Each hunk is checked against the content produced by every prior hunk in
+ * the same trial payload via `spliceAt`, exactly mirroring T3's sequencing in `applyPatchPayload`
+ * (§2.2: an independent per-hunk check against the static pre-patch lines can report `unique`
+ * where the real consumer-side scan would still find ambiguity). Work is charged per F12's
+ * per-element floor ({@link scanCost}), so a blank-line-dominated pattern still costs the scan it
+ * causes (§3).
+ *
+ * Termination is arithmetic: `context` increases by one per iteration, clamped to `fullContext`,
+ * and §2.3 proves a pattern spanning the whole file is unique by a length argument alone — so
+ * `exhausted: true` is reachable only through a `ceilingWork` cut-off (or kept as the honest
+ * fullContext guard the spec's own comment requires). A `spliceAt` failure mid-trial (an
+ * EOF-marker branch, C5-shaped) is not an ambiguity widening is guaranteed to fix: the trial
+ * treats it as unresolved and keeps widening — the final verdict remains the P4 self-check's,
+ * which is exactly the §4 composition.
+ *
+ * Lives here, not `build.ts`, since the 2026-08-08 audit (S3-17): an internal-only algorithm must
+ * not sit on a public module's surface, and this is already the internal module both of
+ * `widenContext`'s callers (`build.ts`, the widening tests) share.
+ */
+export function widenContext(
+  before: string,
+  after: string,
+  startContext: number,
+  ceilingWork: number,
+): WidenResult {
+  const beforeLines = toLines(before)
+  const afterLines = toLines(after)
+  const fullContext = Math.max(lineCount(beforeLines), lineCount(afterLines))
+  let work = 0
+
+  for (let context = startContext; ; context++) {
+    const capped = Math.min(context, fullContext)
+    const hunks = diffHunks(before, after, capped)
+
+    let lines = beforeLines
+    let ambiguous = false
+    for (const hunk of hunks) {
+      if (hunk.oldPat.length === 0) continue // T2's carve-out — no pattern to disambiguate
+
+      const cost = scanCost(lines, hunk.oldPat)
+      work += cost
+      if (work > ceilingWork) return { context: capped, hunks, exhausted: true }
+
+      const found = occurrences(lines, hunk.oldPat)
+      if (found.count !== 1) {
+        ambiguous = true
+        break // atomic, same as T3 — a later hunk in this trial is never scanned past the first miss
+      }
+      const spliced = spliceAt(lines, hunk, found.first)
+      if (!spliced.ok) {
+        ambiguous = true
+        break
+      }
+      lines = spliced.lines
+    }
+
+    if (!ambiguous) return { context: capped, hunks, exhausted: false }
+    if (capped === fullContext) return { context: capped, hunks, exhausted: true } // see §2.3
+  }
+}

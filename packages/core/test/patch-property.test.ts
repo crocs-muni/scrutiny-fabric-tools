@@ -18,8 +18,8 @@
 
 import fc from 'fast-check'
 import { describe, expect, it } from 'vitest'
-import { buildPatch, widenContext } from '../src/build.js'
-import { type Hunk, occurrences, spliceAt, toLines } from '../src/patch-matcher.js'
+import { buildPatch } from '../src/build.js'
+import { type Hunk, occurrences, spliceAt, toLines, widenContext } from '../src/patch-matcher.js'
 import { type ApplyResult, applyPatchContent, applyPatchPayload, makePatch } from '../src/patch.js'
 import { distinctPair, repeatyContent } from './_generators.js'
 import { describeResult } from './_patch.js'
