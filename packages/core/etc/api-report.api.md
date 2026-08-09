@@ -37,8 +37,6 @@ export interface AdmissionView {
 
 // @public
 export interface AdmitState {
-    // Warning: (ae-forgotten-export) The symbol "BindingEndpoints" needs to be exported by the entry point index.d.ts
-    //
     // (undocumented)
     readonly liveBindings: Readonly<Record<string, BindingEndpoints>>;
     // (undocumented)
@@ -81,7 +79,21 @@ export interface ApplyOptions {
 }
 
 // @public
+export type ApplyResult = PatchApplied | PatchNoop | PatchHalt | PatchLimit;
+
+// @public
 export function applyStoreDelta(state: StoreState, delta: StoreDelta): StoreState;
+
+// @public
+export interface BindingEndpoints {
+    // (undocumented)
+    readonly linkId: string;
+    // (undocumented)
+    readonly rootId: string;
+}
+
+// @public (undocumented)
+export function bindingEndpoints(binding: NostrEvent): BindingEndpoints | undefined;
 
 // @public (undocumented)
 export const bindingReason: (bindingId: string) => `binding:${string}`;
@@ -168,6 +180,9 @@ export interface CreateStoreOptions {
     readonly storage?: EventStorage;
     readonly verify: (event: NostrEvent) => boolean;
 }
+
+// @public
+export const DELETION_KIND = 5;
 
 // @public
 export function deletionsFor(eventId: string): EventFilter;
@@ -396,6 +411,54 @@ export function parseIndexer(raw: string): Indexer | undefined;
 // @public
 export function parseVersionTag(tag: string): ProtocolVersion | undefined;
 
+// @public (undocumented)
+export interface PatchApplied {
+    // (undocumented)
+    readonly content: string;
+    // (undocumented)
+    readonly hunksApplied: number;
+    readonly issues: readonly Issue[];
+    // (undocumented)
+    readonly status: 'applied';
+    readonly work: number;
+}
+
+// @public
+export interface PatchHalt {
+    // (undocumented)
+    readonly detail: string;
+    readonly hunkIndex: number | null;
+    readonly issues: readonly Issue[];
+    // (undocumented)
+    readonly reason: HaltReason;
+    readonly rule: HaltRule;
+    // (undocumented)
+    readonly status: 'halt';
+}
+
+// @public
+export interface PatchLimit {
+    // (undocumented)
+    readonly ceiling: number;
+    // (undocumented)
+    readonly issues: readonly Issue[];
+    // (undocumented)
+    readonly limit: LimitKind;
+    // (undocumented)
+    readonly observed: number;
+    // (undocumented)
+    readonly status: 'limit';
+}
+
+// @public (undocumented)
+export interface PatchNoop {
+    readonly content: string;
+    readonly issues: readonly Issue[];
+    readonly shape: 'prose-only' | 'header-only';
+    // (undocumented)
+    readonly status: 'noop';
+}
+
 // @public
 export interface PendingEvent {
     // (undocumented)
@@ -409,11 +472,11 @@ export interface PendingEvent {
 // @public
 export interface ProtocolVersion {
     // (undocumented)
-    readonly major: number;
+    readonly major: string;
     // (undocumented)
-    readonly minor: number;
+    readonly minor: string;
     // (undocumented)
-    readonly patch: number;
+    readonly patch: string;
 }
 
 // @public
