@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   EMPTY_ADMIT_STATE,
   applyDelta,
+  bindingEndpoints,
   bindingReason,
   computeAdmission,
   invertDelta,
@@ -24,7 +25,7 @@ import {
   product,
   rootPatch,
 } from './_admit.js'
-import { PK_FOREIGN, PK_OTHER, PK_ROOT } from './_fixtures.js'
+import { PK_FOREIGN, PK_OTHER, PK_ROOT, baseTags } from './_fixtures.js'
 
 describe('TR-2 — direct trust admits by pubkey, regardless of event type', () => {
   it('admits a root whose author is trusted, and nothing else', () => {
@@ -308,5 +309,167 @@ describe('DEL-5 — Binding retraction revokes exactly the admission it conferre
     const index = computeAdmission([root, link, b, revoke], fakeTrust([PK_OTHER, PK_ROOT]))
     expect(index.reasons[root.id]).toEqual(['direct-trust'])
     expect(isAdmitted(index, link.id)).toBe(false)
+  })
+})
+
+describe('S5 — Step-5 pins: value and shape level, where comparing two paths is blind', () => {
+  // AG1/AG2 compare the incremental machine against the oracle, and both consume the same
+  // spec-level helpers (rootChainReason, bindingEndpoints, rootChainMembers). A mutant inside a
+  // shared helper changes both sides identically and the comparison passes anyway (Stryker Step
+  // 5: this family is what most admit survivors were). These pins assert the actual bytes and
+  // membership shapes instead.
+
+  const root = product('root')
+  const link = metadata('link', { pubkey: PK_FOREIGN })
+  const binding = bindingEvent('binding', root.id, link.id, { pubkey: PK_OTHER })
+  const left = rootPatch('left', root.id, root.id)
+  const right = rootPatch('right', root.id, root.id)
+
+  it('pins reason bytes literally — helper drift cannot hide behind helper use', () => {
+    const index = computeAdmission([root, link, binding, left], fakeTrust([PK_OTHER]))
+    expect(index.reasons[link.id]).toEqual([`binding:${binding.id}`])
+    expect(index.reasons[root.id]).toEqual([`binding:${binding.id}`])
+    expect(index.reasons[left.id]).toEqual([`root-chain:${root.id}`])
+    expect(reasonKind(`binding:${binding.id}`)).toBe('binding')
+    expect(reasonKind(`root-chain:${root.id}`)).toBe('root-chain')
+    expect(reasonKind('direct-trust')).toBe('direct-trust')
+  })
+
+  it('a root is never its own root-chain member (TR-5)', () => {
+    const index = computeAdmission([root, left, right], fakeTrust([PK_ROOT]))
+    expect(index.reasons[root.id]).toEqual(['direct-trust'])
+    expect(index.reasons[left.id]).toEqual(['direct-trust', `root-chain:${root.id}`])
+  })
+
+  it('TR-5 membership discriminates by event type, not by tag shape', () => {
+    // §5.2's consumer grammar is a floor: events may carry extra tags. A non-patch carrying the
+    // patch grammar's markers must not join the chain just because the markers are present —
+    // candidacy is by event type first, tag shape second.
+    const impostorProduct = product('impostor-product', {
+      tags: [...baseTags('product'), ['e', root.id, '', 'root']],
+    })
+    const impostorRootMeta = metadata('impostor-root-meta', {
+      pubkey: PK_ROOT,
+      tags: [...baseTags('metadata'), ['e', root.id]],
+    })
+    const index = computeAdmission(
+      [root, left, impostorProduct, impostorRootMeta, binding],
+      fakeTrust([PK_OTHER]),
+    )
+    expect(index.reasons[impostorProduct.id] ?? []).toEqual([])
+    expect(index.reasons[impostorRootMeta.id] ?? []).toEqual([])
+  })
+
+  it('a foreign-authored kind 5 is never a root-chain member, even when targeting the root', () => {
+    const foreignDel = deletion('foreign-del', [root.id], PK_FOREIGN)
+    const index = computeAdmission([root, foreignDel, binding], fakeTrust([PK_OTHER]))
+    expect(index.reasons[foreignDel.id] ?? []).toEqual([])
+  })
+
+  it('a root-authored kind 5 joins via the root or via any one member patch, and nothing else', () => {
+    const viaRoot = deletion('del-via-root', [root.id], PK_ROOT)
+    const viaPatch = deletion('del-via-patch', ['unrelated', left.id], PK_ROOT)
+    const stray = deletion('del-stray', ['unrelated'], PK_ROOT)
+    const index = computeAdmission(
+      [root, left, viaRoot, viaPatch, stray, binding],
+      fakeTrust([PK_OTHER]),
+    )
+    expect(index.reasons[viaRoot.id]).toEqual([`root-chain:${root.id}`])
+    expect(index.reasons[viaPatch.id]).toEqual([`root-chain:${root.id}`])
+    expect(index.reasons[stray.id] ?? []).toEqual([])
+  })
+
+  it('a Product carrying root AND link markers is still not a Binding — kind discriminates', () => {
+    const sneaky = product('sneaky', {
+      tags: [...baseTags('product'), ['e', root.id, '', 'root'], ['e', link.id, '', 'link']],
+    })
+    const oracle = computeAdmission([sneaky, root, link], fakeTrust([PK_ROOT]))
+    expect(oracle.reasons[link.id] ?? []).not.toContain(`binding:${sneaky.id}`)
+    // …same on the incremental path, which dispatches resyncBinding per event type
+    let state = applyDelta(EMPTY_ADMIT_STATE, { kind: 'trust', pubkeys: [PK_ROOT] })
+    state = applyDelta(state, { kind: 'observe', events: [sneaky, root, link] })
+    expect(toIndex(state).reasons[link.id] ?? []).not.toContain(`binding:${sneaky.id}`)
+  })
+
+  it('bindingEndpoints requires exactly one root and one link marker, first-wins is not allowed', () => {
+    expect(bindingEndpoints(binding)).toEqual({ rootId: root.id, linkId: link.id })
+    const dupRoot = bindingEvent('dup-root', root.id, link.id, {
+      tags: [
+        ...baseTags('binding'),
+        ['e', root.id, '', 'root'],
+        ['e', right.id, '', 'root'],
+        ['e', link.id, '', 'link'],
+      ],
+    })
+    expect(bindingEndpoints(dupRoot)).toBeUndefined()
+    const dupLink = bindingEvent('dup-link', root.id, link.id, {
+      tags: [
+        ...baseTags('binding'),
+        ['e', root.id, '', 'root'],
+        ['e', link.id, '', 'link'],
+        ['e', right.id, '', 'link'],
+      ],
+    })
+    expect(bindingEndpoints(dupLink)).toBeUndefined()
+    const noLink = bindingEvent('no-link', root.id, link.id, {
+      tags: [...baseTags('binding'), ['e', root.id, '', 'root']],
+    })
+    expect(bindingEndpoints(noLink)).toBeUndefined()
+  })
+
+  it('a malformed Binding confers nothing and crashes nothing, on both paths (S3-22 family)', () => {
+    const bad = bindingEvent('bad', root.id, link.id, {
+      tags: [
+        ...baseTags('binding'),
+        ['e', root.id, '', 'root'],
+        ['e', right.id, '', 'root'],
+        ['e', link.id, '', 'link'],
+      ],
+    })
+    const oracle = computeAdmission([root, link, bad], fakeTrust([PK_OTHER]))
+    expect(oracle.reasons[root.id] ?? []).toEqual([])
+    expect(oracle.reasons[link.id] ?? []).toEqual([])
+    let state = applyDelta(EMPTY_ADMIT_STATE, { kind: 'trust', pubkeys: [PK_OTHER] })
+    state = applyDelta(state, { kind: 'observe', events: [root, link, bad] })
+    expect(toIndex(state).reasons[root.id] ?? []).toEqual([])
+    expect(Object.keys(state.liveBindings)).toEqual([])
+  })
+
+  it('DEL-4 retraction honours any one e tag, and only the author (NIP-09)', () => {
+    expect(isDefaultViewRetracted(root, [deletion('d1', ['other', root.id], PK_ROOT)])).toBe(true)
+    expect(isDefaultViewRetracted(root, [deletion('d2', [left.id], PK_ROOT)])).toBe(false)
+    expect(isDefaultViewRetracted(root, [deletion('d3', [root.id], PK_OTHER)])).toBe(false)
+  })
+
+  it('keeps AdmitState.trusted sorted regardless of delta order', () => {
+    let state = applyDelta(EMPTY_ADMIT_STATE, {
+      kind: 'trust',
+      pubkeys: [PK_OTHER, PK_FOREIGN],
+    })
+    state = applyDelta(state, { kind: 'trust', pubkeys: [PK_ROOT] })
+    // Insertion order was OTHER, FOREIGN, ROOT; the record is sorted for deep-equality.
+    expect(state.trusted).toEqual([PK_ROOT, PK_FOREIGN, PK_OTHER])
+  })
+
+  it('unobserving an admitted root un-cascades root-chain:<root> from patches and kind 5s (§9 invariant 2)', () => {
+    const delLeft = deletion('del-left', [left.id], PK_ROOT)
+    let state = applyDelta(EMPTY_ADMIT_STATE, { kind: 'trust', pubkeys: [PK_OTHER] })
+    state = applyDelta(state, { kind: 'observe', events: [binding, root, left, delLeft] })
+    expect(toIndex(state).reasons[left.id]).toEqual([`root-chain:${root.id}`])
+    expect(toIndex(state).reasons[delLeft.id]).toEqual([`root-chain:${root.id}`])
+    state = applyDelta(state, { kind: 'unobserve', eventIds: [root.id] })
+    // Entries are deleted, never left empty (invariant 1), on both member kinds.
+    expect(toIndex(state).reasons[left.id]).toBeUndefined()
+    expect(toIndex(state).reasons[delLeft.id]).toBeUndefined()
+    // The endpoint's binding credit is independent of the root's presence.
+    expect(toIndex(state).reasons[link.id]).toEqual([`binding:${binding.id}`])
+  })
+
+  it('unobserving a binding endpoint strips direct-trust but preserves the binding credit (§9 invariant 3 boundary, BD-6)', () => {
+    let state = applyDelta(EMPTY_ADMIT_STATE, { kind: 'trust', pubkeys: [PK_FOREIGN, PK_OTHER] })
+    state = applyDelta(state, { kind: 'observe', events: [binding, root, link] })
+    expect(toIndex(state).reasons[link.id]).toEqual([`binding:${binding.id}`, 'direct-trust'])
+    state = applyDelta(state, { kind: 'unobserve', eventIds: [link.id] })
+    expect(toIndex(state).reasons[link.id]).toEqual([`binding:${binding.id}`])
   })
 })

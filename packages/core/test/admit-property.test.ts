@@ -123,11 +123,13 @@ const toDelta = (a: Action): AdmissionDelta => {
   }
 }
 
-/** `forwardSequenceArb` never actually produces `'untrust'`, so the fallback branch is safe. */
-const toForwardDelta = (a: Action): ForwardDelta =>
-  a.kind === 'observe'
-    ? { kind: 'observe', events: [FIXED_EVENTS[a.index] as NostrEvent] }
-    : { kind: 'trust', pubkeys: [a.pk] }
+/** `forwardSequenceArb` draws observe/trust only (untrust is deliberately uninvertible, and
+ * unobserve is only drawn by the S5-5 generator, which feeds `toDelta` instead). */
+const toForwardDelta = (a: Action): ForwardDelta => {
+  if (a.kind === 'observe') return { kind: 'observe', events: [FIXED_EVENTS[a.index] as NostrEvent] }
+  if (a.kind === 'trust') return { kind: 'trust', pubkeys: [a.pk] }
+  throw new Error(`unreachable: forwardActionArb never draws ${a.kind}`)
+}
 
 /** Independently tracks "what is currently observed/trusted" by replaying each delta's own
  * semantics in plain code — never by asking `admit.ts`'s own state machine. */
