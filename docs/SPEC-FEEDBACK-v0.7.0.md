@@ -29,7 +29,7 @@ rule), and the refuters' live reproductions are quoted below.
 
 ## F15 — VER-1's "as numbers" ordering collides with its own no-ceiling guarantee: on the reference platform the per-field comparison silently collapses distinct tags past ~2^53
 
-**Status:** open · **Rules:** VER-1, TAG-2 · **Sections:** §3 · **Severity:** silently wrong ordering
+**Status:** resolved in spec **v0.7.1** (landed via spec-repo PR #18) · **Rules:** VER-1, TAG-2 · **Sections:** §3 · **Severity:** silently wrong ordering
 of two spec-permitted tags, verified live against the reference implementation's own comparator; the
 digit ceiling F14 was filed to remove re-enters through the comparison, under a representation
 choice the current text leaves open
@@ -134,7 +134,7 @@ available" never leaves a bignum-less consumer spec-compliant and wrong in a way
 
 ## F16 — §7.6 covers an unobserved `e root` and PT-6 covers an observed foreign parent; nothing covers the third unresolved-reference shape: a root-author patch whose `e reply` parent is itself unobserved
 
-**Status:** open · **Rules:** CHN-1, PT-6 (UR-1, UR-2, RC-3, SF-1) · **Sections:** §4.4, §5.3, §7.1,
+**Status:** resolved in spec **v0.8.0** as new rule **UR-4** (hold-pending won, landed via PR #18) · **Rules:** CHN-1, PT-6, UR-4 (UR-1, UR-2, RC-3, SF-1) · **Sections:** §4.4, §5.3, §7.1,
 §7.6 · **Severity:** spec gap on the one dangling-reference shape §7.6's own enumeration does not
 name; PT-6 cannot be evaluated on it; the normative conformance corpus pins zero outcomes for it
 (checked directly: zero of 46 chain cases), so two conformant implementations may currently derive
@@ -267,7 +267,7 @@ root-authored-dangling-parent case of its own.
 
 ## F17 — T2 defines the pure-insertion position but not the case where the implied position is out of range, so conformant consumers may clamp to different bounds — or HALT — on a C6-permitted input
 
-**Status:** open · **Rules:** T2, C6 (T3, H1) · **Sections:** §5.3, §5.2 · **Severity:** unspecified
+**Status:** resolved in spec **v0.7.1** (clamp won, landed via PR #18) · **Rules:** T2, C6 (T3, H1) · **Sections:** §5.3, §5.2 · **Severity:** unspecified
 consumer behaviour on an input the spec's own advisory-numbers rule makes ordinary; already surfaced
 as a shipped content bug in the reference implementation, found independently by two audit passes
 and confirmed by all six refuter votes

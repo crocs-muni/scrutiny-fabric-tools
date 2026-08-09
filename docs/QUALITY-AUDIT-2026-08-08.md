@@ -131,7 +131,7 @@ from the workflow journal — see the JSON).
 | S3-18 | `patch.ts` | [correctness] **T2's out-of-range insertion clamp corrupts content when clamping against the trailing-newline sentinel** | correctness | verified 3/3 | human decision — same defect as S3-19, found by both lenses independently |
 | S3-19 | `patch.ts` | [correctness] **T2 insertion clamp uses `lines.length` instead of `lineCount(lines)`, silently inserting a spurious blank line when content ends with a trailing newline** | correctness | verified 3/3 | human decision — same defect as S3-18, found by both lenses independently |
 | S3-20 | `patch.ts` | [public-surface] item 1b is half-stale: `HaltRule` now in the barrel, but the four `ApplyResult` variants remain unexported anywhere | public-surface | verified 2/3 | human decision (updates Finding 1b) |
-| S3-21 | `resolve.ts` | [test-coverage] `parent === undefined` branch of PT-6/OV-8's linkable filter completely untested, appears behaviorally inert | test-coverage | verified 3/3 | human decision — natural Step 4 input |
+| S3-21 | `resolve.ts` | [test-coverage] `parent === undefined` branch of PT-6/OV-8's linkable filter completely untested, appears behaviorally inert | test-coverage | verified 3/3 | **closed at spec v0.8.0**: F16 → new rule UR-4 (hold-pending); enforced in `resolve.ts` with 6 unit pins + vendored chain vector; the S3-21 test input is thereby consumed (`24d0489`) |
 | S3-22 | `admit.ts` | [correctness] **trusted-but-mistyped Bindings still credit admission to their wrongly-typed endpoints (BD-3/BD-4/BD-5 gap)** | correctness | verified 3/3 | human decision |
 | S3-23 | `admit.ts` | [public-surface] `bindingEndpoints`/`BindingEndpoints` are genuinely dead public exports; the doc comment justifying them is stale | public-surface | verified 2/3 | human decision — superseded by S3-27's resolution (see Finding 1a) |
 | S3-24 | `store.ts` | [architecture] in-memory storage's deletion-hiding cache is invalidated by every `put()`, forcing a full O(total-events) rescan on next `query()` even for puts unrelated to any deletion | architecture | verified 3/3 | human decision |
@@ -241,18 +241,22 @@ Housekeeping left by the interrupted session, stashed (not deleted) to unblock `
 
 **Steps 0–3 are complete, and the Step-3 triage batch is done (2026-08-09).** 18 of 20 flagged
 findings applied, **one commit per decision** (`d8ce649..068606e` + api-report `341cd39`; S3-12
-endorsed as-is; S3-13/S3-21/S3-29/S3-30 deferred to Step 4 by design). Full `pnpm verify` green
-at HEAD — **534/534 tests** (538/538 after the review batch). Spec-feedback entries F15/F16/F17
-are drafted at `docs/SPEC-FEEDBACK-v0.7.0.md` (`452f687`), and the **spec-repo session is
-prepared**: `docs/START-SESSION-SPEC-FEEDBACK-F15-F17.md` (`dacbaab`) carries the full context,
-recommended rulings (F16 → hold-pending as UR-4 in UR-2's shape; F17 → clamp-to-range as one T2
-sentence), the release-split recommendation, and the paste-ready session prompt. Do not amend
-the spec from this repo.
+endorsed as-is; S3-13/S3-29/S3-30 deferred to Step 4 by design; S3-21 since closed by UR-4). Full
+`pnpm verify` green
+at HEAD — **547/547 tests**. Spec-feedback F15/F16/F17 **landed on the spec repo's main** (PR
+#18): F15+F17 in v0.7.1, F16 as new rule UR-4 in v0.8.0, exactly as recommended in
+`docs/START-SESSION-SPEC-FEEDBACK-F15-F17.md` (`dacbaab`; statuses marked in the batch file).
+The reference-side follow-up is **done**: the corpus is re-vendored and pinned at the new
+digests (`fb56231`), UR-4 is enforced in `resolve.ts` — the eligibility split chain/held/ignored,
+`Resolution.pending` now carries held patches, runner asserts `expect.pending` — with 6 unit
+pins (`24d0489`), the rule registry and ownership table are regenerated at 142 rules with UR-4
+owned by resolve (`964e4dd`), and `SPEC_VERSION` is 0.8.0 (`afbb81f`). The vendored-copy
+consequence for this repo's pinned digests is recorded in the spec repo's docs/DECISIONS.md (S8).
 
-**Next: Step 4 regression backfill** (`test/resolve-regressions.ts`, `test/admit-regressions.ts`,
-`test/store-regressions.ts`) — its named inputs are S3-13 (classifyByRole Patch path), S3-21
-(root-authored patch with unobserved parent; pin the *optimistic-include* behaviour explicitly and
-link F16), S3-29 (untrust-narrowing), S3-30 (root-retraction). Then Steps 5–9 in order.
+**Next: Step 4 regression backfill** (`test/admit-regressions.ts`, `test/store-regressions.ts` —
+resolve's named inputs are now closed: S3-21 resolved by UR-4 enforcement at `24d0489`, F17's case
+vendored). Its remaining named inputs are S3-13 (classifyByRole Patch path), S3-29
+(untrust-narrowing), S3-30 (root-retraction). Then Steps 5–9 in order.
 
 If resuming in a different tool: `git fetch && git checkout chore/architecture-audit-2026-08-08`,
 read §0–§3 incl. the triage outcome, then Step 4. Housekeeping unchanged: one `git stash` entry
