@@ -26,6 +26,7 @@ import {
   scrutinyEventType,
 } from './events.js'
 import type { TrustProvider } from './interfaces.js'
+import { toNullProtoRecord } from './records.js'
 import type { Overlay } from './resolve.js'
 
 // ---------------------------------------------------------------------------
@@ -239,7 +240,7 @@ export function computeAdmission(
     }
   }
 
-  const out = collectToRecord(
+  const out = toNullProtoRecord(
     [...reasons].flatMap(([id, set]) => (set.size > 0 ? [[id, [...set].sort()] as const] : [])),
   )
   return { reasons: out }
@@ -386,27 +387,19 @@ function fromState(state: AdmitState): Working {
   }
 }
 
-/**
- * Shape an output record copied from mutable working state. Null-prototype by deliberate choice:
- * record keys here are event ids — attacker-reachable strings before SIG-1 has run — and
- * `'__proto__'` as a key on a plain `{}` would target the output's prototype chain instead of an
- * own entry, silently diverging the incremental path from the oracle (2026-08-08 audit, S3-26).
- */
-function collectToRecord<V>(entries: Iterable<readonly [string, V]>): Record<string, V> {
-  const out: Record<string, V> = Object.create(null) as Record<string, V>
-  for (const [k, v] of entries) out[k] = v
-  return out
-}
-
+// `toState` outputs are conventionally immutable, not frozen: `fromState`/`Working` never mutate a
+// previous state in place, so a hard freeze on every delta's records would pay cost for a
+// guarantee nothing ever violates. Only the EMPTY sentinel carries the freeze (S3-28), because it
+// is shared by reference forever.
 function toState(w: Working): AdmitState {
-  const reasons = collectToRecord(
+  const reasons = toNullProtoRecord(
     [...w.reasons].flatMap(([id, set]) => (set.size > 0 ? [[id, [...set].sort()] as const] : [])),
   )
   return {
     reasons,
-    liveBindings: collectToRecord(w.liveBindings),
+    liveBindings: toNullProtoRecord(w.liveBindings),
     trusted: [...w.trusted].sort(),
-    observedById: collectToRecord(w.observedById),
+    observedById: toNullProtoRecord(w.observedById),
   }
 }
 

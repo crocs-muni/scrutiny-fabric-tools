@@ -42,6 +42,7 @@ import {
 import type { EventFilter, EventStorage } from './interfaces.js'
 import { storageSymbol } from './interfaces.js'
 import type { ApplyOptions } from './patch-types.js'
+import { toNullProtoRecord } from './records.js'
 import { type Resolution, type ResolveOptions, resolve } from './resolve.js'
 import { validateEvent } from './validate.js'
 
@@ -292,21 +293,6 @@ function recordToSetMap(
   return new Map(Object.entries(record).map(([k, v]) => [k, new Set(v)]))
 }
 
-/**
- * Null-prototype output record: keys here are attacker-reachable event ids, and `'__proto__'` as a
- * key on a plain object would target its prototype chain instead of an own entry — the same hazard
- * admit.ts's `collectToRecord` is documented against (2026-08-08 audit, S3-26).
- */
-function toNullProtoRecord<T>(entries: Iterable<readonly [string, T]>): Record<string, T> {
-  const out: Record<string, T> = Object.create(null) as Record<string, T>
-  for (const [k, v] of entries) out[k] = v
-  return out
-}
-
-function mapToRecord<T>(map: ReadonlyMap<string, T>): Record<string, T> {
-  return toNullProtoRecord(map)
-}
-
 function setMapToSortedRecord(
   map: ReadonlyMap<string, ReadonlySet<string>>,
 ): Record<string, readonly string[]> {
@@ -352,12 +338,12 @@ export function applyStoreDelta(state: StoreState, delta: StoreDelta): StoreStat
       return {
         admit: admitAfter,
         invalidIds: [...invalidIds].sort(),
-        chainMembership: mapToRecord(chainMembership),
+        chainMembership: toNullProtoRecord(chainMembership),
         pendingAwaiting: setMapToSortedRecord(pendingAwaiting),
         overlayAwaiting: setMapToSortedRecord(overlayAwaiting),
         trustEpoch: state.trustEpoch,
         observedEpoch: state.observedEpoch + 1,
-        chainEpoch: mapToRecord(chainEpoch),
+        chainEpoch: toNullProtoRecord(chainEpoch),
       }
     }
 
@@ -411,7 +397,7 @@ export function applyStoreDelta(state: StoreState, delta: StoreDelta): StoreStat
         overlayAwaiting: state.overlayAwaiting, // never mutated on unobserve either dimension
         trustEpoch: state.trustEpoch,
         observedEpoch: state.observedEpoch + 1,
-        chainEpoch: mapToRecord(chainEpoch),
+        chainEpoch: toNullProtoRecord(chainEpoch),
       }
     }
 
