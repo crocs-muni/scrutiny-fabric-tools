@@ -4,6 +4,7 @@ import {
   applyDelta,
   bindingReason,
   computeAdmission,
+  invertDelta,
   isAdmitted,
   isDefaultViewRetracted,
   openView,
@@ -233,6 +234,43 @@ describe('OV-7 — a foreign overlay is visible only if its pubkey is trusted', 
     const foreign = foreignPatch('foreign', root.id, root.id)
     const resolution = resolve(root.id, [root, foreign])
     expect(visibleOverlays(resolution.overlays, openView)).toEqual(resolution.overlays)
+  })
+})
+
+describe('S3-29 — the untrust-narrowing hazard is pinned behaviorally (2026-08-08 audit)', () => {
+  // ForwardDelta's type accepts only observe/trust — the compile-time guard — because a lone
+  // `untrust` is a no-op that can be sequence-first, with no earlier `trust` for a LIFO undo to
+  // pair against (AG2's original counterexample). These pins state the *behavioral* claims the
+  // type encodes, named and greppable: legal forwards invert exactly; order is load-bearing.
+
+  it('inverting a legal ForwardDelta restores the pre-delta reason state exactly', () => {
+    const root = product('root', { pubkey: PK_OTHER })
+    let state = applyDelta(EMPTY_ADMIT_STATE, { kind: 'observe', events: [root] })
+    state = applyDelta(state, { kind: 'trust', pubkeys: [PK_OTHER] })
+    expect(toIndex(state).reasons[root.id]).toEqual(['direct-trust'])
+
+    // Undo the trust, then undo the observe — each legal inversion is exact.
+    let restored = applyDelta(state, invertDelta({ kind: 'trust', pubkeys: [PK_OTHER] }))
+    expect(toIndex(restored).reasons).toEqual(toIndex(EMPTY_ADMIT_STATE).reasons)
+    restored = applyDelta(restored, invertDelta({ kind: 'observe', events: [root] }))
+    expect(toIndex(restored).reasons).toEqual(toIndex(EMPTY_ADMIT_STATE).reasons)
+  })
+
+  it('trust/untrust is order-load-bearing: (trust → untrust) round-trips, (untrust → trust) fabricates — so a lone untrust has no sound inverse and ForwardDelta excludes it', () => {
+    const root = product('root', { pubkey: PK_OTHER })
+    const observed = applyDelta(EMPTY_ADMIT_STATE, { kind: 'observe', events: [root] })
+
+    const roundTrip = applyDelta(applyDelta(observed, { kind: 'trust', pubkeys: [PK_OTHER] }), {
+      kind: 'untrust',
+      pubkeys: [PK_OTHER],
+    })
+    expect(toIndex(roundTrip).reasons).toEqual(toIndex(observed).reasons)
+
+    const fabricated = applyDelta(applyDelta(observed, { kind: 'untrust', pubkeys: [PK_OTHER] }), {
+      kind: 'trust',
+      pubkeys: [PK_OTHER],
+    })
+    expect(toIndex(fabricated).reasons[root.id]).toEqual(['direct-trust'])
   })
 })
 
