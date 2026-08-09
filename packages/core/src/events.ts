@@ -183,11 +183,18 @@ export function versionTag(event: NostrEvent): string | undefined {
   return found.length === 1 ? found[0] : undefined
 }
 
-/** A version tag decomposed into its three fields (VER-1). */
+/**
+ * A version tag decomposed into its three fields (VER-1).
+ *
+ * Fields are kept as decimal **text**, never converted to `Number`: §3 imposes no digit-count
+ * ceiling on any field, and `Number` would silently lose integer precision above 2^53 —
+ * `Number('9007199254740993') === Number('9007199254740992')`. Callers needing arithmetic convert
+ * explicitly and own that choice; ordering ({@link compareVersionTags}) never pays it.
+ */
 export interface ProtocolVersion {
-  readonly major: number
-  readonly minor: number
-  readonly patch: number
+  readonly major: string
+  readonly minor: string
+  readonly patch: string
 }
 
 /** Parse a version tag, or `undefined` if it does not match the grammar. */
@@ -196,7 +203,22 @@ export function parseVersionTag(tag: string): ProtocolVersion | undefined {
   if (match === null) return undefined
   const [, major, minor, patch] = match
   if (major === undefined || minor === undefined || patch === undefined) return undefined
-  return { major: Number(major), minor: Number(minor), patch: Number(patch) }
+  return { major, minor, patch }
+}
+
+/**
+ * Arbitrary-precision numeric comparison of one unpadded decimal field: strip leading zeros (so
+ * `007` and `7` compare equal — the grammar admits them even though producers emit unpadded),
+ * then longer digit string wins, then lexicographic. The canonical width-independent algorithm —
+ * `cmp`-style digit-string comparison used by Go's `x/mod/semver` (`compareInt`), RPM's
+ * `rpmvercmp`, and glibc's `strverscmp` for exactly this problem.
+ */
+function compareVersionField(a: string, b: string): number {
+  const x = a.replace(/^0+(?=\d)/, '')
+  const y = b.replace(/^0+(?=\d)/, '')
+  if (x.length !== y.length) return x.length < y.length ? -1 : 1
+  if (x === y) return 0
+  return x < y ? -1 : 1
 }
 
 /**
@@ -205,15 +227,21 @@ export function parseVersionTag(tag: string): ProtocolVersion | undefined {
  * VER-1 (amended in spec v0.7.0 — F14): ordering is a per-field numeric tuple comparison, never a
  * lexicographic or wholesale string comparison. The retired three-digit form's "zero-padded, so
  * lexicographic coincides with numeric" claim does not survive an unpadded field — this replaces it
- * rather than layering on top of it. Non-matching tags sort before all valid ones rather than
- * throwing.
+ * rather than layering on top of it. Per-field comparison is width-independent by construction
+ * (see `compareVersionField`) — `scrutiny-v9007199254740993.0.0` sorts strictly after
+ * `scrutiny-v9007199254740992.0.0`, which `Number`-based comparison could not tell apart.
+ * Non-matching tags sort before all valid ones rather than throwing.
  */
 export function compareVersionTags(a: string, b: string): number {
   const va = parseVersionTag(a)
   const vb = parseVersionTag(b)
   if (va === undefined) return vb === undefined ? 0 : -1
   if (vb === undefined) return 1
-  return va.major - vb.major || va.minor - vb.minor || va.patch - vb.patch
+  return (
+    compareVersionField(va.major, vb.major) ||
+    compareVersionField(va.minor, vb.minor) ||
+    compareVersionField(va.patch, vb.patch)
+  )
 }
 
 /** A parsed `i` tag value (§9). */

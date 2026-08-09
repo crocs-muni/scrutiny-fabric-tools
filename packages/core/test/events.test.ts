@@ -56,13 +56,13 @@ describe('event type identification', () => {
 
 describe('version tags (VER-1, amended in spec v0.7.0 — F14)', () => {
   it('parses unpadded MAJOR.MINOR.PATCH fields', () => {
-    expect(parseVersionTag('scrutiny-v0.7.0')).toEqual({ major: 0, minor: 7, patch: 0 })
+    expect(parseVersionTag('scrutiny-v0.7.0')).toEqual({ major: '0', minor: '7', patch: '0' })
   })
 
   it('has no digit-count ceiling in any field — the exact case D45 hit under the retired form', () => {
     // Under the old ^scrutiny-v\d{3}$ grammar there was no scrutiny-v0510 for v0.5.10; the ceiling
     // forced a MINOR bump instead (D45). The unpadded form has no such wall.
-    expect(parseVersionTag('scrutiny-v0.5.10')).toEqual({ major: 0, minor: 5, patch: 10 })
+    expect(parseVersionTag('scrutiny-v0.5.10')).toEqual({ major: '0', minor: '5', patch: '10' })
   })
 
   it('rejects forms that do not match the grammar, including the retired three-digit form', () => {
@@ -78,6 +78,23 @@ describe('version tags (VER-1, amended in spec v0.7.0 — F14)', () => {
     expect(compareVersionTags('scrutiny-v0.9.0', 'scrutiny-v0.10.0')).toBeLessThan(0)
     expect(compareVersionTags('scrutiny-v0.10.0', 'scrutiny-v0.10.0')).toBe(0)
     expect(compareVersionTags('scrutiny-v1.0.0', 'scrutiny-v0.99.0')).toBeGreaterThan(0)
+  })
+
+  it('compares exactly at any field width — Number-based comparison collapses above 2^53', () => {
+    // `Number('9007199254740993') === Number('9007199254740992')`, so a numeric compare of these
+    // two distinct tags would return 0 (2026-08-08 audit, S3-11). The per-field digit-string
+    // comparison stays exact at any width (same algorithm as Go's x/mod/semver, RPM, dpkg).
+    expect(
+      compareVersionTags('scrutiny-v9007199254740993.0.0', 'scrutiny-v9007199254740992.0.0'),
+    ).toBeGreaterThan(0)
+    expect(
+      compareVersionTags('scrutiny-v9007199254740992.0.0', 'scrutiny-v9007199254740993.0.0'),
+    ).toBeLessThan(0)
+  })
+
+  it('treats leading-zero-padded fields as numerically equal, though producers emit unpadded', () => {
+    expect(compareVersionTags('scrutiny-v007.7.0', 'scrutiny-v7.7.0')).toBe(0)
+    expect(compareVersionTags('scrutiny-v0.7.00', 'scrutiny-v0.7.0')).toBe(0)
   })
 
   it('returns no version tag when several are present (TAG-2)', () => {
