@@ -97,6 +97,7 @@ export type {
 export {
   EMPTY_ADMIT_STATE,
   applyDelta,
+  bindingEndpoints,
   bindingReason,
   computeAdmission,
   invertDelta,
@@ -112,6 +113,7 @@ export {
   type AdmissionIndex,
   type AdmissionView,
   type AdmitState,
+  type BindingEndpoints,
   type ForwardDelta,
   type Reason,
 } from './admit.js'

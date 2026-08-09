@@ -86,10 +86,11 @@ export const isAdmitted = (index: AdmissionIndex, eventId: string): boolean =>
  * BD-3/BD-4 credits nothing (`bindingEndpointsWellTyped`, added after the 2026-08-08
  * audit's S3-22 finding).
  *
- * Exported (not just `BindingEndpoints`) because `store.ts` needs the identical extraction for its
- * own BD-7 typing check — unlike `resolve.ts`'s independence from `admit.ts` (D29's oracle-vs-
- * incremental split), `store` already depends on this module directly, so there is no independence
- * to protect by restating this logic a second time.
+ * Exported because `BindingEndpoints` is already on the public surface via
+ * {@link AdmitState.liveBindings}, and both it and this function are re-exported from the barrel —
+ * withholding them was never a containment boundary (the `./admit.js` subpath exposed them
+ * regardless; 2026-08-08 audit, S3-27). `store.ts` keeps its own BD-7 extraction per D29's
+ * independence split.
  */
 export interface BindingEndpoints {
   readonly rootId: string
