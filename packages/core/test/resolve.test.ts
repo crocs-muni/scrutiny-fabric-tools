@@ -7,7 +7,7 @@
 
 import { describe, expect, it } from 'vitest'
 import { resolve } from '../src/resolve.js'
-import { PK_FOREIGN, PK_OTHER, PK_ROOT, binding, metadata } from './_fixtures.js'
+import { PK_FOREIGN, PK_OTHER, PK_ROOT, baseTags, binding, metadata } from './_fixtures.js'
 import {
   badPatch,
   deletion,
@@ -522,5 +522,107 @@ describe('S3-30 — retracting the ROOT itself preserves the canonical chain for
     // deleting p1 removes p1 AND its descendant p2 from the canonical walk (DEL-2) — the root's
     // own deletion above removes nothing but the root's default-view presence.
     expect(res.chain).toEqual({ status: 'resolved', content: A, tipId: r.id, applied: [] })
+  })
+})
+
+describe('S5 — Step-5 pins: walk termination, marker floors, deterministic annotation shape', () => {
+  it('a root-author patch without an e reply marker is neither chained nor held (PT grammar floor)', () => {
+    const r = root(A)
+    const noReply = diffPatch('no-reply', r.id, r.id, A, AB, {
+      tags: [...baseTags('patch'), ['e', r.id, '', 'root', PK_ROOT]],
+    })
+    const res = resolve(r.id, [r, noReply])
+    expect(res.chain).toEqual({ status: 'resolved', content: A, tipId: r.id, applied: [] })
+    // It is not an UR-2/UR-4 hold either — those are for patches whose POSITION is unknowable;
+    // a missing marker is a grammar-level defect, permanently out of scope for this event set.
+    expect(res.pending).toEqual([])
+  })
+
+  it('a foreign overlay without an e reply marker is not classified at all', () => {
+    // OV-7 families classify by reply-targeted position; with none, §5.2's tolerance means the
+    // event is V-invalid somewhere else, not an overlay — resolve does not re-derive that.
+    const r = root(A)
+    const f = diffPatch('f', r.id, r.id, A, AB, {
+      pubkey: PK_FOREIGN,
+      tags: [...baseTags('patch'), ['e', r.id, '', 'root', PK_ROOT]],
+    })
+    expect(resolve(r.id, [r, f]).overlays).toEqual([])
+  })
+
+  it('terminates deterministically on reply cycles and self-loops (walk + classify guards)', () => {
+    const r = root(A)
+    const p1 = diffPatch('p1', r.id, idOf('p2'), A, 'a\np1\n')
+    const p2 = diffPatch('p2', r.id, idOf('p1'), A, 'a\np2\n')
+    const selfLoop = diffPatch('self', r.id, idOf('self'), A, 'a\nself\n')
+    const res = resolve(r.id, [r, p1, p2, selfLoop])
+    expect(res.chain).toEqual({ status: 'resolved', content: A, tipId: r.id, applied: [] })
+    expect(res.pending).toEqual([])
+  })
+
+  it('sorts resource-limit annotations deterministically by event id', () => {
+    // RESOLVE.md §7's confluence rows: every output list is sorted by a total, content-derived
+    // key. The annotations sort comparator needs ≥2 annotations to even run — this is the only
+    // shape that produces them without a fork.
+    const r = root(A)
+    const f1 = diffPatch('f-one', r.id, r.id, A, AB, { pubkey: PK_FOREIGN })
+    const f2 = diffPatch('f-two', r.id, r.id, A, 'a\nc\n', { pubkey: PK_FOREIGN })
+    const res = resolve(r.id, [r, f2, f1], { apply: { maxWork: 3 } })
+    const rl = res.annotations.filter((a) => a.kind === 'resource-limit')
+    expect(rl.map((a) => (a.kind === 'resource-limit' ? a.eventId : ''))).toEqual(
+      [f1.id, f2.id].sort((x, y) => (x < y ? -1 : x > y ? 1 : 0)),
+    )
+  })
+
+  it('orders mixed-kind annotations by kind before falling back to the locator', () => {
+    const r = root(A)
+    const left = diffPatch('left', r.id, r.id, A, AB)
+    const right = diffPatch('right', r.id, r.id, A, 'a\nc\n')
+    const f = diffPatch('f', r.id, r.id, A, 'a\nd\n', { pubkey: PK_FOREIGN })
+    const res = resolve(r.id, [r, left, right, f], { apply: { maxWork: 3 } })
+    expect(res.chain.status).toBe('forked')
+    expect(res.annotations.map((a) => a.kind)).toEqual(['resource-limit', 'self-fork'])
+  })
+
+  it('names the fork, its branch count and its parent in the SF-3 annotation', () => {
+    const r = root(A)
+    const left = diffPatch('left', r.id, r.id, A, AB)
+    const right = diffPatch('right', r.id, r.id, A, 'a\nc\n')
+    const res = resolve(r.id, [r, left, right])
+    const fork = res.annotations.find((a) => a.kind === 'self-fork')
+    if (fork?.kind !== 'self-fork') expect.fail('expected a self-fork annotation')
+    expect(fork.issues.map((i) => i.code)).toEqual(['SF-3'])
+    expect(fork.message).toContain('root self-fork')
+    expect(fork.message).toContain(`2 root-author patches reply to ${r.id}`)
+    expect(fork.branches.map((b) => b.id)).toEqual(
+      [left.id, right.id].sort((x, y) => (x < y ? -1 : x > y ? 1 : 0)),
+    )
+  })
+
+  it('carries the failing patch id and rule in the protocol-error annotation (H2)', () => {
+    const r = root(A)
+    const bad = badPatch('bad', r.id, r.id)
+    const res = resolve(r.id, [r, bad])
+    const err = res.annotations.find((a) => a.kind === 'protocol-error')
+    if (err?.kind !== 'protocol-error') expect.fail('expected a protocol-error annotation')
+    expect(err.eventId).toBe(bad.id)
+    expect(err.message).toContain(`patch ${bad.id} failed pre-validation`)
+    expect(err.message).toContain(`(${err.reason === 'no-match' ? 'T1' : err.reason})`)
+  })
+
+  it('states the ceiling in words on both resource-limit annotation shapes', () => {
+    const r = root(AB)
+    const heavy = diffPatch('heavy', r.id, r.id, AB, 'a\nLONGER\nb\n')
+    const chainLimited = resolve(r.id, [r, heavy], { apply: { maxWork: 1 } })
+    const rlChain = chainLimited.annotations.find((a) => a.kind === 'resource-limit')
+    if (rlChain?.kind !== 'resource-limit') expect.fail('expected a chain resource-limit')
+    expect(rlChain.message).toContain(`patch ${heavy.id} hit the`)
+    expect(rlChain.message).toContain('ceiling; application stopped here')
+
+    const f = diffPatch('f', r.id, r.id, AB, 'a\nLONGER\nb\n', { pubkey: PK_FOREIGN })
+    const overlayLimited = resolve(r.id, [r, f], { apply: { maxWork: 1 } })
+    const rlOverlay = overlayLimited.annotations.find((a) => a.kind === 'resource-limit')
+    if (rlOverlay?.kind !== 'resource-limit') expect.fail('expected an overlay resource-limit')
+    expect(rlOverlay.message).toContain(`overlay ${f.id} hit the`)
+    expect(rlOverlay.message).toContain('ceiling and was not classified')
   })
 })
