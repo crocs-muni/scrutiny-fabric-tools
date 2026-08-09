@@ -311,10 +311,10 @@ export interface AdmitState {
 }
 
 export const EMPTY_ADMIT_STATE: AdmitState = Object.freeze({
-  reasons: {},
-  liveBindings: {},
-  trusted: [],
-  observedById: {},
+  reasons: Object.freeze(Object.create(null) as Record<string, readonly Reason[]>),
+  liveBindings: Object.freeze(Object.create(null) as Record<string, BindingEndpoints>),
+  trusted: Object.freeze([] as readonly string[]),
+  observedById: Object.freeze(Object.create(null) as Record<string, NostrEvent>),
 })
 
 export function toIndex(state: AdmitState): AdmissionIndex {
