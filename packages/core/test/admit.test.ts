@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
+  EMPTY_ADMIT_STATE,
+  applyDelta,
   bindingReason,
   computeAdmission,
   isAdmitted,
@@ -7,6 +9,7 @@ import {
   openView,
   reasonKind,
   rootChainReason,
+  toIndex,
   trustedView,
   visibleOverlays,
 } from '../src/admit.js'
@@ -93,6 +96,48 @@ describe('TR-4 — an admitted Binding admits both endpoints', () => {
     )
     // b1 is retracted; b2 is still live and still credits the link.
     expect(index.reasons[link.id]).toEqual([bindingReason(b2.id)])
+  })
+})
+
+describe('S3-22 — a Binding whose observed endpoints fail BD-3/BD-4 credits nothing', () => {
+  // The credit rules above (TR-3/TR-4) presuppose endpoints that satisfy the typing rule. The
+  // guard added after the 2026-08-08 audit keeps that consequence true even when `admit` is used
+  // directly, outside the wired `store.add()` pipeline that would BD-5-reject such a Binding.
+  // (BD-6's unobserved-endpoint credit is already pinned above in TR-4 and is unaffected.)
+
+  it('oracle: a mistyped root endpoint (metadata, not product) revokes both credits', () => {
+    const root = metadata('root')
+    const link = metadata('link')
+    const b = bindingEvent('b', root.id, link.id, { pubkey: PK_OTHER })
+    const index = computeAdmission([root, link, b], fakeTrust([PK_OTHER]))
+    expect(index.reasons[root.id] ?? []).not.toContain(bindingReason(b.id))
+    expect(index.reasons[link.id] ?? []).not.toContain(bindingReason(b.id))
+  })
+
+  it('oracle: a mistyped link endpoint (product, not metadata) revokes both credits', () => {
+    const root = product('root')
+    const link = product('link')
+    const b = bindingEvent('b', root.id, link.id, { pubkey: PK_OTHER })
+    const index = computeAdmission([root, link, b], fakeTrust([PK_OTHER]))
+    expect(index.reasons[root.id] ?? []).not.toContain(bindingReason(b.id))
+    expect(index.reasons[link.id] ?? []).not.toContain(bindingReason(b.id))
+  })
+
+  it('incremental tracks the oracle: observing a mistyped endpoint revokes earlier credit', () => {
+    const root = metadata('root')
+    const link = metadata('link')
+    const b = bindingEvent('b', root.id, link.id, { pubkey: PK_OTHER })
+    // Trust first, then observe the Binding alone: its endpoints are unobserved, so per BD-6's
+    // "once observed" qualifier both are (inertly) credited...
+    let state = applyDelta(EMPTY_ADMIT_STATE, { kind: 'trust', pubkeys: [PK_OTHER] })
+    state = applyDelta(state, { kind: 'observe', events: [b] })
+    expect(toIndex(state).reasons[root.id]).toEqual([bindingReason(b.id)])
+    // ...then the endpoints arrive and the root turns out mistyped: liveness flips and the
+    // incremental uncredits exactly what it credited — landing on the oracle's answer.
+    state = applyDelta(state, { kind: 'observe', events: [root, link] })
+    expect(toIndex(state).reasons[root.id] ?? []).not.toContain(bindingReason(b.id))
+    const oracle = computeAdmission([b, root, link], fakeTrust([PK_OTHER]))
+    expect(toIndex(state).reasons).toEqual(oracle.reasons)
   })
 })
 
