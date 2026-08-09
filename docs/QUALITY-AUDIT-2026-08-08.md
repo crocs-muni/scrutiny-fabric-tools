@@ -182,6 +182,33 @@ includes regenerated api-report (surface changes: `ProtocolVersion` fields are n
 `DELETION_KIND` added, variants + `bindingEndpoints`/`BindingEndpoints` exported,
 `widenContext`/`WidenResult` removed).
 
+#### Review pass (2026-08-09) and its resolutions
+
+Three independent review passes ran over the decision batch:
+
+- **code-review skill, Standards axis: CLEAN** — no hard violations of any documented standard; one
+  judgement-call smell (possible duplicated null-prototype record helper — resolved as L2 below).
+- **code-review skill, Spec axis: CLEAN** — every triaged decision maps to a commit that implements
+  it, no scope creep, one-commit-per-decision verified commit by commit.
+- **thermo-nuclear review: FIX AND RESHIP** — 0 critical / 2 high / 3 medium / 4 low, all resolved:
+  - H1 (breaking-change documentation) → the ledger below.
+  - H2 (the S3-22 admit guard had zero direct coverage) → `30854a1` (3 pin tests: oracle mistyped
+    root, oracle mistyped link, incremental flip landing on the oracle's answer).
+  - M1/L4 (six dead imports + a tombstone JSDoc) and M3 (knip-flagged re-export shim, replaced by a
+    full cutover to `patch-types.js`) → `9a46a9c`. Knip is fully silent after this commit.
+  - M2 (`EMPTY_STORE_STATE` plain-proto nesteds vs post-delta null-proto records) → `acd20cb`.
+  - L2 (duplicated null-proto helper in `admit` and `store`) and L3 (freeze asymmetry note) →
+    `a0aaadf` (new internal module `src/records.ts`).
+  - L1 (`ProtocolVersion` string fields are a compile-time break) → the ledger below.
+
+**Breaking-change ledger (input to the Step-8 changeset):** `widenContext`/`WidenResult` removed
+from the published `./build.js` subpath (S3-17); `ProtocolVersion` fields changed from `number` to
+decimal-text `string` (S3-11); `patch.ts`'s own variant type definitions removed (invisible outside
+the repo — `./patch.js` is not in the `exports` map, D32). Barrel changes are purely additive:
+`DELETION_KIND`, `bindingEndpoints`/`BindingEndpoints`, `ApplyResult` + its four variants.
+
+Gate after the review resolutions: full `pnpm verify` green — **538/538 tests**.
+
 Process note (for the record): the original Claude Code run launched all 89 review/verify agents
 and completed 45 before an API usage limit interrupted it with results unconsumed; the workflow's
 on-disk journal + output snapshot preserved the full prompts and partial state. A follow-up
