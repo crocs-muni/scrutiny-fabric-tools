@@ -292,8 +292,11 @@ export function applyPatchPayload(
       // to disambiguate, so it applies at the position implied by its `@@` header's `-` line
       // number and the T1 uniqueness check does not apply. The index is clamped rather than
       // rejected: C6 makes the number advisory, so an out-of-range position is a producer error
-      // about placement, and T2 leaves no uniqueness test to fall back on.
-      at = Math.min(Math.max(hunk.insertAt + shift, 0), lines.length)
+      // about placement, and T2 leaves no uniqueness test to fall back on. Clamp against
+      // `lineCount`, not `.length`: the trailing newline rides in a final `''` element, and
+      // clamping at `.length` inserts *past* it — silently dropping the file's trailing newline
+      // and adding a spurious blank line (2026-08-08 audit, S3-18/S3-19).
+      at = Math.min(Math.max(hunk.insertAt + shift, 0), lineCount(lines))
     } else {
       // T1 — prove the pattern occurs exactly once across the *full* content. Never stop at the
       // first match and never early-exit at the second: the count itself is the evidence, and

@@ -250,4 +250,17 @@ export const REGRESSIONS: readonly RegressionCase[] = [
     payload: '',
     expect: { status: 'halt', reason: 'malformed-payload' },
   },
+  {
+    name: 't2/out-of-range-insert-clamps-to-content-end',
+    rule: 'T2',
+    why:
+      'A pure-insertion hunk whose advisory @@ index is out of range clamps to the end of the ' +
+      'real content — not one element past it. `lines.length` counts the trailing-newline ' +
+      "sentinel ('' element), and clamping against it inserted *after* the sentinel: a spurious " +
+      "blank line was added and the file's trailing newline silently dropped, reported as " +
+      "'applied'. Found independently by two review passes in the 2026-08-08 audit (S3-18/S3-19).",
+    content: 'a\nb\n',
+    payload: body('@@ -99,0 +100,1 @@', '+X'),
+    expect: { status: 'applied', content: 'a\nb\nX\n' },
+  },
 ]
