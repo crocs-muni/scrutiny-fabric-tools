@@ -11,6 +11,7 @@
     "build": "pnpm -r build",
     "typecheck": "pnpm -r typecheck",
     "test": "pnpm -r test",
+    "test:mutate": "pnpm -r test:mutate",
     "lint": "biome check .",
     "format": "biome check --write .",
     "attw": "pnpm -r attw",

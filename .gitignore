@@ -19,6 +19,14 @@ temp/
 coverage/
 .vitest-cache/
 
+# StrykerJS mutation testing — regenerable reports + sandbox; the committed
+# config lives at packages/core/stryker.config.mjs
+reports/
+packages/core/stryker-tmp/
+
+# Step-5 session scratch (mutant-reproduction dist copies) — removed at Step 5 close-out
+packages/core/_scratch*/
+
 # editor / OS
 .DS_Store
 Thumbs.db
