@@ -234,6 +234,18 @@ describe('failure channels are normalised into one rejection signal', () => {
     }
   })
 
+  it('does not treat "--- " embedded mid-line as a header (Step-5 pin)', () => {
+    // The header check is anchored per line.^--- ` only mid-line must not count:
+    // without the anchor, garbage containing an indented diff header reads as valid input.
+    const payload = 'prose that mentions\n--- a/content@@ -1,1 +1,1 @@\n-x\n+y\n'
+    const result = applyPatchPayload('a\n', 'x --- y\nno header block here\n')
+    expectHalt(result, 'malformed-payload')
+    if (result.status === 'halt') {
+      expect(result.detail).toBe('payload has no "--- a/content" header line')
+      expect(result.hunkIndex).toBeNull()
+    }
+  })
+
   it('cites H1 on every halt', () => {
     for (const c of REGRESSIONS.filter((r) => r.expect.status === 'halt')) {
       const result = applyPatchPayload(c.content, c.payload)
