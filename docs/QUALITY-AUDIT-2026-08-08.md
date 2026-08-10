@@ -321,9 +321,12 @@ Suite is **596/596**, full `pnpm verify` green at HEAD, knip silent. Findings, t
 trusting any per-mutant verdict this tool emits (the vitest runner's per-mutant selection and
 disable-comment binding both have measured holes; every residual classification in §3 was
 cross-checked against the *full 596-test suite* by hand).
-**Next: Step 6 — browser memory investigation** (closes `AUDIT-2026-07-31.md` hazard #4). Then
-Steps 7–9: doc debt, close-out, PR reconciliation report. Do NOT start Step 6 without re-reading
-the hazard table first.
+**Board: milestone [`Quality audit — 2026-08-08 (Steps 0–9)`](https://github.com/crocs-muni/scrutiny-fabric-tools/milestone/1).**
+Issue #24 is closed; the milestone is the live tracker. Retro-issues for Steps 0–5 (#25–#29)
+closed with `Done:` comments; Steps 6–9 (#30–#33) open. **Next: Step 6 = issue #30** (`in-progress`,
+closes `AUDIT-2026-07-31.md` hazard #4 — browser heap, not SV- Node estimates). Then #31 (Step 7),
+#32 (Step 8), #33 (Step 9). Do NOT start Step 6 without re-reading the hazard table; when done,
+close the issue with a `Done:` comment and move to the next open one.
 
 Housekeeping state: one `git stash` entry ("step3-resume: prior session's untracked scratch")
 may be dropped on sight — its value was lifted into pins; `docs/START-SESSION-SPEC-FEEDBACK.md`
