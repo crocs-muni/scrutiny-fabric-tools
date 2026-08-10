@@ -72,6 +72,7 @@
     "typecheck": "tsc -p tsconfig.json",
     "test": "vitest run",
     "test:mutate": "stryker run",
+    "mutant-check": "node tools/mutant-check.mjs",
     "attw": "attw --pack . --profile esm-only"
   },
   "devDependencies": {

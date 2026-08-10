@@ -12,6 +12,7 @@
     "typecheck": "pnpm -r typecheck",
     "test": "pnpm -r test",
     "test:mutate": "pnpm -r test:mutate",
+    "mutant-check": "pnpm -r mutant-check",
     "lint": "biome check .",
     "format": "biome check --write .",
     "attw": "pnpm -r attw",
