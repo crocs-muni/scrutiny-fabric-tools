@@ -24,7 +24,9 @@ import { measure } from './measure-lib.mjs'
 const here = dirname(fileURLToPath(import.meta.url))
 const args = process.argv.slice(2)
 const eventsPath = resolve(
-  args.length > 1 ? args[0] : join(here, '../../../../investigations/browser-memory/events-full.json'),
+  args.length > 1
+    ? args[0]
+    : join(here, '../../../../investigations/browser-memory/events-full.json'),
 )
 const count = Number(args.at(-1))
 if (!Number.isInteger(count) || count <= 0) {
@@ -40,4 +42,6 @@ const result = await measure({
   heap: () => process.memoryUsage().heapUsed,
 })
 
-console.log(JSON.stringify({ engine: `node ${process.version} (v8 ${process.versions.v8})`, ...result }))
+console.log(
+  JSON.stringify({ engine: `node ${process.version} (v8 ${process.versions.v8})`, ...result }),
+)

@@ -32,7 +32,8 @@ export async function measure({ count, loadEvents, createStore, gc, heap, chunkS
   const tLoad = performance.now()
   let events = await loadEvents(count)
   const msLoad = performance.now() - tLoad
-  if (events.length !== count) throw new Error(`corpus short: wanted ${count}, got ${events.length}`)
+  if (events.length !== count)
+    throw new Error(`corpus short: wanted ${count}, got ${events.length}`)
   const corpus = await sample()
 
   const tIngest = performance.now()

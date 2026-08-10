@@ -6,8 +6,8 @@
  * bundle and POSTs the measured sample to `/result` for the orchestrator.
  */
 
-import { measure } from './measure-lib.mjs'
 import { createStore } from '/dist/index.js'
+import { measure } from './measure-lib.mjs'
 
 const params = new URLSearchParams(location.search)
 const count = Number(params.get('count'))
@@ -29,5 +29,8 @@ try {
   await fetch('/result', { method: 'POST', body: JSON.stringify({ ok: true, run, ...result }) })
 } catch (err) {
   const message = err?.stack ? String(err.stack) : String(err)
-  await fetch('/result', { method: 'POST', body: JSON.stringify({ ok: false, run, error: message }) })
+  await fetch('/result', {
+    method: 'POST',
+    body: JSON.stringify({ ok: false, run, error: message }),
+  })
 }

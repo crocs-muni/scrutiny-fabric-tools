@@ -92,7 +92,8 @@ for (const url of [...ppUrlSet].sort()) {
 const productByDgst = new Map()
 const productByCertId = new Map()
 for (const c of certs) productByDgst.set(c.dgst, hex(`bm:cert:${c.dgst}`))
-for (const c of certs) if (c.heuristics.cert_id) productByCertId.set(c.heuristics.cert_id, hex(`bm:cert:${c.dgst}`))
+for (const c of certs)
+  if (c.heuristics.cert_id) productByCertId.set(c.heuristics.cert_id, hex(`bm:cert:${c.dgst}`))
 
 // ── Per-cert events, cert-major order ───────────────────────────────────────
 const cumAtCert = [] // cumulative event count after each cert
@@ -126,7 +127,8 @@ for (const c of certs) {
   if (h.cert_id) tags.push(['i', `cc-cert-id:${h.cert_id}`], ['k', 'cc-cert-id'])
   tags.push(['i', `cc-scheme:${c.scheme}`], ['k', 'cc-scheme'])
   if (h.eal) tags.push(['i', `cc-eal:${h.eal}`], ['k', 'cc-eal'])
-  for (const cpe of els(h.verified_cpe_matches ?? h.cpe_matches)) tags.push(['i', cpe], ['k', 'cpe'])
+  for (const cpe of els(h.verified_cpe_matches ?? h.cpe_matches))
+    tags.push(['i', cpe], ['k', 'cpe'])
   for (const kind of ['report', 'st', 'cert']) {
     const st = c.state[kind]
     if (st?.download_ok && st.pdf_hash && c[`${kind}_link`]) {
@@ -236,7 +238,12 @@ for (const c of certs) {
 
   // Scheme-registry view: one Metadata + one Binding
   if (h.scheme_data) {
-    const mid = emit('metadata', `scheme:${c.dgst}`, typeTags('metadata'), JSON.stringify(h.scheme_data))
+    const mid = emit(
+      'metadata',
+      `scheme:${c.dgst}`,
+      typeTags('metadata'),
+      JSON.stringify(h.scheme_data),
+    )
     emit(
       'binding',
       `schemebind:${c.dgst}`,
@@ -311,8 +318,18 @@ console.log(
       ppHubs: ppIds.size,
       fileBytes: bytes,
       perEventKB: (bytes / events.length / 1024).toFixed(3),
-      productContentBytes: { min: contentBytes[0], median: q(0.5), p95: q(0.95), max: contentBytes.at(-1) },
-      cumulativeAfterCerts: { 2000: cumAtCert[1999], 4000: cumAtCert[3999], 6000: cumAtCert[5999], all: events.length },
+      productContentBytes: {
+        min: contentBytes[0],
+        median: q(0.5),
+        p95: q(0.95),
+        max: contentBytes.at(-1),
+      },
+      cumulativeAfterCerts: {
+        2000: cumAtCert[1999],
+        4000: cumAtCert[3999],
+        6000: cumAtCert[5999],
+        all: events.length,
+      },
     },
     null,
     2,

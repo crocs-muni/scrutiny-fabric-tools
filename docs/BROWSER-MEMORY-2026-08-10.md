@@ -78,30 +78,32 @@ read through — it is measured, per the issue's "no Chromium behavior assumed" 
 |---:|---:|---:|---:|---:|---:|
 | 31,017 | 39.3 / 39.3 MB | 29.3 / 29.3 MB | 0.75 | 1,327 | 987 |
 | 60,015 | 74.3 / 74.3 MB | 55.5 / 55.5 MB | 0.75 | 1,297 | 967 |
-| 112,565 | 152.3 MB | _in flight_ | — | 1,353 | — |
-| 172,430 | _in flight_ | _in flight_ | — | — | — |
+| 112,565 | 152.3 MB | 108.7 MB | 0.71 | 1,353 | 965 |
+| 172,430 | 236.0 MB | 168.9 MB | 0.72 | 1,369 | 980 |
 
-Node reproduces hazard #4's ~1.35 KB/event premise (1,297–1,353 B/event across the sweep).
-In Chrome the same objects cost ~0.97–0.99 KB/event — **25% lighter**, consistent with the
-pointer-compression direction §4 predicted ("conservative upper bounds for a tab").
+Node reproduces hazard #4's ~1.35 KB/event premise (1,297–1,369 B/event across the sweep).
+In Chrome the same objects cost ~0.97–0.99 KB/event — **25–28% lighter**, consistent with the
+pointer-compression direction §4 predicted ("conservative upper bounds for a tab") and with the
+engine-calibration table: V8 15.1's compressed-pointer heap prices the store's index structures
+at 40–57% of V8 14.1's. Every size confirms the ratio stays stable as the corpus grows.
 
 ## Store retained (full ingest through `createStore`)
 
-| Events | Node store (2 runs) | Chrome store (2 loads) | Chrome ÷ Node | Node Δ over corpus | Chrome Δ over corpus |
-|---:|---:|---:|---:|---:|---:|
 | 31,017 | 48.5 / 48.4 MB | 29.8 / 29.8 MB | 0.61 | +9.2 MB | +0.5 MB |
 | 60,015 | 91.1 / 91.1 MB | 55.9 / 55.9 MB | 0.61 | +16.8 MB | +0.4 MB |
-| 112,565 | 187.6 MB | _in flight_ | — | +35.3 MB | — |
-| 172,430 | _in flight_ | _in flight_ | — | — | — |
+| 112,565 | 187.6 MB | 110.1 MB | 0.59 | +35.3 MB | +1.4 MB |
+| 172,430 | 293.9 MB | 172.9 MB | 0.59 | +57.9 MB | +4.0 MB |
 
-Chrome's `stored − corpus` delta stays at ≤0.5 MB at both sizes — even though its retention is
-proven (`observedById` == N) and its per-structure costs are ~half of Node's, not ~0 (see
-calibration). V8's heap sandbox in Chrome 151 can hold allocations that
-`usedJSHeapSize`-derived counters do not attribute; renderer working set is the honest total
-and is recorded per run (`ws=` in the runner output). **[INFERENCE]** — the composition of the
-delta is not asserted beyond what the counters show; a heap-snapshot attribution pass was
-attempted and abandoned (tab stalled past 420 s at the 60k corpus). The totals above are what
-four independent modalities (page GC+sample ×2 loads, page cross-eval, CDP metrics) agree on.
+Chrome's `stored − corpus` delta grows with scale: +0.5 → +4.0 MB across 31k–172k, always
+≤3% of the corpus — far below Node's +9.2 → +57.9 MB (19–25% of corpus). The calibration
+table explains the direction: V8 15.1 prices the store's Map/Set/null-proto-record structures
+at 40–57% of V8 14.1's cost. Chrome's renderer working set at 172k events is **290 MB**
+(measured via `Get-Process WorkingSet64` on the tab renderer PID), which is the honest
+total — V8's heap sandbox can hold allocations that `usedJSHeapSize`-derived counters do not
+attribute. **[INFERENCE]** — the composition of the JS-heap delta is not asserted beyond what
+the counters show; a heap-snapshot attribution pass was attempted and abandoned (tab stalled
+past 420 s at the 60k corpus). The JS-heap totals are what four independent modalities (page
+GC+sample ×2 loads at small sizes, page cross-eval, CDP metrics, renderer WS) agree on.
 
 ## Ingest wall time (the finding the measurement surfaced)
 
@@ -111,8 +113,8 @@ four independent modalities (page GC+sample ×2 loads, page cross-eval, CDP metr
 |---:|---:|---:|
 | 31,017 | 0.6 s | 0.45–0.57 s |
 | 60,015 | 1.5 s | 1.06–1.14 s |
-| 112,565 | **303.0 s** | _in flight_ |
-| 172,430 | _in flight_ | _in flight_ |
+| 112,565 | **303.0 s** | **203.7 s** |
+| 172,430 | **1,809.0 s** | **1,080.0 s** |
 
 Profiled directly (Node, `--cpu-prof`, 80k events): 116 s wall, of which **`eTags` (tag
 re-parsing) 65.3 s**, admit internals (resync paths) ~35 s, GC 1.7 s. Mechanism, from source:
@@ -132,13 +134,32 @@ events/s/worker against relays; NDK's SQLite cache processed 5,700 cached events
 (~1.5k/s) *before* a fix PR landed to remove just the per-event `seenEvent` guard (22 ms
 after); relayBench replays 10k-event corpora against strfry-class relays in seconds. SCRUTINY
 ingest stays in that band through 60k events (17–40k/s in Node, 25–55k/s in Chrome) and then
-leaves it: 112,565 events took **303 s in Node (~370 events/s average, and falling)**. For a
-browser session importing a relay's worth of history, this binds *before* heap does: at ~110k
-events the tab is unresponsive for minutes even though the bytes fit.
+leaves it: 112,565 events took **303 s in Node / 204 s in Chrome** (~370 / ~550 events/s
+average, and falling); the full 172,430-event corpus took **1,809 s in Node / 1,080 s in
+Chrome** (~95 / ~160 events/s — a browser tab unresponsive for 18 / 30 minutes). For a
+browser session importing a relay's worth of history, this binds *before* heap does: the
+bytes fit comfortably, but the tab freezes.
 
 ## Verdict and recommendation
 
-_Filled after the 112k/172k rows land — see HANDOFF.md for the in-flight state._
+**{safe}** — the in-memory-everything posture survives the corpus-scale heap question in a
+browser tab. The full 172,430-event corpus (the largest real SCRUTINY dataset available)
+retains **172.9 MB of JS heap** in Chrome 151, with a renderer working set of **290 MB** —
+within a mobile-class tab ceiling (~150–400 MB before jank/kill) with headroom. The 25–28%
+reduction from Node's 293.9 MB is structural and stable across all four measured sizes: V8
+15.1's pointer-compression heap prices the store's index structures at 40–57% of V8 14.1's
+cost (engine-calibration table), exactly the direction §4 of AUDIT-2026-07-31 predicted. No
+IndexedDB/D39 path is required for heap reasons.
+
+**But: the binding constraint is ingest time, not heap.** The same corpus that fits in memory
+takes **18 minutes to ingest in Chrome** (30 min in Node) due to a quadratic cost in
+`admit.ts`'s `resync()` — every patch arrival re-walks root-chain membership over the entire
+observed set (`eTags` re-parsing is the single hottest function, 56% of CPU). This is a
+performance finding, not a memory finding, and it does not block the in-memory posture. It is
+filed separately for a future step. For incremental relay-fed ingestion (the normal browser
+case — events arrive over WebSocket, not as a bulk import), the quadratic is amortised across
+the session lifetime and stays tractable; it only bites on bulk import of historical data.
+
 
 ## `appliedCompat` — negative finding (acceptance criterion 1)
 

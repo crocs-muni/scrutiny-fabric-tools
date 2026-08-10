@@ -25,7 +25,15 @@
  */
 
 import { spawn } from 'node:child_process'
-import { createReadStream, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs'
+import {
+  createReadStream,
+  mkdtempSync,
+  readFileSync,
+  readdirSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from 'node:fs'
 import { createServer } from 'node:http'
 import { tmpdir } from 'node:os'
 import { dirname, join, resolve, sep } from 'node:path'
@@ -57,7 +65,8 @@ const chromeCandidates = [
   process.env.CHROME_PATH,
   'C:/Program Files/Google/Chrome/Application/chrome.exe',
   'C:/Program Files (x86)/Google/Chrome/Application/chrome.exe',
-  process.env.LOCALAPPDATA && join(process.env.LOCALAPPDATA, 'Google/Chrome/Application/chrome.exe'),
+  process.env.LOCALAPPDATA &&
+    join(process.env.LOCALAPPDATA, 'Google/Chrome/Application/chrome.exe'),
   '/usr/bin/google-chrome',
   '/usr/bin/chromium',
 ].filter(Boolean)
@@ -96,11 +105,11 @@ const server = createServer((req, res) => {
     return
   }
   if (url.pathname === '/') {
-    res.writeHead(200, { 'Content-Type': 'text/html' }).end(
-      '<!doctype html><meta charset="utf-8">' +
-        `<script type="importmap">{"imports":{"diff":"/vendor${diffEsmPath}"}}</script>` +
-        '<script type="module" src="/page-entry.mjs"></script>',
-    )
+    res
+      .writeHead(200, { 'Content-Type': 'text/html' })
+      .end(
+        `<!doctype html><meta charset="utf-8"><script type="importmap">{"imports":{"diff":"/vendor${diffEsmPath}"}}</script><script type="module" src="/page-entry.mjs"></script>`,
+      )
     return
   }
   if (url.pathname === '/page-entry.mjs' || url.pathname === '/measure-lib.mjs') {
@@ -207,7 +216,9 @@ ws.addEventListener('message', (ev) => {
     console.log(`  [tab:${msg.params.type}] ${text}`)
   } else if (msg.method === 'Runtime.exceptionThrown') {
     const d = msg.params.exceptionDetails
-    console.log(`  [tab:exception] ${d.text} ${d.exception?.description ?? ''} @${d.url ?? ''}:${d.lineNumber ?? ''}`)
+    console.log(
+      `  [tab:exception] ${d.text} ${d.exception?.description ?? ''} @${d.url ?? ''}:${d.lineNumber ?? ''}`,
+    )
   } else if (msg.method === 'Log.entryAdded') {
     const e = msg.params.entry
     console.log(`  [tab:${e.level}] ${e.text} @${e.url ?? ''}`)
@@ -245,12 +256,18 @@ for (const count of counts) {
     await send('Performance.enable', {}, sessionId)
     await send('Log.enable', {}, sessionId)
     await send('Page.enable', {}, sessionId)
-    await send('Page.navigate', { url: `http://127.0.0.1:${port}/?count=${count}&run=${run}` }, sessionId)
+    await send(
+      'Page.navigate',
+      { url: `http://127.0.0.1:${port}/?count=${count}&run=${run}` },
+      sessionId,
+    )
     const watchdog = setInterval(async () => {
       try {
         const r = await send(
           'Runtime.evaluate',
-          { expression: `location.href + ' | ready=' + document.readyState + ' | gc=' + typeof window.gc` },
+          {
+            expression: `location.href + ' | ready=' + document.readyState + ' | gc=' + typeof window.gc`,
+          },
           sessionId,
         )
         console.log(`  [watchdog] ${r.result.value}`)
@@ -279,9 +296,13 @@ for (const count of counts) {
     )
     if (cross.exceptionDetails) {
       const d = cross.exceptionDetails
-      console.log(`  [tab:cross-eval failed] ${d.text}: ${d.exception?.description?.split('\n')[0] ?? ''}`)
+      console.log(
+        `  [tab:cross-eval failed] ${d.text}: ${d.exception?.description?.split('\n')[0] ?? ''}`,
+      )
     }
-    const crossData = cross.result.value ? JSON.parse(cross.result.value) : { heap: null, observed: null }
+    const crossData = cross.result.value
+      ? JSON.parse(cross.result.value)
+      : { heap: null, observed: null }
     payload.pageCrossHeap = crossData.heap
     payload.crossObservedCount = crossData.observed
     await send('HeapProfiler.collectGarbage', {}, sessionId).catch(() => {})
@@ -293,7 +314,9 @@ for (const count of counts) {
     // V8 accounting bucket. Windows-only lookup; null on any failure.
     try {
       const { processInfo } = await send('SystemInfo.getProcessInfo')
-      const pids = processInfo.filter((p) => p.type === 'tab' || p.type === 'renderer').map((p) => p.id)
+      const pids = processInfo
+        .filter((p) => p.type === 'tab' || p.type === 'renderer')
+        .map((p) => p.id)
       if (pids.length === 0) {
         console.log('  [rss] no tab/renderer processes found')
       } else {
