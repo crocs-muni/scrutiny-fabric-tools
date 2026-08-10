@@ -332,4 +332,6 @@ are regenerable local Stryer output (gitignored); Step-5's `_scratch*` probes we
 close-out along with their gitignore lines.
 
 If resuming in a different tool: `git fetch && git checkout chore/architecture-audit-2026-08-08`,
-read §0–§3 incl. the Step-5 block, then start Step 6.
+read §0–§3 incl. the Step-5 block, then start Step 6. The agentic SDLC rules for all future
+campaigns live in `AGENTS.md` (repo root); the redesign record with the research digest is
+`docs/AGENTIC-SDLC-REDESIGN-2026-08-09.md`.

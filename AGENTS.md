@@ -12,6 +12,7 @@ This file is the rulebook (how to work); the audit doc has the state; issues hav
 | Project skill (deep invariants, recurring traps) | `.claude/skills/scrutiny-protocol/` — **read before touching `packages/core`** |
 | Protocol spec (read-only from here) | `crocs-muni/scrutiny-fabric/docs/protocol-spec.md` |
 | Spec feedback queue | `docs/spec-changes/` — one file per F-finding, status-tracked |
+| SDLC redesign record (why this file exists) | `docs/AGENTIC-SDLC-REDESIGN-2026-08-09.md` |
 | Audit state (current campaign) | `docs/QUALITY-AUDIT-*.md` — read its RESUME line |
 | Generated rules registry | `tools/rules.json` → `packages/core/src/rules.ts` — **never hand-edit** |
 | Board | GitHub Issues in this repo |
