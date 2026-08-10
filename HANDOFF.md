@@ -22,7 +22,7 @@ Node-vs-Chrome comparison table, verdict for the in-memory posture vs a mobile-c
 
 - Chrome 151 (V8 15.1) retains the raw corpus at ~0.97–0.99 KB/event; Node 25.6.1 (V8 14.1) at ~1.30–1.37 KB/event — **25–28% lighter**, stable across all sizes. Engine calibration confirms: V8 15.1's pointer-compression heap prices the store's index structures at 40–57% of V8 14.1's.
 - The full 172,430-event corpus fits a mobile-class tab ceiling (~150–400 MB) with headroom (renderer WS 290 MB).
-- The binding constraint is **ingest time, not heap**: quadratic cost in `admit.resync()` (every patch re-walks root-chain membership over the entire observed set; `eTags` re-parsing is 56% of CPU). Filed as a separate finding, not blocking.
+- The binding constraint is **ingest time, not heap**: quadratic cost in `admit.resync()` (every patch re-walks root-chain membership over the entire observed set; `eTags` re-parsing is 56% of CPU). Filed as [issue #34](https://github.com/crocs-muni/scrutiny-fabric-tools/issues/34) (full options record + hardened F1 design + acceptance criteria).
 
 ## Decisions
 

@@ -156,7 +156,9 @@ takes **18 minutes to ingest in Chrome** (30 min in Node) due to a quadratic cos
 `admit.ts`'s `resync()` — every patch arrival re-walks root-chain membership over the entire
 observed set (`eTags` re-parsing is the single hottest function, 56% of CPU). This is a
 performance finding, not a memory finding, and it does not block the in-memory posture. It is
-filed separately for a future step. For incremental relay-fed ingestion (the normal browser
+filed as [issue #34](https://github.com/crocs-muni/scrutiny-fabric-tools/issues/34)
+(preferred design: hardened incremental chain index; options F0–F5 recorded there).
+For incremental relay-fed ingestion (the normal browser
 case — events arrive over WebSocket, not as a bulk import), the quadratic is amortised across
 the session lifetime and stays tractable; it only bites on bulk import of historical data.
 
