@@ -136,12 +136,6 @@ describe('noble-signer', () => {
     // High-level verifyEvent also passes
     assert.ok(verifyEvent(signed1), 'verifyEvent returns true')
 
-    // Log the golden values for reference (id is stable, sig varies)
-    // console.log('Golden test values:')
-    // console.log('  Secret key:', skHex)
-    // console.log('  Public key:', signed1.pubkey)
-    // console.log('  Event id:', signed1.id)
-    // console.log('  Signature:', signed1.sig)
   })
 
   it('generated secret key produces valid signer', () => {

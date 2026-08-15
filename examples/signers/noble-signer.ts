@@ -117,7 +117,7 @@ export function verifyEvent(event: NostrEvent): boolean {
   const idHash = sha256(utf8ToBytes(serialized))
   const computedId = bytesToHex(idHash)
 
-  if (computedId.toLowerCase() !== event.id.toLowerCase()) {
+  if (computedId !== event.id.toLowerCase()) {
     return false
   }
   try {
