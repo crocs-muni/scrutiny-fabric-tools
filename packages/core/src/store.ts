@@ -464,7 +464,7 @@ function optionsKeyOf(options: ResolveOptions | undefined): string {
  * set, unfiltered. For a trust-filtered overlay view, use `Store.viewRoot` (or `admissionView()` +
  * `visibleOverlays`) — see docs/TRUST-VIEW.md.
  */
-export function resolveRoot(
+export function resolveRootMemoized(
   state: StoreState,
   rootId: string,
   memo: ResolveMemo,
@@ -854,7 +854,7 @@ export function createStore(options: CreateStoreOptions): Store {
   function resolveRootBound(rootId: string, resolveOptions?: ResolveOptions): Resolution {
     const effectiveOptions: ResolveOptions =
       resolveOptions ?? (options.applyOptions ? { apply: options.applyOptions } : {})
-    return resolveRoot(state, rootId, memo, effectiveOptions)
+    return resolveRootMemoized(state, rootId, memo, effectiveOptions)
   }
 
   function admissionView(): AdmissionView {

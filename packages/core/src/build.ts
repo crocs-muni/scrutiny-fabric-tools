@@ -182,12 +182,13 @@ export interface EndpointRef {
   readonly id: string
   /** BD-8: advisory relay hint. Omitted ⇒ `""` ("no hint"). */
   readonly relay?: string
-  /** NIP-10 author hint (BD-12), advisory. Omitted ⇒ `""`. */
-  readonly authorPubkey?: string
+  /** NIP-10 author hint (BD-12), advisory — named `authorHint` to match `ETagRef` (mandate §11
+   *  unifies the two same-shaped interfaces on one canonical field name). Omitted ⇒ `""`. */
+  readonly authorHint?: string
 }
 
 function endpointTag(marker: 'root' | 'link' | 'reply', ref: EndpointRef): string[] {
-  return ['e', ref.id, ref.relay ?? '', marker, ref.authorPubkey ?? '']
+  return ['e', ref.id, ref.relay ?? '', marker, ref.authorHint ?? '']
 }
 
 export function buildBinding(

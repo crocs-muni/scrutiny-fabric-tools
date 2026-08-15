@@ -14,7 +14,7 @@ import {
   createInMemoryEventStorage,
   createResolveMemo,
   createStore,
-  resolveRoot,
+  resolveRootMemoized,
 } from '../src/store.js'
 import { PK_FOREIGN, PK_ROOT, fenced } from './_fixtures.js'
 import { deletion, diffPatch, foreignPatch, root } from './_resolve.js'
@@ -148,7 +148,7 @@ describe('SG6 — resolveRoot’s invalidIds exclusion agrees with a fresh resol
           }
           expect(state.invalidIds).toEqual([invalidPatch.id])
 
-          const actual = resolveRoot(state, r.id, createResolveMemo())
+          const actual = resolveRootMemoized(state, r.id, createResolveMemo())
           // The direct D29 oracle: a fresh resolve() call over the observed set with the
           // since-invalidated member removed by hand.
           const oracle = resolve(r.id, [r, validPatch])
@@ -187,13 +187,13 @@ describe('the epoch-gated Resolution memo (D28/D38)', () => {
     const r = root(A, 'memo-root')
     state = applyStoreDelta(state, { kind: 'observe', events: [r] })
 
-    const first = resolveRoot(state, r.id, memo)
-    const second = resolveRoot(state, r.id, memo)
+    const first = resolveRootMemoized(state, r.id, memo)
+    const second = resolveRootMemoized(state, r.id, memo)
     expect(second).toBe(first) // same reference — served from the memo, not recomputed
 
     const p = diffPatch('memo-patch', r.id, r.id, A, AB)
     state = applyStoreDelta(state, { kind: 'observe', events: [p] })
-    const third = resolveRoot(state, r.id, memo)
+    const third = resolveRootMemoized(state, r.id, memo)
     expect(third).not.toBe(first)
     expect(third.chain.status).toBe('resolved')
     if (third.chain.status === 'resolved') expect(third.chain.content).toBe(AB)
@@ -204,10 +204,10 @@ describe('the epoch-gated Resolution memo (D28/D38)', () => {
     const memo = createResolveMemo()
     const r = root(A, 'memo-trust-root')
     state = applyStoreDelta(state, { kind: 'observe', events: [r] })
-    const before = resolveRoot(state, r.id, memo)
+    const before = resolveRootMemoized(state, r.id, memo)
 
     const afterTrust = applyStoreDelta(state, { kind: 'trust', pubkeys: ['somepubkey'] })
-    const after = resolveRoot(afterTrust, r.id, memo)
+    const after = resolveRootMemoized(afterTrust, r.id, memo)
     expect(after).toBe(before)
   })
 })
@@ -230,12 +230,12 @@ describe('unobserve', () => {
     const p = diffPatch('unobserve-epoch-patch', r.id, r.id, A, AB)
     state = applyStoreDelta(state, { kind: 'observe', events: [r, p] })
 
-    const before = resolveRoot(state, r.id, memo)
+    const before = resolveRootMemoized(state, r.id, memo)
     expect(before.chain.status).toBe('resolved')
     if (before.chain.status === 'resolved') expect(before.chain.content).toBe(AB)
 
     state = applyStoreDelta(state, { kind: 'unobserve', eventIds: [p.id] })
-    const after = resolveRoot(state, r.id, memo)
+    const after = resolveRootMemoized(state, r.id, memo)
     expect(after).not.toBe(before) // the memo was invalidated, not stale-served
     expect(after.chain.status).toBe('resolved')
     if (after.chain.status === 'resolved') expect(after.chain.content).toBe(A) // patch removed
@@ -358,7 +358,7 @@ describe('the default in-memory EventStorage adapter', () => {
 describe('OVERLAY-AWAITING.md §7 — the P1 worked trace (permanent regression)', () => {
   it('memoized store vs fresh store agreement for a cross-root overlay target arrival', () => {
     // Scenario from OVERLAY-AWAITING.md §7, read in its post-Phase-14 form: Root R (a Product),
-    // then foreign overlay O (e root = R, e reply = X) observed while X is absent → resolveRoot(R)
+    // then foreign overlay O (e root = R, e reply = X) observed while X is absent → resolveRootMemoized(R)
     // through the store's memo includes O (PT-7-pending) as orphaned/β; then X (an unrelated
     // Metadata event, no relationship to R in any of the four original dispatch rows) is observed
     // → O's verdict flips pending→invalid (PT-7: X is neither R's root nor a root-author patch of
@@ -391,7 +391,7 @@ describe('OVERLAY-AWAITING.md §7 — the P1 worked trace (permanent regression)
 
     // Step 3: resolve R with memo while X is absent
     const memo = createResolveMemo()
-    const beforeX = resolveRoot(state, r.id, memo)
+    const beforeX = resolveRootMemoized(state, r.id, memo)
     const beforeEpoch = state.chainEpoch[r.id] as number
 
     // Step 4: X observed (unrelated Metadata/root, no e root = R)
@@ -402,7 +402,7 @@ describe('OVERLAY-AWAITING.md §7 — the P1 worked trace (permanent regression)
     expect(epochAfterXArrival).toBeGreaterThan(beforeEpoch)
 
     // Step 5: resolve R again through SAME memo → must recompute (memo invalidated by epoch bump)
-    const afterX = resolveRoot(state, r.id, memo)
+    const afterX = resolveRootMemoized(state, r.id, memo)
     expect(afterX).not.toBe(beforeX) // memo invalidated, recomputed
     // The post-Phase-14 shape of the flip (PT-7): O is invalid and excluded — never orphaned/α.
     expect(state.invalidIds).toContain(overlayEvent.id)
@@ -413,7 +413,7 @@ describe('OVERLAY-AWAITING.md §7 — the P1 worked trace (permanent regression)
       (s, e) => applyStoreDelta(s, { kind: 'observe', events: [e] }),
       EMPTY_STORE_STATE,
     )
-    const freshResolution = resolveRoot(freshState, r.id, createResolveMemo())
+    const freshResolution = resolveRootMemoized(freshState, r.id, createResolveMemo())
     expect(freshResolution).toEqual(afterX) // memoized vs fresh agreement
   })
 })
@@ -464,10 +464,10 @@ describe('OVERLAY-AWAITING.md §8 — RC-3 cross-root regression (permanent regr
     let state = applyStoreDelta(EMPTY_STORE_STATE, { kind: 'observe', events: [r] })
     state = applyStoreDelta(state, { kind: 'observe', events: [overlayEvent] })
 
-    const beforeX = resolveRoot(state, r.id, memo)
+    const beforeX = resolveRootMemoized(state, r.id, memo)
 
     state = applyStoreDelta(state, { kind: 'observe', events: [x] })
-    const afterX = resolveRoot(state, r.id, memo)
+    const afterX = resolveRootMemoized(state, r.id, memo)
 
     expect(afterX).not.toBe(beforeX) // memo invalidated by the cross-root bump → fresh resolve() call
 
@@ -475,7 +475,7 @@ describe('OVERLAY-AWAITING.md §8 — RC-3 cross-root regression (permanent regr
       (s, e) => applyStoreDelta(s, { kind: 'observe', events: [e] }),
       EMPTY_STORE_STATE,
     )
-    expect(resolveRoot(freshState, r.id, createResolveMemo())).toEqual(afterX)
+    expect(resolveRootMemoized(freshState, r.id, createResolveMemo())).toEqual(afterX)
   })
 })
 
@@ -497,7 +497,7 @@ describe('OVERLAY-AWAITING × VALIDATION-WIRING — exclusion-driven staleness (
     let s = applyStoreDelta(EMPTY_STORE_STATE, { kind: 'observe', events: [r] })
     s = applyStoreDelta(s, { kind: 'observe', events: [o] })
     const memo = createResolveMemo()
-    const pre = resolveRoot(s, r.id, memo)
+    const pre = resolveRootMemoized(s, r.id, memo)
     const preO = pre.overlays.find((v) => v.id === o.id)
     expect(preO?.state).toBe('orphaned') // pending verdict → included (VALIDATION-WIRING §2)
     expect(preO?.degradation).toBe('beta') // target not yet observable → DEL-7 β
@@ -508,7 +508,7 @@ describe('OVERLAY-AWAITING × VALIDATION-WIRING — exclusion-driven staleness (
     expect(s.chainEpoch[r.id] as number).toBeGreaterThan(epochPre) // fifth row fires on X's arrival
     expect(s.invalidIds).toContain(o.id) // PT-7 flips pending→invalid once X is observable
 
-    const post = resolveRoot(s, r.id, memo)
+    const post = resolveRootMemoized(s, r.id, memo)
     expect(post).not.toBe(pre) // memo invalidated — no stale serve (RC-3)
     expect(post.overlays.find((v) => v.id === o.id)).toBeUndefined() // feed exclusion (§4)
 
@@ -516,7 +516,7 @@ describe('OVERLAY-AWAITING × VALIDATION-WIRING — exclusion-driven staleness (
       (st, e) => applyStoreDelta(st, { kind: 'observe', events: [e] }),
       EMPTY_STORE_STATE,
     )
-    expect(resolveRoot(freshState, r.id, createResolveMemo())).toEqual(post) // D29 oracle agreement
+    expect(resolveRootMemoized(freshState, r.id, createResolveMemo())).toEqual(post) // D29 oracle agreement
   })
 })
 
@@ -546,7 +546,7 @@ describe('TRUST-VIEW.md §2 — the trust-filtered store view (admissionView / v
     expect(store.admissionView().isAdmitted(r.id)).toBe(false) // and the very next call sees the revoke
   })
 
-  it('viewRoot() filters ONLY overlays — chain/pending/annotations are unchanged from resolveRoot() for an untrusted foreign overlay', async () => {
+  it('viewRoot() filters ONLY overlays — chain/pending/annotations are unchanged from resolveRootMemoized() for an untrusted foreign overlay', async () => {
     const store = await storeWithForeignOverlay()
     const r = root(A, 'tv-root')
     const raw = store.resolveRoot(r.id)
@@ -583,7 +583,7 @@ describe('TRUST-VIEW.md §2 — the trust-filtered store view (admissionView / v
     expect(audit.overlays[0]?.id).toBe(foreignPatch('tv-overlay', r.id, r.id, A, AB).id)
   })
 
-  it('viewRoot() overlay filtering equals the manual composition — visibleOverlays(resolveRoot(...).overlays, trustedView(toIndex(admit)))', async () => {
+  it('viewRoot() overlay filtering equals the manual composition — visibleOverlays(resolveRootMemoized(...).overlays, trustedView(toIndex(admit)))', async () => {
     const store = await storeWithForeignOverlay()
     const r = root(A, 'tv-root')
 

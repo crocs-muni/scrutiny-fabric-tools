@@ -15,7 +15,7 @@ import {
   type StoreState,
   applyStoreDelta,
   createResolveMemo,
-  resolveRoot,
+  resolveRootMemoized,
   toStoreView,
 } from '../src/store.js'
 import { root } from './_resolve.js'
@@ -65,8 +65,8 @@ describe('SG1 — confluence, store-level (UR-1)', () => {
         // Separately, per STORE.md §9: every root the scenario touches must resolve identically
         // too, with a fresh memo each time so the memo itself is never a confound.
         for (const rootId of s.rootIds) {
-          const a = resolveRoot(ordered, rootId, createResolveMemo())
-          const b = resolveRoot(shuffled, rootId, createResolveMemo())
+          const a = resolveRootMemoized(ordered, rootId, createResolveMemo())
+          const b = resolveRootMemoized(shuffled, rootId, createResolveMemo())
           expect(b, `resolveRoot(${rootId}) diverged under permutation`).toEqual(a)
         }
       }),
@@ -123,10 +123,10 @@ describe('SG2 — epoch cost (D24)', () => {
       fc.property(storeScenario, fc.constantFrom('pk-x', 'pk-y'), (s, pk) => {
         const before = foldGated(s.deltas)
         const memo = createResolveMemo()
-        const resolved = s.rootIds.map((id) => resolveRoot(before, id, memo))
+        const resolved = s.rootIds.map((id) => resolveRootMemoized(before, id, memo))
 
         const after = applyStoreDelta(before, { kind: 'trust', pubkeys: [pk] })
-        const resolvedAfter = s.rootIds.map((id) => resolveRoot(after, id, memo))
+        const resolvedAfter = s.rootIds.map((id) => resolveRootMemoized(after, id, memo))
 
         for (const [i, r] of resolved.entries()) expect(resolvedAfter[i]).toBe(r)
       }),
