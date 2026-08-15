@@ -30,10 +30,11 @@ export function ambiguousPatchPair(): { before: string; after: string } {
   return { before, after: beforeLines.join('\n') }
 }
 
-/** P4 — the same concrete, directly-built ambiguous case {@link ambiguousPatchPair} names. */
+/** P4 — the same concrete case {@link ambiguousPatchPair} names, with the widening budget pre-spent
+ *  (CONTEXT-WIDENING.md §6: post-widening, P4 is reachable only through the ceiling). */
 function p4Issues(): readonly Issue[] {
   const { before, after } = ambiguousPatchPair()
-  return buildPatch(ROOT, REPLY, before, after, 1).issues
+  return buildPatch(ROOT, REPLY, before, after, 1, 3, 0).issues
 }
 
 /** RL-1 — an `i` tag past §5.4's 1024-byte per-tag-value ceiling. */
@@ -58,9 +59,11 @@ export const A_BUILD_COVERAGE: CoverageTable = {
   ),
   P1: notCovered(
     "Satisfied transitively via patch.ts's own default context of 3, which patch.ts's own doc " +
-      "comment already names as P1's enforcement point. buildPatch only threads an optional " +
-      'override through; covered by a regression test asserting that thread, not a rule-code ' +
-      'emission.',
+      "comment already names as P1's enforcement point. buildPatch threads an optional override " +
+      'through and — since Phase 18 (CONTEXT-WIDENING.md §0: "does not reopen F1" — the floor is ' +
+      'never reinterpreted) may additionally widen *above* the floor when the floor itself would ' +
+      "be ambiguous. Covered by regression tests (the parameter thread, and Phase 18's §5 " +
+      'worked example), not a rule-code emission.',
   ),
   P2: notCovered(
     'The emittable half of P2 belongs to validate.ts (a V-layer rejection over a received payload), ' +
