@@ -179,33 +179,36 @@ verify: (event: NostrEvent) => boolean   // MUST cover signature AND id recomput
 
 Rule IDs are from Appendix F. These assignments drive the generated coverage report (D34).
 
+<!-- ownership:table:start -->
+
 | Module | Owns | Notes |
 |---|---|---|
-| `events` | TAG-1…5, VER-1…4, IR-1…4, PR-4/5, MD-4/5 | §9 prefix registry is **open data, not an enum** (IR-4). **Never filter by version tag in a relay query** — the dead engine did, silently violating VER-4 |
-| `validate` | TAG-1…5, VER-1…4, PR-1…5, MD-1…5, BD-1…7/10/12, PT-1…4/7, E1…E6, C1…C4, **C7**, P2, P3, IR-1…4 | Pure, one event in, `Issue[]` out. Endpoint typing (BD-3/4/5) and PT-7 lineage need the observed set → returns *pending*, resolved by `store` per §7.6. **C7 added** — it was dropped in transcription from §6.0's V manifest, which cites it explicitly. **P1 removed** — unsatisfiable at validation time; see `SPEC-FEEDBACK-v0.6.0.md` F1 |
-| `id` | SIG-1 (recompute half) | `serializeForId` delegates to `JSON.stringify` per R11. Hash injected — no crypto in core |
-| `patch` **(internal)** | T1, T2, T3, H1, N1…N3, C5, C6, PB-1/2, E7, C8 | **T1/T2/T3 is hand-written and non-injectable** (D30). No stock applier does the exactly-once check. Normalise jsdiff's two failure channels: returns `false` on context mismatch, *throws* on truncated/swapped hunks. C8 (new in spec v0.6.1) was already satisfied — jsdiff already splits a multi-header payload into per-file hunks and this module already sequences them all under T3 (SPEC-FEEDBACK F5) |
-| `resolve` | CHN-1…3, RC-1/2/5, SF-1…7, H1/H2, OV-2/3/4/6/8/9, DEL-1/2/3/6/7, PT-5/6/8/9, IX-3, BD-9, RL-5 | **Reads no trust state** (D25). `ChainState.forked` has **no `tipId`** — makes SF-4 unrepresentable. RC-5, SF-7, OV-9, RL-5 are new in spec v0.6.1; SF-7 and OV-9/RL-5 codify design calls this module already made (SPEC-FEEDBACK F10/F11) and needed no code change. RC-5 exposed a real bug — see fix/spec-v061-drift |
-| `admit` | TR-2…7, OV-7, DEL-4/5 | Refcounted reason sets. `direct-trust` = Set bit; `binding` = counter guarded by `liveBindings` (D23) |
-| `query` | DQ-1…4, BD-8 | Returns plain NIP-01 filter objects; no transport dependency |
-| `build` | E4 (fence length `max(3, N+1)`), P1…P4, **RL-1**, **IX-2** | Emits `{kind, created_at, tags, content}` — **no `id`, `pubkey`, `sig`** (D13). Sole enforcement point for P1 and E4, both of which are unfalsifiable on receipt. **RL-1 and IX-2 added by Phase 8**: three of §5.4's four bounds (tag value ≤1024 B, signed event ≤64 KB, hunks ≤64) and IX-2's 64-`i`-tag ceiling are computable from the template this module assembles, so they are checked here the way P4 already self-checks. §5.4's fourth bound — patches per chain — stays with RL-2/RL-3 on the consumer side |
-| `store` | UR-1…3, RC-3/4, BD-6/7, DEL-8/9, RL-2/3, SIG-1 (enforcement) | Reducer + `StorageAdapter` port, **not a class** (D15). Three epochs (D24) |
+| `validate` | TAG-1…TAG-5, VER-1…VER-4, SIG-1, PR-1…PR-5, MD-1…MD-5, BD-1…BD-5/BD-7/BD-10/BD-12, PT-1…PT-4/PT-7, IM-5, E1…E3/E5/E6, C1…C4/C7, P2, TR-1, IR-1…IR-4 | Pure, one event in, `Issue[]` out. Endpoint typing (BD-3/4/5) and PT-7 lineage need the observed set → returns *pending*, resolved by `store` per §7.6. **C7 added** — it was dropped in transcription from §6.0's V manifest, which cites it explicitly. **P1 removed** — unsatisfiable at validation time; see `SPEC-FEEDBACK-v0.6.0.md` F1 |
+| `admit` | TR-2…TR-7, OV-7, DEL-4/DEL-5 | Refcounted reason sets. `direct-trust` = Set bit; `binding` = counter guarded by `liveBindings` (D23) |
+| `build` | IX-2, E4, P1…P4, RL-1 | Emits `{kind, created_at, tags, content}` — **no `id`, `pubkey`, `sig`** (D13). Sole enforcement point for P1 and E4, both unfalsifiable on receipt. **RL-1 and IX-2 added by Phase 8**: three of §5.4's four bounds (tag value ≤1024 B, signed event ≤64 KB, hunks ≤64) and IX-2's 64-`i`-tag ceiling are computable from the template this module assembles; the fourth (patches per chain) stays with RL-2/RL-3 on the consumer side |
+| `patch` | PB-1/PB-2, E7, N1…N3, C5/C6/C8, T1…T3, H1, RL-3/RL-4 | **T1/T2/T3 is hand-written and non-injectable** (D30). No stock applier does the exactly-once check. C8 (new in spec v0.6.1) was already satisfied — jsdiff already splits a multi-header payload into per-file hunks and this module already sequences them all under T3 (SPEC-FEEDBACK F5). Phase 18 moved the matching primitives into internal `patch-matcher.ts`; the gate stays here |
+| `query` | BD-8, DQ-1…DQ-4 | Returns plain NIP-01 filter objects; no transport dependency. **Never puts a version tag into a relay filter** — the dead engine did, silently violating VER-4 (the `events` table-row note this line replaces) |
+| `resolve` | BD-9, PT-5/PT-6/PT-8/PT-9, IX-3, H1/H2, CHN-1…CHN-3, RL-3/RL-5, RC-1…RC-5, SF-1…SF-7, OV-2…OV-4/OV-6/OV-8/OV-9, DEL-1…DEL-3/DEL-6/DEL-7 | **Reads no trust state** (D25). `ChainState.forked` has **no `tipId`** — makes SF-4 unrepresentable. RC-5, SF-7, OV-9, RL-5 are new in spec v0.6.1; SF-7 and OV-9/RL-5 codify design calls this module already made (SPEC-FEEDBACK F10/F11). RC-5 exposed a real bug — see fix/spec-v061-drift |
+| `store` | SIG-1, BD-6/BD-7, RL-2/RL-3, RC-3/RC-4, UR-1…UR-3, DEL-8/DEL-9 | Reducer + `StorageAdapter` port, **not a class** (D15). Three epochs (D24). SIG-1's halves: recompute in `id.ts` via injected hash (no crypto in core, per R11's `JSON.stringify` serialization), enforcement in this module |
 
 Not owned by any module, by design: **13 rules, now enumerated with written reasons in
-`packages/core/test/_unowned.ts` and machine-checked** — OV-1 (reserved), OTS-1, CA-1, BD-11, OV-5,
-DEL-10/11, IX-1, IX-4, and IM-1…IM-4 (dropped with `artifacts`, C4). The previous form of this
+`packages/core/test/_unowned.ts` and machine-checked** — OTS-1, CA-1, BD-11, IX-1/IX-4, IM-1…IM-4, OV-1/OV-5, DEL-10/DEL-11. The previous form of this
 sentence was wrong twice: it listed IX-2 and RL-1, both of which turned out implementable (see
 `build` above), and it omitted seven rules entirely.
 
-> ⚠️ **This table is documentation, not a specification, and it has been found wrong three times.**
-> `QUERY-BUILD.md` §2.2 found the P2 double-listing; Phase 8 found 25 rules double-listed, seven
-> silent omissions, and 21 rules in no coverage table at all. Its range notation (`E1…E6`, `P1…P4`)
-> silently over-claims — `E4` appears only in `build.ts`, never in `validate.ts` — and the `events`
-> row duplicates 17 rules from the `validate` row while `events.ts` mentions ten of them.
-> **No gate may transcribe this table.** `test/rule-closure.test.ts` now closes the registry over the
-> coverage tables directly; the six per-module `OWNED` arrays that still copy from here are the
-> remaining weak link, and the table should ultimately be *generated* from the coverage tables per
-> D36's own "derive, never duplicate". See `AUDIT-2026-07-31.md` §3.
+BD-7 (shared: validate, store), H1 (shared: patch, resolve), P2 (shared: validate, build), RC-3 (shared: resolve, store), RC-4 (shared: resolve, store), RL-3 (shared: patch, resolve, store), SIG-1 (shared: validate, store) are claimed by more than one table — several obligations span layers legitimately (see the closure gate's note on uniqueness).
+
+<!-- ownership:table:end -->
+
+> ⚠️ **The marked block above is GENERATED, by `node tools/gen-ownership.mjs` (`pnpm ownership:gen`),
+> from `rules.json` + the coverage tables + `_unowned.ts`; CI runs `pnpm ownership:check`.** Do not
+> edit the Owns column by hand — edit the coverage table the rule lives in and regenerate. The
+> Notes column is hand-kept prose carried forward per module name. The hand-maintained era was
+> found wrong three times (`QUERY-BUILD.md` §2.2; Phase 8's 25 double-listings and 21 unclassified
+> rules), which is why this marks the table as documentation with a generator behind it, not a
+> specification. The six per-module `OWNED` arrays in the gate files still transcribe their own
+> module's row — a smaller, deliberately redundant intent check; `rule-closure.test.ts` closes the
+> whole registry over the tables directly. See `AUDIT-2026-07-31.md` §3.
 
 ---
 

@@ -16,7 +16,9 @@
     "attw": "pnpm -r attw",
     "rules:gen": "node tools/gen-rules.mjs",
     "rules:check": "node tools/gen-rules.mjs --check",
-    "verify": "pnpm lint && pnpm typecheck && pnpm rules:check && pnpm build && pnpm attw && pnpm test"
+    "ownership:gen": "node tools/gen-ownership.mjs",
+    "ownership:check": "node tools/gen-ownership.mjs --check",
+    "verify": "pnpm lint && pnpm typecheck && pnpm rules:check && pnpm ownership:check && pnpm build && pnpm attw && pnpm test"
   },
   "devDependencies": {
     "@arethetypeswrong/cli": "^0.18.5",
