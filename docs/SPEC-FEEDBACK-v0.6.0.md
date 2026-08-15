@@ -12,12 +12,13 @@ deliberately — rewriting it would erase what was actually wrong.
 Status legend: **open** — reported, not yet resolved in the spec. **resolved in v0.6.1** — the
 amendment landed; the entry is kept for the record, not as outstanding work.
 
-**All eleven of F1–F11 are resolved as of spec v0.6.1**; F12 is new and open. Verified during the Phase 8 audit
+**All eleven of F1–F11 are resolved as of spec v0.6.1**; F12–F14 are new and open. Verified during the Phase 8 audit
 (2026-07-31) by re-reading the spec fresh; see `AUDIT-2026-07-31.md` §9 for the per-entry table
 of what each amendment became (F1 retagged A, F3 widened `line-content` to `%x00-09 / %x0B-FF`,
 F5 → C8, F10 → SF-7, F11 → OV-9/RL-5, …). Each implementation workaround was re-checked and all
 remain correct. Three source comments still describe departures the amendments removed — tracked
-as P12 in that report, not here.
+as P12 in that report, not here. F13 and F14 were filed during the 2026-08-01 spec-and-plan pass, per
+`PLAN-2026-08-01-rewrite-mandate.md` §5 and §7.
 
 ---
 
@@ -437,3 +438,227 @@ in whatever unit they choose.
 **How this implementation handles it.** `patch.ts` charges `|content| × Σ(len(line) + 1)` rather than
 `|content| × Σ len(line)`, so every pattern line costs at least one unit whatever its contents.
 Landed in `83d2393`.
+
+---
+
+## F13 — Patch's own `e root` has no endpoint-typing rule; §4.4 never rejects an observed wrong-typed root
+
+**Status:** open · **Rules:** PT-10 (new), PT-11 (new), BD-3, BD-4, BD-5, BD-7, UR-2 · **Sections:**
+§4.3, §4.4, §7.6 · **Severity:** a real gap in the Validity layer's own coverage — not currently
+exploitable in `@scrutiny-fabric/core`, but only because of two guards the spec itself does not
+require
+
+**Where.** §4.3's Binding endpoints have a full typing lifecycle. The rule table (lines 300–311):
+
+> BD-3 | V | — | The `e root` endpoint MUST be a `scrutiny-product` event.
+> BD-4 | V | — | The `e link` endpoint MUST be a `scrutiny-metadata` event.
+> BD-5 | V | — | A Binding whose endpoints, once observed, do not satisfy BD-3/BD-4 is an invalid
+> SCRUTINY event and MUST NOT be admitted.
+> BD-7 | V | — | A Binding whose observed endpoint contradicts BD-3/BD-4 transitions to permanently
+> invalid; implementations SHOULD cache the rejection.
+
+— typed (BD-3/BD-4), rejected once observed (BD-5), permanently cached on rejection (BD-7). §4.4's
+Patch rule table (lines 354–362) gives its own `e root` tag only a cardinality rule:
+
+> PT-1 | V | NIP-10 | A Patch event MUST carry exactly one `e` tag with marker `root` (pointing at
+> the root Product or Metadata).
+
+"pointing at the root Product or Metadata" is prose, not a rule; no PT rule constrains what type the
+referenced event actually turns out to be once observed. §7.6's UR-2 (line 846) covers only the case
+where the root has not yet arrived: "A Patch whose `e root` is unobserved MUST be retained and
+re-evaluated on the root's arrival." It says nothing about the case where the root *has* arrived and
+is, say, a Binding, another Patch, or a plain non-SCRUTINY event.
+
+**The gap.** Every other endpoint reference in the spec that can resolve to the wrong type gets a
+rejection rule (BD-5/BD-7) once observed. A Patch's `e root` reference is the identical shape of
+hazard — a NIP-10 `e` tag pointing at an arbitrary event id, whose type is unknown until that event
+is observed — and gets only the pending half of the lifecycle (UR-2), never the rejection half.
+
+**Independently re-verified against the current implementation.** `validate.ts`'s `checkPatch`
+(lines 339–404) looks up the root event once observed (`options.lookupEvent?.(root.id)`, line 374)
+and from that point on only ever reads `rootEvent.pubkey` — the root-author/foreign classification
+at line 384 (`if (event.pubkey === rootEvent.pubkey) return`) — never `scrutinyEventType(rootEvent)`.
+A Patch whose declared `e root` resolves to, say, a Binding event authored by the same pubkey as the
+Patch passes `checkPatch` cleanly: PT-1/PT-2 cardinality holds, the root-author branch returns with
+no issue pushed, and no other check in the function inspects the root's type.
+
+**Independently re-verified whether this is currently exploitable.** It is not, for two reasons
+neither of which the spec requires:
+
+1. `admit.ts`'s `rootChainMembers` (lines 136–151) is only ever invoked with a root already confirmed
+   by `isRoot` (lines 153–156, `t === 'product' || t === 'metadata'`) — see the call site at line 183
+   (`const roots = all.filter(isRoot)`) feeding the loop at line 210. A Patch whose declared `e root`
+   is not itself product/metadata can never acquire the `root-chain` admission reason, because
+   nothing ever walks from a non-root root. (It can still be admitted via `direct-trust`, TR-2, if
+   its own pubkey is directly trusted — admission and canonical-chain membership are different
+   questions, and TR-2 credits *every* observed event by a trusted pubkey regardless of type.)
+2. `resolve.ts`'s `resolve()` (lines 265–273) independently re-derives `rootType =
+   scrutinyEventType(root)` from its own lookup of the actual root event and returns `{ chain:
+   { status: 'absent', reason: 'root-not-patchable' } }` whenever that type is neither `product` nor
+   `metadata` — regardless of what the Patch itself declared or how `checkPatch` classified it. The
+   guarding comment at line 263 attributes this to BD-9 ("a Binding is corrected by kind 5 plus a
+   replacement, never by a patch"), which is a citation of convenience — BD-9 is about *Bindings* not
+   being patch-correctable, not about a Patch's own root typing — but the guard itself is real,
+   unconditional, and independent of `admit.ts`.
+
+Given both, this re-check confirms the mandate's claim: no incorrect canonical content is ever
+rendered from a Patch declaring a wrong-typed `e root`, because chain construction is always driven
+by `resolve()`'s own root lookup and type re-check, never by trusting `checkPatch`'s verdict. But
+both guards are `@scrutiny-fabric/core`'s own incidental hardening. A differently-shaped conforming
+implementation — one that treats a V-clean `checkPatch` result as sufficient before doing chain work,
+or that omits `resolve.ts`'s BD-9-flavored guard (nothing in §4.4 or §7.6 requires it) — has no
+defense at all: the spec's own rule table gives it nothing to reject on.
+
+**Suggested resolution.** Mirror BD-3/BD-5's exact pattern for Patch's own root reference:
+
+- **PT-10** (V) — "The event referenced by `e root` MUST be a `scrutiny-product` or
+  `scrutiny-metadata` event."
+- **PT-11** (V) — "A Patch whose OBSERVED `e root` violates PT-10 is invalid and MUST NOT be
+  admitted."
+
+UR-2 needs no change — it already covers the pending case ("retained and re-evaluated on the root's
+arrival") precisely, and PT-11 is deliberately scoped to the *observed* case so the two rules
+partition the same way BD-6/BD-7 already do for Bindings. Unlike BD-7, no separate caching rule is
+proposed for PT-11: UR-3 already forbids caching a Patch's authorship class while its root is
+unobserved, and once the root **is** observed a PT-10 violation cannot change on further observation
+(the root event's own type is immutable), so caching a PT-11 rejection falls out of UR-3 as written
+and does not need a new rule of its own.
+
+**What the implementation does meanwhile.** `validate.ts`'s `checkPatch` does not evaluate
+PT-10/PT-11 and emits no code for either — it performs only the pubkey-based authorship comparison.
+Correctness is preserved incidentally, not by design against this specific rule: `admit.ts`'s
+`isRoot`-gated `rootChainMembers` walk and `resolve.ts`'s own `rootType` re-check (cited above) both
+independently prevent a wrong-typed declared root from ever contributing to a canonical chain or
+overlay. PT-10/PT-11 are recorded in the not-test-covered coverage bucket with this reason until the
+amendment lands and `checkPatch` gains a direct check.
+
+---
+
+## F14 — version-tag digit ceiling: TAG-2/VER-1's three-digit form has no headroom, and VER-1's ordering claim only holds because of the ceiling it should remove
+
+**Status:** open · **Rules:** TAG-2 (rewritten), VER-1 (rewritten) · **Sections:** §3, §3.1, §4.5 ·
+**Severity:** already hit once (D45); VER-1's ordering claim is false the moment any field needs two
+digits, not just eventually
+
+**Where.** §3's Version-tag form paragraph (line 64):
+
+> Version tags match the regular expression `^scrutiny-v\d{3}$`. The three digits encode `MAJOR`,
+> `MINOR`, `PATCH` respectively (`scrutiny-v061` ≡ v0.6.1). Comparisons between version tags are
+> lexicographic on the three-digit suffix, which coincides with semantic ordering because the digits
+> are zero-padded.
+
+TAG-2 (line 75): "Every SCRUTINY event MUST carry exactly one version `t` tag matching
+`^scrutiny-v\d{3}$`." VER-1 (line 79): "The three digits in `scrutiny-vMMP` encode MAJOR/MINOR/PATCH.
+Lexicographic comparison coincides with semantic ordering."
+
+**The problem, re-verified.** `^\d{3}$` is exactly one digit per field, so each of MAJOR/MINOR/PATCH
+is capped at 9. This is not hypothetical: `DECISIONS-2026-07-27.md` D45 records that this project's
+own spec target hit the ceiling once already — "`scrutiny-v059` is already patch 9 and the tag regex
+is `^scrutiny-v\d{3}$` with digits encoding MAJOR/MINOR/PATCH, so there is no `scrutiny-v0510`.
+Staying in 0.5.x would require changing the tag scheme itself — breaking TAG-2, VER-1, and every
+published event." The current spec is at v0.6.1; the identical forcing recurs at MINOR=9 (a
+hypothetical v0.9.x needing a tenth minor release) and, with no digit anywhere to borrow from a fixed
+3-character suffix, MAJOR=9 is a hard wall — there is no larger bump left that stays inside the
+current grammar at all.
+
+The ceiling and the ordering claim are the same defect, not two independent ones: line 64's
+"coincides with semantic ordering because the digits are zero-padded" is true only because each
+field is fixed at exactly one digit. The moment a field needs two digits, "zero-padded to width 1"
+stops meaning anything, and the classic lexicographic-string-sort failure reappears in its usual
+form — a two-character `"10"` sorts before a one-character `"9"` under `<` on strings, the opposite
+of numeric order. §3's own text supplies no path to widen the digit count without abandoning the
+fixed-width regex TAG-2 requires, so there is no way to patch around the ceiling that does not also
+require rewording VER-1.
+
+Re-verified against `events.ts`: `VERSION_TAG_PATTERN = /^scrutiny-v\d{3}$/` (line 56) and
+`parseVersionTag` (lines 182–190) read `digits[0]`, `digits[1]`, `digits[2]` as single characters —
+implementing the one-digit-per-field ceiling exactly as specified, not a defensive workaround.
+`compareVersionTags` (lines 199–203) is a **raw string `<`/`>` comparison** of the sliced
+three-character suffix, with no per-field parsing at all — its own doc comment (lines 195–197)
+restates VER-1 verbatim: "VER-1 guarantees lexicographic comparison of the three-digit suffix
+coincides with semantic ordering, because the digits are zero-padded and fixed-width." This is
+concrete, not speculative: the live reference implementation's `compareVersionTags` *is* the ordering
+claim, encoded as code, and it breaks on the same input that breaks the spec prose.
+
+**Suggested amendment.**
+
+1. **New dedicated single-letter `v` tag**, following the exact precedent §3.1 already sets for
+   `i`/`k` (line 104, and the NIP-73 row of §3.1's inherited-semantics table, line 131): single-letter,
+   outside the `t` tag namespace, relay-indexable via NIP-01's single-letter tag indexing convention
+   (`#v`) without inventing new machinery. Unlike `i`/`k`, the `v` tag is not NIP-73-shaped or
+   externally defined — it is SCRUTINY's own, so it needs its own row in §3.1 rather than reuse of
+   the NIP-73 row: `["v", "<MAJOR>.<MINOR>.<PATCH>"]`, each field an unpadded decimal integer, no
+   fixed width, no digit-count ceiling in any field. This also answers the mandate's own open
+   question — does the new format widen room for MAJOR, or is single-digit MAJOR acceptable
+   indefinitely — directly: an unpadded field has no ceiling for MAJOR either, so the amendment
+   should not special-case MAJOR differently from MINOR/PATCH.
+2. **TAG-2 rewritten**: "Every SCRUTINY event MUST carry exactly one `v` tag whose value matches
+   `^\d+\.\d+\.\d+$`." The `t`-tag version form (`scrutiny-vMMP`, `^scrutiny-v\d{3}$`) is retired
+   outright, not deprecated alongside the new form. **No grandfather clause** — no dual-path
+   "accept either form" text anywhere, since no real corpus exists yet to preserve compatibility
+   with, which is the rewrite mandate's own premise for every item in that document. This is
+   consistent with D45's own precedent: the v0.5.9→v0.6.0 migration did not carry the old tag scheme
+   forward in parallel when its ceiling was first hit, and the spec already states that underscored
+   variants from older drafts go unrecognised (TAG-4) rather than being accepted alongside the
+   current kebab-case form — this project's history is retiring an old tag form outright, not
+   accreting a dual-path.
+3. **VER-1 rewritten**, explicitly retracting the lexicographic claim: "Ordering between two version
+   tags is a per-field numeric tuple comparison: parse `MAJOR`, `MINOR`, `PATCH` as separate decimal
+   integers from the `v` tag value and compare `(MAJOR, MINOR, PATCH)` field-by-field as numbers.
+   This is never a wholesale string or lexicographic comparison of the tag value." Should state
+   directly that the previous "lexicographic … because zero-padded" text was correct only under the
+   one-digit-per-field ceiling this amendment removes, and does not survive it.
+4. **Downstream sweep, not just the two rules**: the mini-example JSON in §4.1–§4.4 all carry
+   `["t", "scrutiny-v061"]`; each needs `["v", "0.6.1"]` in its place — in place of, not alongside,
+   given the no-grandfather-clause decision above. §4.5's indexer-discipline table treats `i`/`k`
+   tags on root events as immutable (IX-3); the amendment should state explicitly that a `v` tag is
+   fixed per-event by construction (it types that one event's own wire format, not the chain's
+   evolving content), so no analogous mutability question exists for it — not because it inherits
+   IX-3, but because the question does not arise the way it does for content-describing indexers.
+
+**How this implementation handles it.** `events.ts`'s `VERSION_TAG_PATTERN`, `parseVersionTag`, and
+`compareVersionTags` implement today's 3-digit `t`-tag scheme and its string-comparison ordering
+exactly as the current spec specifies — including the same ceiling and the same "zero-padded"
+assumption, restated verbatim in `compareVersionTags`'s own doc comment. No workaround exists in the
+implementation today, because the ceiling has not yet forced a second migration; this entry is filed
+prospectively, following D45's own lesson, so that a fix lands with headroom instead of under the
+forced-bump pressure that produced v0.6.0 the first time.
+
+## F15 — PT-7 × DEL-7 interaction: orphaned/α is reachable only for PT-7-typed targets, which §10's "obtainable" wording never says
+
+**Status:** open · **Rules:** DEL-7 (wording clarification requested), PT-7 (unaffected — works as
+specified) · **Sections:** §4.4, §7.3, §10 · **Severity:** documentation-level — no implementation
+divergence; the reference implementation follows both rules as written, and their composition is
+narrower than §10's prose suggests.
+
+**Where.** §4.4 PT-7: "A foreign patch's `e reply` MUST point at the root event or a root-author
+patch. Overlay-to-overlay reply is invalid (§7.3)." §10 DEL-7: "α/β degradation for orphaned
+overlays. If the overlay's target is obtainable (cached or fetched), render against the target's
+universe (α). If unobtainable, render as a standalone artifact (β); the overlay is not re-anchored
+to any other event."
+
+**The interaction, verified by executable probe.** Read in composition, a foreign overlay whose
+`e reply` names an event outside the overlayed root's lineage — the exact shape the implementation
+side's audit trail (OVERLAY-AWAITING.md §7's worked trace, correcting now) uses to motivate the
+α case ("unrelated to R entirely, or the root/tip of a different chain") — passes PT-7 only while
+the target is *unobserved* (a pending verdict), and fails it the moment the target becomes
+observable (it is neither the root nor a root-author patch). DEL-7's α case therefore never
+materialises for that shape: a conforming consumer drops the event from any V-gated resolution
+feed, and the overlay never re-renders as orphaned/α. The reachable α space under both rules is
+exactly: root-author-patch positions in ambiguous chain regions (downstream of a HALT, inside an
+unresolved self-fork, fork siblings — §7.3's own definition of orphaned), plus not-yet-observed
+root-author-patch targets, whose later arrival is already the chain's own invalidation trigger.
+
+Probe evidence (reference implementation, 2026-08-02): pre-target arrival —
+`state=orphaned, degradation=beta, verdict=pending`; post-arrival — `verdict=invalid,
+issues=["PT-7"]`, overlay excluded from `resolveRoot`'s event feed. The α outcome is unreachable.
+
+**Suggested amendment.** No semantic change to either rule. §10 near DEL-7 gains one clarifying
+paragraph: α degradation presupposes a reply target that remains PT-7-valid once observed —
+root-author-patch positions, including fork/HALT-ambiguous regions — and that targets failing
+PT-7's typing are invalid events whose appearance in a resolution is a validation-feed question
+outside DEL-7's scope, never an α reclassification. Optionally tighten "obtainable (cached or
+fetched)", which reads broader than the typed space PT-7 admits. A sibling correction is filed in
+the implementation repo's OVERLAY-AWAITING.md (dated 2026-08-02), which also records that the
+memo-staleness regression this class of shape actually exercises is *exclusion-driven* (the
+pending→invalid flip leaving the feed), not α/β-driven.
