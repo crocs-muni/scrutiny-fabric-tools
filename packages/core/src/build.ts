@@ -10,7 +10,7 @@
 import { type Issue, issue } from './errors.js'
 import { EVENT_TYPE_TAGS, FABRIC_TAG, SCRUTINY_KIND, parseIndexer } from './events.js'
 import type { IndexedEventType, ScrutinyEventType, UnsignedEvent } from './events.js'
-import { toLines, widenContext } from './patch-matcher.js'
+import { widenContext } from './patch-matcher.js'
 import type { ApplyOptions } from './patch-types.js'
 import { applyPatchContent, makePatch } from './patch.js'
 import { VERSION_TAG } from './version.js'

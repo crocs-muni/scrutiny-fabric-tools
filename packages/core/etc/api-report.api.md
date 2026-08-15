@@ -107,10 +107,25 @@ export function buildBinding(root: EndpointRef, link: EndpointRef, content: stri
 // @public
 export function buildMetadata(content: string, createdAt: number, indexers?: readonly string[]): BuildResult;
 
-// Warning: (ae-forgotten-export) The symbol "BuildPatchOptions" needs to be exported by the entry point index.d.ts
-//
 // @public
 export function buildPatch(options: BuildPatchOptions): BuildResult;
+
+// @public
+export interface BuildPatchOptions {
+    // (undocumented)
+    readonly after: string;
+    readonly apply?: ApplyOptions;
+    // (undocumented)
+    readonly before: string;
+    readonly context?: number;
+    // (undocumented)
+    readonly createdAt: number;
+    readonly maxWidenWork?: number;
+    // (undocumented)
+    readonly reply: EndpointRef;
+    // (undocumented)
+    readonly root: EndpointRef;
+}
 
 // @public
 export function buildProduct(content: string, createdAt: number, indexers?: readonly string[]): BuildResult;
