@@ -44,23 +44,30 @@ export const storageSymbol = Symbol.for('@scrutiny-fabric/storage')
 
 /**
  * A NIP-01 relay filter. `query.ts` (Phase 6) builds and returns exactly this type rather than a
- * parallel shape of its own — the comment this replaced flagged the risk of silent duplication, and
- * NIP-50's `search` (DQ-3, §8.1 step 3) is the only field the original, minimal shape was missing.
- * `tags` covers the single-letter tag filters (`#e`, `#t`, `#i`, `#k`, …) NIP-01 defines; kept as a
- * named field rather than a template-literal index signature so it can coexist with
- * `kinds`/`since`/`until`/`limit`'s differing value types.
+ * parallel shape of its own. **Flat**, per Phase 13 (`docs/AUDIT-2026-07-31.md` P2,
+ * `PLAN-2026-08-01-rewrite-mandate.md` §1): NIP-01 filters carry single-letter tag filters
+ * (`#e`, `#t`, `#i`, `#k`, …) as top-level `#`-prefixed keys, not nested under a `tags` field no
+ * relay recognises — a filter shaped the old way silently degrades to "match everything" the moment
+ * it reaches a real relay, since NIP-01 ignores unrecognised filter members.
+ *
+ * A `type` alias, not an `interface`, because only a `type` receives an implicit index signature in
+ * TypeScript (confirmed by compiling both under this repo's own `--strict` TS 5.8) — `` { [key:
+ * `#${string}`]: readonly string[] } `` could not be added to an `interface` version of this shape.
+ * Arrays stay `readonly`, unlike nostr-tools/NDK/nostrify's mutable convention: TypeScript's
+ * structural typing already makes this type assignable to and from theirs with zero copying, so
+ * matching their mutability would buy nothing while breaking this project's own readonly-everywhere
+ * discipline (`StoreState`, `AdmissionIndex`, `Resolution`) for no reason.
  */
-export interface EventFilter {
+export type EventFilter = {
   readonly ids?: readonly string[]
   readonly authors?: readonly string[]
   readonly kinds?: readonly number[]
   readonly since?: number
   readonly until?: number
   readonly limit?: number
-  readonly tags?: Readonly<Record<string, readonly string[]>>
   /** NIP-50 free-text search (DQ-3). Relay support is optional; ranking is relay-dependent. */
   readonly search?: string
-}
+} & { readonly [key: `#${string}`]: readonly string[] }
 
 /**
  * The persistence port (D15/D37) — `store`'s first real consumer, the way `TrustProvider` was

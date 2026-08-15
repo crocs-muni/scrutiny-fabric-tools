@@ -230,7 +230,7 @@ describe('the default in-memory EventStorage adapter', () => {
     const byKind = await storage.query([{ kinds: [5] }])
     expect(byKind).toEqual([])
 
-    const byRootTag = await storage.query([{ tags: { '#e': [r.id] } }])
+    const byRootTag = await storage.query([{ '#e': [r.id] }])
     expect(byRootTag.map((e) => e.id)).toEqual([p.id]) // only the patch carries an `e` tag to r.id
   })
 
@@ -265,5 +265,20 @@ describe('the default in-memory EventStorage adapter', () => {
 
     const limited = await storage.query([{ kinds: [1], limit: 1 }])
     expect(limited.map((e) => e.id)).toEqual([newer.id])
+  })
+
+  it('P6 — breaks a created_at tie by id, not by arrival/insertion order', async () => {
+    const storage = createInMemoryEventStorage()
+    const tied = 1_000
+    const first = { ...root(A, 'storage-tie-first'), created_at: tied }
+    const second = { ...root(AB, 'storage-tie-second'), created_at: tied }
+    // Insert in descending id order, so "arrival order" and "ascending id order" disagree —
+    // a regression that only an id-order-blind sort could pass by accident.
+    const [lower, higher] =
+      first.id.localeCompare(second.id) < 0 ? [first, second] : [second, first]
+    await storage.put([higher, lower])
+
+    const limited = await storage.query([{ kinds: [1], limit: 1 }])
+    expect(limited.map((e) => e.id)).toEqual([lower.id])
   })
 })
