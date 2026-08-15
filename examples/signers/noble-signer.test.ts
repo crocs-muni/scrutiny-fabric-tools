@@ -135,7 +135,6 @@ describe('noble-signer', () => {
 
     // High-level verifyEvent also passes
     assert.ok(verifyEvent(signed1), 'verifyEvent returns true')
-
   })
 
   it('generated secret key produces valid signer', () => {
