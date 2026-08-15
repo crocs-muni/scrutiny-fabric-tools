@@ -110,6 +110,7 @@ describe('SG2 — epoch cost (D24)', () => {
         expect(after.chainEpoch).toBe(before.chainEpoch) // same reference, not merely deep-equal
         expect(after.chainMembership).toBe(before.chainMembership)
         expect(after.pendingAwaiting).toBe(before.pendingAwaiting)
+        expect(after.overlayAwaiting).toBe(before.overlayAwaiting) // trust-only delta is a trust-only delta — overlayAwaiting carried through by reference
         expect(after.invalidIds).toBe(before.invalidIds)
         expect(after.observedEpoch).toBe(before.observedEpoch)
       }),
@@ -181,6 +182,10 @@ describe('SG5 — generator bias and floors', () => {
     expect(mix.trustThenObserveSameTick, 'trust immediately followed by observe').toBeGreaterThan(
       100,
     )
+    expect(
+      mix.overlayCrossRoot,
+      'cross-root overlay shape (OVERLAY-AWAITING.md §8 RC-3)',
+    ).toBeGreaterThan(100)
     expect(totalInvalidIds, 'invalid ids actually recorded').toBeGreaterThan(100)
   })
 })

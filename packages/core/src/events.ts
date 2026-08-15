@@ -121,6 +121,11 @@ export function rootTarget(event: NostrEvent): string | undefined {
   return eTagsWithMarker(event, 'root')[0]?.id
 }
 
+/** The id an event's `e reply` marker points at, if any. Shared by `resolve.ts` and `store.ts`. */
+export function replyTarget(event: NostrEvent): string | undefined {
+  return eTagsWithMarker(event, 'reply')[0]?.id
+}
+
 /**
  * Deduplicate events by id, first occurrence wins.
  *

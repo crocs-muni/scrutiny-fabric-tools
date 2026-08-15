@@ -12,7 +12,9 @@
  * found and fixed before any code existed, is in `docs/STORE.md`. Phase 14
  * (`docs/VALIDATION-WIRING.md`) wires `validateEvent` into the observe path, generalizing the
  * Binding-only `rejectedBindings`/`bindingsAwaiting` fields into rule-agnostic `invalidIds`/
- * `pendingAwaiting` and excluding `invalidIds` from `resolveRoot`'s event feed.
+ * `pendingAwaiting` and excluding `invalidIds` from `resolveRoot`'s event feed. Phase 15
+ * (`docs/OVERLAY-AWAITING.md`) adds the `overlayAwaiting` reverse index that closes the resolve-memo
+ * staleness gap (D24/C10).
  */
 
 import {
@@ -23,7 +25,14 @@ import {
   toIndex,
 } from './admit.js'
 import { type Issue, issue } from './errors.js'
-import { type NostrEvent, eTags, rootTarget, scrutinyEventType, tagValues } from './events.js'
+import {
+  type NostrEvent,
+  eTags,
+  replyTarget,
+  rootTarget,
+  scrutinyEventType,
+  tagValues,
+} from './events.js'
 import type { EventFilter, EventStorage } from './interfaces.js'
 import { storageSymbol } from './interfaces.js'
 import type { ApplyOptions } from './patch.js'
@@ -52,7 +61,9 @@ export interface StoreState {
    * pre-Phase-14 `rejectedBindings` — BD-7 was never a special case, it was the only rejection rule
    * `store` happened to check before every V rule was wired through `validateEvent`. Sorted, for
    * deep-equality-friendly plain data. Monotone: no V rule re-examines an already-resolved
-   * dependency and reverses course, so nothing is ever removed from this set on `unobserve` either.
+   * dependency and reverses course, so nothing is ever removed from this set on `unobserve` either
+   * — "current" is therefore the verdict as of the event's lifetime in the observed set; the set
+   * may contain ids no longer observed and is not a subset of `observedById`.
    */
   readonly invalidIds: readonly string[]
 
@@ -66,6 +77,11 @@ export interface StoreState {
    * one mechanism, not three separate ones.
    */
   readonly pendingAwaiting: Readonly<Record<string, readonly string[]>>
+  /**
+   * Overlay-reply target id -> root id(s) whose resolution reads that target's observedness.
+   * See docs/OVERLAY-AWAITING.md §3/§4. Never cleared, in either direction.
+   */
+  readonly overlayAwaiting: Readonly<Record<string, readonly string[]>>
 
   readonly trustEpoch: number
   readonly observedEpoch: number
@@ -78,6 +94,7 @@ export const EMPTY_STORE_STATE: StoreState = Object.freeze({
   invalidIds: Object.freeze([]),
   chainMembership: Object.freeze({}),
   pendingAwaiting: Object.freeze({}),
+  overlayAwaiting: Object.freeze({}),
   trustEpoch: 0,
   observedEpoch: 0,
   chainEpoch: Object.freeze({}),
@@ -85,8 +102,8 @@ export const EMPTY_STORE_STATE: StoreState = Object.freeze({
 
 /**
  * The confluence-tested projection (STORE.md §3/§9). Excludes `chainEpoch`/`chainMembership`/
- * `pendingAwaiting`, whose exact values are legitimately arrival-order-dependent cache bookkeeping
- * — the same move `admit.ts`'s own `toIndex` makes over `AdmitState`'s order-sensitive
+ * `pendingAwaiting`/`overlayAwaiting`, whose exact values are legitimately arrival-order-dependent
+ * cache bookkeeping — the same move `admit.ts`'s own `toIndex` makes over `AdmitState`'s order-sensitive
  * `liveBindings`.
  */
 export interface StoreView {
@@ -171,33 +188,39 @@ function bump(epochs: Map<string, number>, id: string): void {
  * previously hand-duplicated this dispatch — the one real asymmetry between the two callers is
  * *how* a kind-5 deletion's target resolves to an owning root (a live `chainMembership` Map being
  * built during observe vs. the frozen `state.chainMembership` snapshot during unobserve), which is
- * why that lookup is the one thing parameterised rather than shared outright.
+ * why that lookup is the one thing parameterised rather than shared outright. Phase 15
+ * (docs/OVERLAY-AWAITING.md) adds a third parameter for the overlay-awaiting reverse index.
  */
 function chainEpochTargets(
   event: NostrEvent,
   lookupOwningRoot: (id: string) => string | undefined,
+  lookupOverlayAwaiting: (id: string) => Iterable<string> | undefined,
 ): readonly string[] {
+  const targets: string[] = []
   const type = scrutinyEventType(event)
-  if (type === 'product' || type === 'metadata') return [event.id]
-  if (type === 'patch') {
+
+  if (type === 'product' || type === 'metadata') {
+    targets.push(event.id)
+  } else if (type === 'patch') {
     const root = rootTarget(event)
-    return root !== undefined ? [root] : []
-  }
-  if (event.kind === 5) {
-    const targets: string[] = []
+    if (root !== undefined) targets.push(root)
+  } else if (event.kind === 5) {
     for (const ref of eTags(event)) {
       const owningRoot = lookupOwningRoot(ref.id)
       if (owningRoot !== undefined) targets.push(owningRoot)
       targets.push(ref.id) // unconditional — covers target-is-itself-a-root (DEL-4)
     }
-    return targets
   }
-  return []
+  // New row from Phase 15 — unconditional, every event type, keyed by the arriving/departing event's OWN id.
+  for (const root of lookupOverlayAwaiting(event.id) ?? []) targets.push(root)
+
+  return targets
 }
 
 /**
  * The per-event chainMembership/chainEpoch bookkeeping in STORE.md §3, plus the V-layer verdict
- * wiring (VALIDATION-WIRING.md §2) that populates/drains `invalidIds`/`pendingAwaiting`.
+ * wiring (VALIDATION-WIRING.md §2) that populates/drains `invalidIds`/`pendingAwaiting`. Phase 15
+ * (docs/OVERLAY-AWAITING.md) adds `overlayAwaiting` population and lookup.
  */
 function processObservedEvent(
   event: NostrEvent,
@@ -206,15 +229,22 @@ function processObservedEvent(
   pendingAwaiting: Map<string, Set<string>>,
   chainEpoch: Map<string, number>,
   invalidIds: Set<string>,
+  overlayAwaiting: Map<string, Set<string>>,
 ): void {
   const type = scrutinyEventType(event)
 
   if (type === 'patch') {
     const root = rootTarget(event)
     if (root !== undefined) chainMembership.set(event.id, root)
+    const target = replyTarget(event)
+    if (target !== undefined && root !== undefined) addAwaiting(overlayAwaiting, target, root)
   }
 
-  for (const id of chainEpochTargets(event, (refId) => chainMembership.get(refId))) {
+  for (const id of chainEpochTargets(
+    event,
+    (refId) => chainMembership.get(refId),
+    (id) => overlayAwaiting.get(id),
+  )) {
     bump(chainEpoch, id)
   }
 
@@ -235,7 +265,11 @@ function processObservedEvent(
       // resolve() output — the same chain-epoch bump a first-time observation already gets.
       // Bindings need no special-case guard here (BD-9): chainEpochTargets already returns `[]` for
       // one, so this is provably a no-op for them, not a case requiring its own branch.
-      for (const root of chainEpochTargets(pendingEvent, (refId) => chainMembership.get(refId))) {
+      for (const root of chainEpochTargets(
+        pendingEvent,
+        (refId) => chainMembership.get(refId),
+        (id) => overlayAwaiting.get(id),
+      )) {
         bump(chainEpoch, root)
       }
     }
@@ -280,6 +314,7 @@ export function applyStoreDelta(state: StoreState, delta: StoreDelta): StoreStat
 
       const chainMembership = recordToMap(state.chainMembership)
       const pendingAwaiting = recordToSetMap(state.pendingAwaiting)
+      const overlayAwaiting = recordToSetMap(state.overlayAwaiting)
       const chainEpoch = recordToMap(state.chainEpoch)
       const invalidIds = new Set(state.invalidIds)
 
@@ -293,6 +328,7 @@ export function applyStoreDelta(state: StoreState, delta: StoreDelta): StoreStat
           pendingAwaiting,
           chainEpoch,
           invalidIds,
+          overlayAwaiting,
         )
       }
 
@@ -301,6 +337,7 @@ export function applyStoreDelta(state: StoreState, delta: StoreDelta): StoreStat
         invalidIds: [...invalidIds].sort(),
         chainMembership: mapToRecord(chainMembership),
         pendingAwaiting: setMapToSortedRecord(pendingAwaiting),
+        overlayAwaiting: setMapToSortedRecord(overlayAwaiting),
         trustEpoch: state.trustEpoch,
         observedEpoch: state.observedEpoch + 1,
         chainEpoch: mapToRecord(chainEpoch),
@@ -334,7 +371,12 @@ export function applyStoreDelta(state: StoreState, delta: StoreDelta): StoreStat
 
         // Symmetric to observe (STORE.md §3): removing an event can affect a root's resolve()
         // output too, so the same epoch(s) that would have been bumped on arrival bump on removal.
-        for (const target of chainEpochTargets(event, (refId) => state.chainMembership[refId])) {
+        // Phase 15 adds the overlayAwaiting lookup — never mutated on unobserve (docs/OVERLAY-AWAITING.md §4).
+        for (const target of chainEpochTargets(
+          event,
+          (refId) => state.chainMembership[refId],
+          (id) => state.overlayAwaiting[id],
+        )) {
           bump(chainEpoch, target)
         }
       }
@@ -349,6 +391,7 @@ export function applyStoreDelta(state: StoreState, delta: StoreDelta): StoreStat
         invalidIds: state.invalidIds, // monotone — never touched on unobserve
         chainMembership: state.chainMembership, // stale-but-still-correct entries left in place
         pendingAwaiting: setMapToSortedRecord(pendingAwaiting),
+        overlayAwaiting: state.overlayAwaiting, // never mutated on unobserve either dimension
         trustEpoch: state.trustEpoch,
         observedEpoch: state.observedEpoch + 1,
         chainEpoch: mapToRecord(chainEpoch),

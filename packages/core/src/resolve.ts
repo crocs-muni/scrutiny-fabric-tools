@@ -15,6 +15,7 @@ import {
   dedupeById,
   eTags,
   eTagsWithMarker,
+  replyTarget,
   rootTarget,
   scrutinyEventType,
 } from './events.js'
@@ -165,9 +166,6 @@ export interface ResolveOptions {
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
-
-const replyTarget = (event: NostrEvent): string | undefined =>
-  eTagsWithMarker(event, 'reply')[0]?.id
 
 const byIdAsc = (a: string, b: string): number => (a < b ? -1 : a > b ? 1 : 0)
 
