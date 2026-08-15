@@ -6,6 +6,7 @@
 
 import fc from 'fast-check'
 import { describe, expect, it } from 'vitest'
+import { openView, toIndex, trustedView, visibleOverlays } from '../src/admit.js'
 import { resolve } from '../src/resolve.js'
 import {
   EMPTY_STORE_STATE,
@@ -15,7 +16,7 @@ import {
   createStore,
   resolveRoot,
 } from '../src/store.js'
-import { PK_ROOT, fenced } from './_fixtures.js'
+import { PK_FOREIGN, PK_ROOT, fenced } from './_fixtures.js'
 import { deletion, diffPatch, foreignPatch, root } from './_resolve.js'
 import { overlayPatch } from './_store-generators.js'
 import { bindingAt, genuine, metadataAt, verifyBySig } from './_store.js'
@@ -516,5 +517,108 @@ describe('OVERLAY-AWAITING × VALIDATION-WIRING — exclusion-driven staleness (
       EMPTY_STORE_STATE,
     )
     expect(resolveRoot(freshState, r.id, createResolveMemo())).toEqual(post) // D29 oracle agreement
+  })
+})
+
+describe('TRUST-VIEW.md §2 — the trust-filtered store view (admissionView / viewRoot)', () => {
+  /** A store holding root R plus a foreign overlay (reply to R) by an untrusted pubkey. */
+  async function storeWithForeignOverlay(): Promise<ReturnType<typeof createStore>> {
+    const store = createStore({ verify: verifyBySig })
+    const r = root(A, 'tv-root')
+    const overlay = foreignPatch('tv-overlay', r.id, r.id, A, AB)
+    await store.add([genuine(r), genuine(overlay)])
+    // Never trust PK_FOREIGN — the overlay's own pubkey stays untrusted for the default view.
+    return store
+  }
+
+  it('reflects trust()/untrust() in the very next admissionView() call, with no intervening resolveRoot', async () => {
+    const store = createStore({ verify: verifyBySig })
+    const r = root(A, 'tv-trust-root')
+    await store.add([genuine(r)])
+
+    // Fresh store: nothing trusted → root not admitted.
+    expect(store.admissionView().isAdmitted(r.id)).toBe(false)
+
+    store.trust([PK_ROOT])
+    expect(store.admissionView().isAdmitted(r.id)).toBe(true) // the very next call sees it
+
+    store.untrust([PK_ROOT])
+    expect(store.admissionView().isAdmitted(r.id)).toBe(false) // and the very next call sees the revoke
+  })
+
+  it('viewRoot() filters ONLY overlays — chain/pending/annotations are unchanged from resolveRoot() for an untrusted foreign overlay', async () => {
+    const store = await storeWithForeignOverlay()
+    const r = root(A, 'tv-root')
+    const raw = store.resolveRoot(r.id)
+    const viewed = store.viewRoot(r.id)
+
+    // The untrusted overlay renders in the raw (unfiltered) resolution...
+    expect(raw.overlays.length).toBe(1)
+
+    // ...but is hidden by the default (empty trust) view.
+    expect(viewed.overlays.length).toBe(0)
+
+    // chain/pending/annotations are structurally identical — D25/TR-7: trust never gates the chain.
+    expect(viewed.chain).toEqual(raw.chain)
+    expect(viewed.pending).toEqual(raw.pending)
+    expect(viewed.annotations).toEqual(raw.annotations)
+    // Note: the overlay filtering is the only difference; the rest of the projection is passed through.
+    expect(viewed).toEqual({ ...raw, overlays: [] })
+  })
+
+  it('defaults admission to admissionView() — viewRoot(rootId) equals viewRoot(rootId, { admission: store.admissionView() })', async () => {
+    const store = await storeWithForeignOverlay()
+    const r = root(A, 'tv-root')
+    expect(store.viewRoot(r.id)).toEqual(store.viewRoot(r.id, { admission: store.admissionView() }))
+  })
+
+  it('openView is the explicit "show everything" audit case — renders the untrusted overlay', async () => {
+    const store = await storeWithForeignOverlay()
+    const r = root(A, 'tv-root')
+    // PK_FOREIGN is not trusted, so the default view hides the overlay...
+    expect(store.viewRoot(r.id).overlays.length).toBe(0)
+    // ...but an explicit openView renders it (D22: a view, never a bypass flag).
+    const audit = store.viewRoot(r.id, { admission: openView })
+    expect(audit.overlays.length).toBe(1)
+    expect(audit.overlays[0]?.id).toBe(foreignPatch('tv-overlay', r.id, r.id, A, AB).id)
+  })
+
+  it('viewRoot() overlay filtering equals the manual composition — visibleOverlays(resolveRoot(...).overlays, trustedView(toIndex(admit)))', async () => {
+    const store = await storeWithForeignOverlay()
+    const r = root(A, 'tv-root')
+
+    const viewed = store.viewRoot(r.id)
+    const raw = store.resolveRoot(r.id)
+    const manual = visibleOverlays(raw.overlays, trustedView(toIndex(store.getState().admit)))
+
+    expect(viewed.overlays).toEqual(manual)
+    expect(viewed).toEqual({ ...raw, overlays: manual })
+
+    // And with an explicitly-trusted pubkey, both the store and the oracle render the overlay.
+    store.trust([PK_FOREIGN])
+    expect(store.viewRoot(r.id).overlays.length).toBe(1)
+    const rawAfter = store.resolveRoot(r.id)
+    const manualAfter = visibleOverlays(
+      rawAfter.overlays,
+      trustedView(toIndex(store.getState().admit)),
+    )
+    expect(store.viewRoot(r.id).overlays).toEqual(manualAfter)
+  })
+
+  it('a second trust() call after the first viewRoot() changes the next viewRoot() call (no stale caching)', async () => {
+    const store = createStore({ verify: verifyBySig })
+    const r = root(A, 'tv-stale-root')
+    const overlay = foreignPatch('tv-stale-overlay', r.id, r.id, A, AB)
+    await store.add([genuine(r), genuine(overlay)])
+
+    // First view — nothing trusted, hidden.
+    const first = store.viewRoot(r.id)
+    expect(first.overlays.length).toBe(0)
+
+    // A later trust() must be reflected the next time (admissionView reads state fresh, no cache).
+    store.trust([PK_FOREIGN])
+    const second = store.viewRoot(r.id)
+    expect(second.overlays.length).toBe(1)
+    expect(second.overlays[0]?.id).toBe(overlay.id)
   })
 })
