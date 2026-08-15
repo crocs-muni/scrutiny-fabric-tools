@@ -10,12 +10,8 @@
  */
 
 import type { Issue } from '../src/errors.js'
-import {
-  EMPTY_STORE_STATE,
-  applyStoreDelta,
-  bindingRejectionIssue,
-  sig1RejectionIssue,
-} from '../src/store.js'
+import { EMPTY_STORE_STATE, applyStoreDelta, sig1RejectionIssue } from '../src/store.js'
+import { validateEvent } from '../src/validate.js'
 import { type CoverageTable, allIssues, emitted, notCovered } from './_coverage.js'
 import { diffPatch, root } from './_resolve.js'
 import { bindingAt, genuine, metadataAt } from './_store.js'
@@ -27,8 +23,10 @@ const AB = 'a\nb\n'
  * BD-7 — a Binding whose root endpoint is actually a Patch. Uses the real, synchronous reducer
  * directly (`applyStoreDelta`) rather than `createStore().add()`'s async wrapper — `add()` is
  * genuinely async (it awaits the `EventStorage` port), which the coverage harness's synchronous
- * `emitted(() => Issue[])` shape cannot accommodate; the BD-7 *detection* itself happens entirely
- * inside the reducer, so this observes the identical logic `add()` calls, not a re-derivation.
+ * `emitted(() => Issue[])` shape cannot accommodate. Re-runs `validateEvent` once against the
+ * post-fold state (VALIDATION-WIRING.md §1) — the identical call `add()` itself makes to populate
+ * `AddResult.rejected`, not a re-derivation of BD-7's own logic, which lives solely in
+ * `validate.ts`'s `checkBinding`.
  */
 function bd7Issues(): readonly Issue[] {
   const r = genuine(root(A, 'coverage-bd7-root'))
@@ -38,12 +36,10 @@ function bd7Issues(): readonly Issue[] {
 
   let state = EMPTY_STORE_STATE
   state = applyStoreDelta(state, { kind: 'observe', events: [r, notAProduct] })
-  const before = state.rejectedBindings
   state = applyStoreDelta(state, { kind: 'observe', events: [binding, link] })
 
-  return state.rejectedBindings
-    .filter((id) => !before.includes(id))
-    .map((id) => bindingRejectionIssue(id))
+  const verdict = validateEvent(binding, { lookupEvent: (id) => state.admit.observedById[id] })
+  return verdict.status === 'invalid' ? verdict.issues.filter((i) => i.code === 'BD-7') : []
 }
 
 /** SIG-1 (enforcement) — an event failing `verify()`. The same constructor `add()` itself calls. */

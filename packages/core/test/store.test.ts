@@ -1,9 +1,12 @@
 /**
  * `store` — reducer behaviour, the pending-reference buffer, epoch-gated memo, and the
- * `EventStorage` default adapter. Design in `docs/STORE.md`.
+ * `EventStorage` default adapter. Design in `docs/STORE.md`, amended by `docs/VALIDATION-WIRING.md`
+ * for Phase 14's `invalidIds`/`pendingAwaiting` generalization.
  */
 
+import fc from 'fast-check'
 import { describe, expect, it } from 'vitest'
+import { resolve } from '../src/resolve.js'
 import {
   EMPTY_STORE_STATE,
   applyStoreDelta,
@@ -12,7 +15,7 @@ import {
   createStore,
   resolveRoot,
 } from '../src/store.js'
-import { PK_ROOT } from './_fixtures.js'
+import { PK_ROOT, fenced } from './_fixtures.js'
 import { deletion, diffPatch, root } from './_resolve.js'
 import { bindingAt, genuine, metadataAt, verifyBySig } from './_store.js'
 
@@ -27,12 +30,14 @@ describe('BD-6 — pending Binding endpoints, delivered non-adjacently', () => {
     const link = metadataAt('bd6-link', 'Some metadata.')
     const b = bindingAt('bd6-binding', r.id, link.id)
 
-    await store.add([genuine(b), genuine(r)], { source: 'relay-1' })
+    const first = await store.add([genuine(b), genuine(r)], { source: 'relay-1' })
     // Only one endpoint observed so far — BD-6 pending, not yet resolvable either way.
-    expect(store.getState().rejectedBindings).toEqual([])
+    expect(store.getState().invalidIds).toEqual([])
+    const pendingBinding = first.pending.find((p) => p.event.id === b.id)
+    expect(pendingBinding?.awaiting).toEqual([link.id])
 
     await store.add([genuine(link)], { source: 'relay-2' })
-    expect(store.getState().rejectedBindings).toEqual([])
+    expect(store.getState().invalidIds).toEqual([])
     // admit.ts's own bookkeeping now credits both endpoints via the Binding.
     expect(store.getState().admit.reasons[r.id]).toContain(`binding:${b.id}`)
     expect(store.getState().admit.reasons[link.id]).toContain(`binding:${b.id}`)
@@ -50,9 +55,9 @@ describe('BD-7 — permanent rejection once both endpoints contradict BD-3/BD-4'
     await store.add([genuine(r), genuine(notAProduct)], { source: 'relay-1' })
     const result = await store.add([genuine(b), genuine(link)], { source: 'relay-2' })
 
-    expect(store.getState().rejectedBindings).toEqual([b.id])
+    expect(store.getState().invalidIds).toEqual([b.id])
     const rejection = result.rejected.find((x) => x.event.id === b.id)
-    expect(rejection?.issue.code).toBe('BD-7')
+    expect(rejection?.issues.map((i) => i.code)).toContain('BD-7')
   })
 
   it('never re-evaluates a permanently rejected Binding on further, unrelated ingest', async () => {
@@ -63,12 +68,12 @@ describe('BD-7 — permanent rejection once both endpoints contradict BD-3/BD-4'
     const b = bindingAt('bd7b-binding', notAProduct.id, link.id)
 
     await store.add([genuine(r), genuine(notAProduct), genuine(b), genuine(link)])
-    expect(store.getState().rejectedBindings).toEqual([b.id])
+    expect(store.getState().invalidIds).toEqual([b.id])
 
     const other = root(A, 'bd7b-unrelated')
     await store.add([genuine(other)])
-    expect(store.getState().rejectedBindings).toEqual([b.id]) // unchanged, not re-derived
-    expect(store.getState().bindingsAwaiting).toEqual({})
+    expect(store.getState().invalidIds).toEqual([b.id]) // unchanged, not re-derived
+    expect(store.getState().pendingAwaiting).toEqual({})
   })
 })
 
@@ -76,15 +81,80 @@ describe('UR-2 — a patch whose root is unobserved is retained and re-evaluated
   it('becomes chain-linked once the root arrives, via a separate add() call', async () => {
     const store = createStore({ verify: verifyBySig })
     const r = root(A, 'ur2-root')
-    const p = diffPatch('ur2-patch', r.id, r.id, A, AB)
+    const pEvent = genuine(diffPatch('ur2-patch', r.id, r.id, A, AB))
 
-    await store.add([genuine(p)])
+    const result = await store.add([pEvent])
     expect(store.resolveRoot(r.id).chain).toEqual({ status: 'absent', reason: 'root-unobserved' })
+    expect(result.pending).toEqual([{ event: pEvent, awaiting: [r.id], issues: [] }])
 
     await store.add([genuine(r)])
     const chain = store.resolveRoot(r.id).chain
     expect(chain.status).toBe('resolved')
     if (chain.status === 'resolved') expect(chain.content).toBe(AB)
+  })
+})
+
+describe('P5/VALIDATION-WIRING — a non-Binding invalid event is admitted but excluded from resolve()', () => {
+  it('a C1-malformed Patch is accepted+rejected, and never reaches the canonical chain', async () => {
+    const store = createStore({ verify: verifyBySig })
+    const r = root(A, 'p5-root')
+    const validPatch = genuine(diffPatch('p5-valid', r.id, r.id, A, AB))
+    // C1 — a fenced diff block with no proper "--- a/content" header. Well-formed root/reply tags
+    // otherwise, so before this phase resolve.ts would have had to process it on tags alone.
+    const invalidPatch = genuine(
+      diffPatch('p5-invalid', r.id, r.id, A, 'a\nc\n', {
+        content: fenced('not a real diff payload'),
+      }),
+    )
+
+    const result = await store.add([genuine(r), validPatch, invalidPatch])
+
+    // Admitted to storage regardless (DEL-4's "never silently drop" argument, applied here) — never
+    // silently discarded for a bug in this project's own validator.
+    expect(result.accepted).toContain(invalidPatch.id)
+    expect(store.getState().admit.observedById[invalidPatch.id]).toBeDefined()
+
+    // But excluded from the resolved view.
+    expect(store.getState().invalidIds).toEqual([invalidPatch.id])
+    const rejection = result.rejected.find((x) => x.event.id === invalidPatch.id)
+    expect(rejection?.issues.map((i) => i.code)).toContain('C1')
+
+    const chain = store.resolveRoot(r.id).chain
+    expect(chain.status).toBe('resolved')
+    if (chain.status === 'resolved') expect(chain.content).toBe(AB) // invalidPatch never applied
+  })
+})
+
+describe('SG6 — resolveRoot’s invalidIds exclusion agrees with a fresh resolve() oracle', () => {
+  it('excludes a since-invalidated Patch from the canonical chain, in any arrival order', () => {
+    const r = genuine(root('a\n', 'sg6-root'))
+    const validPatch = genuine(diffPatch('sg6-valid', r.id, r.id, 'a\n', 'a\nb\n'))
+    const invalidPatch = genuine(
+      diffPatch('sg6-invalid', r.id, r.id, 'a\n', 'a\nc\n', {
+        content: fenced('not a real diff payload'),
+      }),
+    )
+    const events = [r, validPatch, invalidPatch]
+
+    fc.assert(
+      fc.property(
+        fc.shuffledSubarray(events, { minLength: events.length, maxLength: events.length }),
+        (order) => {
+          let state = EMPTY_STORE_STATE
+          for (const event of order) {
+            state = applyStoreDelta(state, { kind: 'observe', events: [event] })
+          }
+          expect(state.invalidIds).toEqual([invalidPatch.id])
+
+          const actual = resolveRoot(state, r.id, createResolveMemo())
+          // The direct D29 oracle: a fresh resolve() call over the observed set with the
+          // since-invalidated member removed by hand.
+          const oracle = resolve(r.id, [r, validPatch])
+          expect(actual).toEqual(oracle)
+        },
+      ),
+      { numRuns: 50 },
+    )
   })
 })
 
@@ -179,7 +249,7 @@ describe('SIG-1 enforcement — the default gate rejects a failing event', () =>
     const result = await store.add([bad])
     expect(result.accepted).toEqual([])
     expect(result.rejected).toHaveLength(1)
-    expect(result.rejected[0]?.issue.code).toBe('SIG-1')
+    expect(result.rejected[0]?.issues.map((i) => i.code)).toEqual(['SIG-1'])
     expect(store.getState().admit.observedById[r.id]).toBeUndefined()
   })
 

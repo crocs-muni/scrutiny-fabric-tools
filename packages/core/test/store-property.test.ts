@@ -109,8 +109,8 @@ describe('SG2 — epoch cost (D24)', () => {
         )
         expect(after.chainEpoch).toBe(before.chainEpoch) // same reference, not merely deep-equal
         expect(after.chainMembership).toBe(before.chainMembership)
-        expect(after.bindingsAwaiting).toBe(before.bindingsAwaiting)
-        expect(after.rejectedBindings).toBe(before.rejectedBindings)
+        expect(after.pendingAwaiting).toBe(before.pendingAwaiting)
+        expect(after.invalidIds).toBe(before.invalidIds)
         expect(after.observedEpoch).toBe(before.observedEpoch)
       }),
       { numRuns: 2_000 },
@@ -159,20 +159,20 @@ describe('SG3 — dedup-after-verification is not bypassable (D20)', () => {
 describe('SG5 — generator bias and floors', () => {
   it('reaches every named shape often enough for SG1/SG3 to mean something', () => {
     let mix = emptyMix()
-    let totalRejectedBindings = 0
+    let totalInvalidIds = 0
 
     fc.assert(
       fc.property(storeScenario, (s) => {
         mix = addMix(mix, s.mix)
 
         const state = foldGated(s.deltas)
-        totalRejectedBindings += state.rejectedBindings.length
+        totalInvalidIds += state.invalidIds.length
       }),
       { numRuns: 1_500 },
     )
 
     console.log(`store generator mix: ${JSON.stringify(mix)}`)
-    console.log(`total BD-7 rejections actually recorded: ${totalRejectedBindings}`)
+    console.log(`total invalid ids actually recorded: ${totalInvalidIds}`)
 
     expect(mix.bindingsWellTyped, 'well-typed Bindings').toBeGreaterThan(200)
     expect(mix.bindingsMisTyped, 'mistyped (BD-7) Bindings').toBeGreaterThan(200)
@@ -181,6 +181,6 @@ describe('SG5 — generator bias and floors', () => {
     expect(mix.trustThenObserveSameTick, 'trust immediately followed by observe').toBeGreaterThan(
       100,
     )
-    expect(totalRejectedBindings, 'BD-7 rejections actually recorded').toBeGreaterThan(100)
+    expect(totalInvalidIds, 'invalid ids actually recorded').toBeGreaterThan(100)
   })
 })

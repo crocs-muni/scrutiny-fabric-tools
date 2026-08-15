@@ -115,7 +115,6 @@ export {
 export {
   EMPTY_STORE_STATE,
   applyStoreDelta,
-  bindingRejectionIssue,
   createInMemoryEventStorage,
   createResolveMemo,
   createStore,
@@ -125,6 +124,7 @@ export {
   type AddResult,
   type CreateStoreOptions,
   type IngestMeta,
+  type PendingEvent,
   type RejectedEvent,
   type ResolveMemo,
   type Store,
