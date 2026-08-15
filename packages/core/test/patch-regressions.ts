@@ -10,7 +10,7 @@
  * `payload` and the expected outcome, with the rule each one pins.
  */
 
-import type { HaltReason } from '../src/patch.js'
+import type { HaltReason } from '../src/patch-types.js'
 import type { RuleId } from '../src/rules.js'
 import { body } from './_patch.js'
 
@@ -134,7 +134,7 @@ export const REGRESSIONS: readonly RegressionCase[] = [
       'removed a line. Applying the header number literally against the current content inserts ' +
       'one position too late and yields "+++ b/content\\n\\na". T2 and T3 disagree here and the ' +
       'spec does not reconcile them; the header number is carried forward by the net line shift. ' +
-      'See SPEC-FEEDBACK F6.',
+      'See F6.',
     content: 'a\n+++ b/content\n',
     payload: body('@@ -1,1 +0,0 @@', '-a', '@@ -2,0 +2,1 @@', '+a', '\\ No newline at end of file'),
     expect: { status: 'applied', content: '+++ b/content\na' },
@@ -194,7 +194,7 @@ export const REGRESSIONS: readonly RegressionCase[] = [
     why:
       'A blank context line loses its leading space to editor and mail pipelines, so a bare "" ' +
       "line is common in the wild. git, patch(1) and jsdiff all accept it; §5.2's hunk-line " +
-      'production does not. See SPEC-FEEDBACK F7.',
+      'production does not. See F7.',
     content: 'a\n\nb\n',
     payload: '--- a/content\n+++ b/content\n@@ -1,3 +1,3 @@\n a\n\n-b\n+c\n',
     expect: { status: 'applied', content: 'a\n\nc\n' },
@@ -249,5 +249,18 @@ export const REGRESSIONS: readonly RegressionCase[] = [
     content: 'a\nb\n',
     payload: '',
     expect: { status: 'halt', reason: 'malformed-payload' },
+  },
+  {
+    name: 't2/out-of-range-insert-clamps-to-content-end',
+    rule: 'T2',
+    why:
+      'A pure-insertion hunk whose advisory @@ index is out of range clamps to the end of the ' +
+      'real content — not one element past it. `lines.length` counts the trailing-newline ' +
+      "sentinel ('' element), and clamping against it inserted *after* the sentinel: a spurious " +
+      "blank line was added and the file's trailing newline silently dropped, reported as " +
+      "'applied'. Found independently by two review passes in the 2026-08-08 audit (S3-18/S3-19).",
+    content: 'a\nb\n',
+    payload: body('@@ -99,0 +100,1 @@', '+X'),
+    expect: { status: 'applied', content: 'a\nb\nX\n' },
   },
 ]

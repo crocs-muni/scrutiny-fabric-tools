@@ -7,7 +7,7 @@
  */
 
 import { expect } from 'vitest'
-import type { ApplyResult, HaltReason } from '../src/patch.js'
+import type { ApplyResult, HaltReason } from '../src/patch-types.js'
 
 /** A payload with the C1 header block and the given hunk lines. */
 export const body = (...lines: string[]): string =>

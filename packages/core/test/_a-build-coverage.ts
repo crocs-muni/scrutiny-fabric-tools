@@ -3,7 +3,7 @@
  *
  * Four of five (E4, P1, P3, and build's own share of P2) are not-covered — each a computation or an
  * obligation satisfied by construction, with no rejection disposition of its own (see
- * `docs/QUERY-BUILD.md` §2.2/§4 for the P2 double-listing note). P4 is the one real emission: a
+ * `#39` §2.2/§4 for the P2 double-listing note). P4 is the one real emission: a
  * genuinely ambiguous `before` makes `buildPatch`'s self-check disagree with the given `after`.
  */
 
@@ -31,7 +31,7 @@ export function ambiguousPatchPair(): { before: string; after: string } {
 }
 
 /** P4 — the same concrete case {@link ambiguousPatchPair} names, with the widening budget pre-spent
- *  (CONTEXT-WIDENING.md §6: post-widening, P4 is reachable only through the ceiling). */
+ *  (#42 §6: post-widening, P4 is reachable only through the ceiling). */
 function p4Issues(): readonly Issue[] {
   const { before, after } = ambiguousPatchPair()
   return buildPatch({
@@ -68,14 +68,14 @@ export const A_BUILD_COVERAGE: CoverageTable = {
   P1: notCovered(
     "Satisfied transitively via patch.ts's own default context of 3, which patch.ts's own doc " +
       "comment already names as P1's enforcement point. buildPatch threads an optional override " +
-      'through and — since Phase 18 (CONTEXT-WIDENING.md §0: "does not reopen F1" — the floor is ' +
+      'through and — since Phase 18 (#42 §0: "does not reopen F1" — the floor is ' +
       'never reinterpreted) may additionally widen *above* the floor when the floor itself would ' +
       "be ambiguous. Covered by regression tests (the parameter thread, and Phase 18's §5 " +
       'worked example), not a rule-code emission.',
   ),
   P2: notCovered(
     'The emittable half of P2 belongs to validate.ts (a V-layer rejection over a received payload), ' +
-      "not to this module — see docs/QUERY-BUILD.md §2.2. build.ts's own half is satisfied by " +
+      "not to this module — see #39 §2.2. build.ts's own half is satisfied by " +
       "construction: makePatch reaches jsdiff's structuredPatch/formatPatch, which never emits an " +
       '"index"/"mode"/"similarity index" line (only git diff\'s own default output does). There is ' +
       'nothing for this module to check or emit.',

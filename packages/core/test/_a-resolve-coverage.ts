@@ -3,7 +3,7 @@
  *
  * Same discipline and same reason as Phases 1 and 2 (D34). A rule is covered when a test
  * **observes its code being emitted**, or it is listed as not-test-covered **with a written
- * reason**. The reasons were drafted in `docs/RESOLVE.md` §9 *before* the code existed, rather than
+ * reason**. The reasons were drafted in `#36` §9 *before* the code existed, rather than
  * reverse-engineered from whatever the tests happened to produce.
  *
  * Most of `resolve`'s rules describe how a walk is performed rather than a condition that can fail,
@@ -104,6 +104,18 @@ export const A_RESOLVE_COVERAGE: CoverageTable = {
       'the G2 differential property, which swaps timestamps and id ordering and asserts the chain ' +
       'never moves.',
   ),
+  'UR-4': notCovered(
+    'Hold-pending semantics, new in spec v0.8.0 (F16): while a root-author patch\u2019s `e reply` ' +
+      'parent is unobserved, the patch and its descendants take no walk position, no fork part, ' +
+      'and no PT-6 judgment (eligibility in resolve.ts classifies chain/held/ignored per patch); ' +
+      'they surface in `Resolution.pending` and rejoin on the target\u2019s arrival. Not an ' +
+      'emittable code — the pending list is the surface. Covered by six pins in resolve.test.ts ' +
+      '(direct hold + no-fork sharing an unobserved parent, arrival flip, transitive hold, ' +
+      'PT-6-vs-held distinction, \u03b1-orphaned overlay targeting a held patch, ' +
+      'retracted-while-held exclusion) and by the vendored chain vector ' +
+      '`root-author-patches-sharing-an-unobserved-reply-parent-are-held`, for which the runner ' +
+      'now also asserts `expect.pending`.',
+  ),
   'SF-5': notCovered(
     'The resolution path: a kind 5 on one branch eliminates it by cascade and the chain resolves. ' +
       'A success path emits nothing. Covered positively for both branches.',
@@ -176,7 +188,7 @@ export const A_RESOLVE_COVERAGE: CoverageTable = {
   'PT-9': notCovered(
     'Append-only is a producer obligation and unenforceable on receipt: an inserted patch is ' +
       'indistinguishable from a legitimately published one, since nothing signs the chain shape. ' +
-      'Same class as P1 (SPEC-FEEDBACK F1). A cycle guard in the walk keeps a crafted set from ' +
+      'Same class as P1 (F1). A cycle guard in the walk keeps a crafted set from ' +
       'looping, which is the only reachable consequence.',
   ),
   'IX-3': notCovered(
@@ -200,19 +212,19 @@ export const A_RESOLVE_COVERAGE: CoverageTable = {
   'SF-7': notCovered(
     'Precedence between a self-fork and a HALT when both are live: canonical bytes freeze at ' +
       'whichever is earlier in chain order. This module already argued the halt-always-wins ' +
-      'corollary from H1 before the rule existed (SPEC-FEEDBACK F10), and SF-7 confirms that ' +
+      'corollary from H1 before the rule existed (F10), and SF-7 confirms that ' +
       'reading. Structural — the walk stops at the fork, so a halt can only be at or before it — ' +
       'covered by the "reports the halt, not the fork, when both are live" test.',
   ),
   'OV-9': notCovered(
     'A ceiling reached before overlay classification is a fifth outcome, unclassified, distinct ' +
-      'from all four classifications. Already implemented as SPEC-FEEDBACK F11 before the rule ' +
+      'from all four classifications. Already implemented as F11 before the rule ' +
       'existed; the disposition is a state on the overlay, not an issue code (same shape as OV-3). ' +
       'Covered by the "leaves an overlay unclassified rather than calling a ceiling a conflict" test.',
   ),
   'RL-5': notCovered(
     'Chain disposition under a ceiling: aborted, distinct from both resolved and HALT. Already ' +
-      "implemented as SPEC-FEEDBACK F11's `aborted` ChainState variant before the rule existed. " +
+      "implemented as F11's `aborted` ChainState variant before the rule existed. " +
       'The disposition is the `status` discriminant, not an issue code — RL-3 is the issue this ' +
       'module emits alongside it. Covered by the aborted-chain tests asserting the status and that ' +
       'no H1 is ever cited alongside it.',

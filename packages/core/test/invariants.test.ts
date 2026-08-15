@@ -51,6 +51,15 @@ describe('structural invariants', () => {
     expect(reserved).toEqual([])
   })
 
+  it('refuses to build an issue citing a reserved rule id (S3-15)', () => {
+    // The builder-level backstop for the observation test above: a reserved rule carries no
+    // normative content, so citing one is a programming error, and it used to succeed silently
+    // anywhere outside the coverage arrays.
+    for (const id of RULE_IDS.filter((id) => RULES[id].reserved)) {
+      expect(() => issue(id, 'warning', 'probe'), id).toThrow(TypeError)
+    }
+  })
+
   it('attaches the layer and section Appendix F records for the cited rule (D40)', () => {
     for (const i of ALL_EMITTED_ISSUES) {
       expect(i.layer, i.code).toBe(RULES[i.code].layer)
@@ -59,7 +68,7 @@ describe('structural invariants', () => {
   })
 
   it('cannot construct an issue whose layer or section disagrees with the registry', () => {
-    for (const id of RULE_IDS) {
+    for (const id of RULE_IDS.filter((id) => !RULES[id].reserved)) {
       const built = issue(id, 'warning', 'probe')
       expect(built.layer).toBe(RULES[id].layer)
       expect(built.section).toBe(RULES[id].section)

@@ -18,9 +18,10 @@
 
 import fc from 'fast-check'
 import { describe, expect, it } from 'vitest'
-import { buildPatch, widenContext } from '../src/build.js'
-import { type Hunk, occurrences, spliceAt, toLines } from '../src/patch-matcher.js'
-import { type ApplyResult, applyPatchContent, applyPatchPayload, makePatch } from '../src/patch.js'
+import { buildPatch } from '../src/build.js'
+import { type Hunk, occurrences, spliceAt, toLines, widenContext } from '../src/patch-matcher.js'
+import type { ApplyResult } from '../src/patch-types.js'
+import { applyPatchContent, applyPatchPayload, makePatch } from '../src/patch.js'
 import { distinctPair, repeatyContent } from './_generators.js'
 import { describeResult } from './_patch.js'
 
@@ -119,7 +120,7 @@ const PROD_ROOT = { id: 'a'.repeat(64) } as const
 const PROD_REPLY = { id: 'b'.repeat(64) } as const
 
 /**
- * Independent oracle for CONTEXT-WIDENING.md §6: evaluates "resolved" by threading lines across
+ * Independent oracle for #42 §6: evaluates "resolved" by threading lines across
  * the exact hunks `widenContext` returned — the same T3 sequencing `applyPatchPayload` uses —
  * without re-running `build.ts`'s own trial. If a pattern is ambiguous under this scan, no
  * widening verdict can legitimately say otherwise; this is what keeps the property honest
@@ -138,7 +139,7 @@ function threadedSayUnique(a: string, hunks: readonly Hunk[]): boolean {
   return true
 }
 
-describe('Phase 18 gate — buildPatch’s widening agrees with an independent verdict (CONTEXT-WIDENING.md §6)', () => {
+describe('Phase 18 gate — buildPatch’s widening agrees with an independent verdict (#42 §6)', () => {
   it('resolved ⟺ no P4 ⟺ the template applies to `after`, over repeat-heavy pairs', () => {
     fc.assert(
       fc.property(repeatyContent, repeatyContent, (a, b) => {

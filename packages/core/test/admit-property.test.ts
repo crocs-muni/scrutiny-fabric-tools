@@ -1,5 +1,5 @@
 /**
- * The Phase 4 gate, items AG1 and AG2 (`docs/ADMIT.md` §10).
+ * The Phase 4 gate, items AG1 and AG2 (`#37` §10).
  *
  * AG1 — incremental admission ≡ full recompute, checked after **every prefix** of a delta
  * sequence, not only at the end: D23's sticky-admission bug is specifically a bug that appears
@@ -20,6 +20,7 @@ import fc from 'fast-check'
 import { describe, expect, it } from 'vitest'
 import {
   type AdmissionDelta,
+  type AdmissionIndex,
   EMPTY_ADMIT_STATE,
   type ForwardDelta,
   applyDelta,
@@ -81,6 +82,7 @@ const PUBKEYS = [PK_ROOT, PK_FOREIGN, PK_OTHER]
 
 type Action =
   | { readonly kind: 'observe'; readonly index: number }
+  | { readonly kind: 'unobserve'; readonly index: number }
   | { readonly kind: 'trust'; readonly pk: string }
   | { readonly kind: 'untrust'; readonly pk: string }
 
@@ -95,7 +97,7 @@ const actionArb: fc.Arbitrary<Action> = fc.oneof(
 
 const sequenceArb: fc.Arbitrary<readonly Action[]> = fc.array(actionArb, { maxLength: 40 })
 
-/** `observe`/`trust` only — the subset {@link invertDelta} accepts; see `docs/ADMIT.md` §9 on
+/** `observe`/`trust` only — the subset {@link invertDelta} accepts; see `#37` §9 on
  * why `untrust` cannot originate an invertible sequence: it can be a standalone no-op with no
  * earlier `trust` to pair against under a LIFO undo, which a syntactic inverse cannot detect. */
 const forwardActionArb: fc.Arbitrary<Action> = fc.oneof(
@@ -110,16 +112,25 @@ const forwardSequenceArb: fc.Arbitrary<readonly Action[]> = fc.array(forwardActi
   maxLength: 40,
 })
 
-const toDelta = (a: Action): AdmissionDelta =>
-  a.kind === 'observe'
-    ? { kind: 'observe', events: [FIXED_EVENTS[a.index] as NostrEvent] }
-    : { kind: a.kind, pubkeys: [a.pk] }
+const toDelta = (a: Action): AdmissionDelta => {
+  switch (a.kind) {
+    case 'observe':
+      return { kind: 'observe', events: [FIXED_EVENTS[a.index] as NostrEvent] }
+    case 'unobserve':
+      return { kind: 'unobserve', eventIds: [(FIXED_EVENTS[a.index] as NostrEvent).id] }
+    default:
+      return { kind: a.kind, pubkeys: [a.pk] }
+  }
+}
 
-/** `forwardSequenceArb` never actually produces `'untrust'`, so the fallback branch is safe. */
-const toForwardDelta = (a: Action): ForwardDelta =>
-  a.kind === 'observe'
-    ? { kind: 'observe', events: [FIXED_EVENTS[a.index] as NostrEvent] }
-    : { kind: 'trust', pubkeys: [a.pk] }
+/** `forwardSequenceArb` draws observe/trust only (untrust is deliberately uninvertible, and
+ * unobserve is only drawn by the S5-5 generator, which feeds `toDelta` instead). */
+const toForwardDelta = (a: Action): ForwardDelta => {
+  if (a.kind === 'observe')
+    return { kind: 'observe', events: [FIXED_EVENTS[a.index] as NostrEvent] }
+  if (a.kind === 'trust') return { kind: 'trust', pubkeys: [a.pk] }
+  throw new Error(`unreachable: forwardActionArb never draws ${a.kind}`)
+}
 
 /** Independently tracks "what is currently observed/trusted" by replaying each delta's own
  * semantics in plain code — never by asking `admit.ts`'s own state machine. */
@@ -164,7 +175,7 @@ describe('AG1 — incremental admission ≡ full recompute, after every prefix',
 
   /**
    * A pubkey trusted more than once, then later untrusted in the same sequence — the exact D23
-   * shape ("a revocation following a redundant re-application") ADMIT.md §10 names, distinct from
+   * shape ("a revocation following a redundant re-application") #37 §10 names, distinct from
    * `redundantObserve` below, which counts any repeated action regardless of whether it is ever
    * revoked.
    */
@@ -289,7 +300,7 @@ describe('AG4 — two Bindings credit the same endpoint, only one revoked', () =
     (revocation) => [...guaranteedPrefix, ...revocation],
   )
 
-  it('reaches the shape ADMIT.md §10 names, with a floor', () => {
+  it('reaches the shape #37 §10 names, with a floor', () => {
     let hits = 0
     fc.assert(
       fc.property(twoBindingsSequenceArb, (actions) => {
@@ -340,7 +351,7 @@ describe('AG4 — self-fork admitted via root-chain only, root author untrusted'
     .array(harmlessNoiseArb, { maxLength: 15 })
     .map((noise) => [...guaranteedPrefix, ...noise])
 
-  it('reaches the shape ADMIT.md §10 names, with a floor', () => {
+  it('reaches the shape #37 §10 names, with a floor', () => {
     let hits = 0
     fc.assert(
       fc.property(rootChainOnlySequenceArb, (actions) => {
@@ -401,6 +412,131 @@ describe('AG2 regression — unobserving a root-chain member must strip its root
     let state = state0
     for (const d of [...forward, ...inverses]) state = applyDelta(state, d)
     expect(state).toEqual(state0)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// S5-5 — the AG1 generator never emitted `unobserve` (Step-5/Stryker, 2026-08-09). 14 mutants
+// inside applyDelta's unobserve branch (the un-cascade and the member strip) survived the first
+// mutation pass: no property ever drove a root-with-members or a member-with-reasons out of
+// `observedById`. `replay` already modelled unobserve; the action pool simply never drew it.
+// The uniform generator above is deliberately left untouched — its floors were calibrated
+// against its mix — and the four-action generator below carries the gap instead.
+// ---------------------------------------------------------------------------
+
+const unobserveActionArb: fc.Arbitrary<Action> = fc.record({
+  kind: fc.constant('unobserve' as const),
+  index: fc.integer({ min: 0, max: FIXED_EVENTS.length - 1 }),
+})
+
+const sequenceWithUnobserveArb: fc.Arbitrary<readonly Action[]> = fc.array(
+  fc.oneof(
+    fc.record({
+      kind: fc.constant('observe' as const),
+      index: fc.integer({ min: 0, max: FIXED_EVENTS.length - 1 }),
+    }),
+    unobserveActionArb,
+    fc.record({ kind: fc.constant('trust' as const), pk: fc.constantFrom(...PUBKEYS) }),
+    fc.record({ kind: fc.constant('untrust' as const), pk: fc.constantFrom(...PUBKEYS) }),
+  ),
+  { maxLength: 40 },
+)
+
+/** True when `state` shows root admitted with at least one member holding its root-chain
+ * reason and delta `d` unobserves the root, or when `d` unobserves an id that currently holds
+ * at least one reason — the two transitions #37 §9 invariants 2 and 3 name. */
+function isCascadeShape(state: AdmissionIndex, d: AdmissionDelta): boolean {
+  if (d.kind !== 'unobserve') return false
+  const rootAdmitted = (state.reasons[root.id]?.length ?? 0) > 0
+  const hasMember = Object.entries(state.reasons).some(
+    ([id, reasons]) => id !== root.id && reasons.includes(rootChainReason(root.id)),
+  )
+  if (rootAdmitted && hasMember && d.eventIds.includes(root.id)) return true
+  return d.eventIds.some((id) => (state.reasons[id]?.length ?? 0) > 0)
+}
+
+describe('AG1 (S5-5) — the oracle check, now fed unobserve deltas', () => {
+  it('matches the oracle at every prefix across observation gaps, with a cascade floor', () => {
+    let cascadeShapes = 0
+    let sequencesWithCascade = 0
+    fc.assert(
+      fc.property(sequenceWithUnobserveArb, (actions) => {
+        const deltas = actions.map(toDelta)
+        let state = EMPTY_ADMIT_STATE
+        let hit = false
+        for (let i = 0; i < deltas.length; i++) {
+          if (isCascadeShape(toIndex(state), deltas[i] as AdmissionDelta)) {
+            cascadeShapes++
+            hit = true
+          }
+          state = applyDelta(state, deltas[i] as AdmissionDelta)
+          const { events, trusted } = replay(deltas.slice(0, i + 1))
+          const oracle = computeAdmission(events, fakeTrust(trusted))
+          expect(toIndex(state), `after prefix of length ${i + 1}`).toEqual(oracle)
+        }
+        if (hit) sequencesWithCascade++
+      }),
+      { numRuns: 10_000 },
+    )
+    console.log(
+      `admit unobserve generator mix: cascadeShapes=${cascadeShapes} ` +
+        `sequencesWithCascade=${sequencesWithCascade}`,
+    )
+    // The check above is only as strong as the shapes it reaches: a member-with-reasons or an
+    // admitted-root-with-members must actually be unobserved, not just generatable.
+    expect(sequencesWithCascade, 'sequences reaching an unobserve cascade shape').toBeGreaterThan(
+      100,
+    )
+  })
+})
+
+describe('AG4 (S5-5) — unobserving an admitted root un-cascades its root-chain members', () => {
+  /**
+   * The uniform generator reaches "admitted root with members, then removed" only by chance; as
+   * with the two AG4 describes above, the shape is guaranteed by the prefix and only the teardown
+   * varies: remove the root (un-cascade), remove a member (invariant-3 strip), remove the
+   * revoking kind 5 (binding liveness *restored* by un-observation), or nothing.
+   */
+  const rootIndex = FIXED_EVENTS.indexOf(root)
+  const leftIndex = FIXED_EVENTS.indexOf(left)
+  const guaranteedPrefix: readonly Action[] = [
+    { kind: 'trust', pk: PK_OTHER },
+    { kind: 'observe', index: FIXED_EVENTS.indexOf(binding) },
+    { kind: 'observe', index: rootIndex },
+    { kind: 'observe', index: leftIndex },
+    { kind: 'observe', index: FIXED_EVENTS.indexOf(right) },
+  ]
+  const tailArb: fc.Arbitrary<readonly Action[]> = fc.oneof(
+    fc.constant([{ kind: 'unobserve' as const, index: rootIndex }]),
+    fc.constant([{ kind: 'unobserve' as const, index: leftIndex }]),
+    fc.constant([{ kind: 'unobserve' as const, index: FIXED_EVENTS.indexOf(deleteBinding) }]),
+    fc.constant([]),
+  )
+  const cascadeSequenceArb: fc.Arbitrary<readonly Action[]> = tailArb.map((tail) => [
+    ...guaranteedPrefix,
+    ...tail,
+  ])
+
+  it('matches the oracle exactly through root/member/revoker removal, with a shape floor', () => {
+    let hits = 0
+    fc.assert(
+      fc.property(cascadeSequenceArb, (actions) => {
+        const deltas = actions.map(toDelta)
+        let state = EMPTY_ADMIT_STATE
+        for (let i = 0; i < deltas.length; i++) {
+          if (isCascadeShape(toIndex(state), deltas[i] as AdmissionDelta)) hits++
+          state = applyDelta(state, deltas[i] as AdmissionDelta)
+          const { events, trusted } = replay(deltas.slice(0, i + 1))
+          const oracle = computeAdmission(events, fakeTrust(trusted))
+          expect(toIndex(state), `after prefix of length ${i + 1}`).toEqual(oracle)
+        }
+      }),
+      { numRuns: 1_000 },
+    )
+    expect(
+      hits,
+      'unobserve landing on an admitted root or on a member holding reasons',
+    ).toBeGreaterThan(400)
   })
 })
 

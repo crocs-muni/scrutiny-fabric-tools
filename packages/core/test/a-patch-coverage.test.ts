@@ -1,7 +1,7 @@
 /**
  * The Phase 2 coverage gate.
  *
- * Every rule `docs/IMPLEMENTATION-PLAN.md` assigns to the `patch` module must either emit its code
+ * Every rule `#53` assigns to the `patch` module must either emit its code
  * here, or be listed as not-test-covered with a stated reason. The partition is machine-checked
  * against the plan's assignment, so a rule cannot be silently dropped.
  */
@@ -11,7 +11,7 @@ import { RULES, type RuleId } from '../src/rules.js'
 import { A_PATCH_COVERAGE } from './_a-patch-coverage.js'
 import { itCoversEachRule, itReportsTheSplit } from './_coverage.js'
 
-/** From the module-ownership table in `docs/IMPLEMENTATION-PLAN.md`, plus RL-3, which patch emits. */
+/** From the module-ownership table in `#53`, plus RL-3, which patch emits. */
 const OWNED: readonly RuleId[] = [
   'T1',
   'T2',

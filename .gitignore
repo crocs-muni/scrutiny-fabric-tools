@@ -12,9 +12,17 @@ node_modules/
 dist/
 *.tsbuildinfo
 
+# API Extractor's scratch comparison copy (etc/api-report.api.md is the real, committed report)
+temp/
+
 # test output
 coverage/
 .vitest-cache/
+
+# StrykerJS mutation testing — regenerable reports + sandbox; the committed
+# config lives at packages/core/stryker.config.mjs
+reports/
+packages/core/stryker-tmp/
 
 # editor / OS
 .DS_Store

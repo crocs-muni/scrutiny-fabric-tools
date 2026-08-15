@@ -13,10 +13,14 @@ import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 
-/** Pinned in Appendix G.1, verified 2026-07-30 against the spec repo's committed `vectors/`. */
+/**
+ * Pinned in Appendix G.1. Re-vendored 2026-08-09 against the spec repo's main after the F15/F16/F17
+ * landing (v0.7.1 added the T2 out-of-range case, v0.8.0 added the UR-4 hold-pending chain case —
+ * 46 → 48 cases). `validity.json` was untouched by that landing, so its digest did not move.
+ */
 const PINNED_SHA256: Readonly<Record<string, string>> = {
-  'application.json': 'e32652c69a508de319c82fd753740b770ab4ecad710fc2725d575f0dfb380cd9',
-  'validity.json': 'bf1af55a8687c6380acd597fd7dd1488f997736b7afdf9813f78c349e849f90f',
+  'application.json': '546e29f6ee4a898218646fac1ae0342554c1c186bc3e72286aaa5e6b541de0ce',
+  'validity.json': 'bff8eaca6c85e8676c15b63b87f836a59a45d4ea9117b0bce8807eb9d4b43f1e',
 }
 
 describe('vendored vector checksum (D33, Appendix G.1)', () => {

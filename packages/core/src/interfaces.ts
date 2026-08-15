@@ -1,10 +1,11 @@
 /**
- * Extension points not yet owned by any implemented module.
+ * Branded extension points (D16) claimed by their first consumer.
  *
  * D16 names four branded interfaces (`RelayTransport`, `EventStorage`, `ScrutinySigner`,
- * `TrustProvider`); this file grows to hold whichever of them a module needs first. `admit` was the
- * first consumer (`TrustProvider`, D21); `store` is the second (`EventStorage`, D15/D37).
- * `RelayTransport`/`ScrutinySigner` belong to whichever of `query`/`build` needs them first.
+ * `TrustProvider`); this file holds the ones an implemented module already consumes: `admit`
+ * brought `TrustProvider` (D21), `store` brought `EventStorage` (D15/D37), and `RelayTransport`
+ * landed here in Phase 17 (#44). `ScrutinySigner` remains deferred to its
+ * first consumer (the CLI, Phase 10).
  *
  * Not a subpath export (see the plan's exports map) — these types are re-exported from the root
  * barrel only.
@@ -26,8 +27,9 @@ export const trustSymbol = Symbol.for('@scrutiny-fabric/trust')
  * web-of-trust expansion, a reputation score) is out of scope for the specification (§6.1) and for
  * this interface — it assumes only that a pubkey can be classified trusted or not.
  *
- * `version` and `deltaSince` exist for Phase 5's incremental recompute against `trustEpoch` (D24)
- * and are not called anywhere in Phase 4. `deltaSince` returning `null` means "rebuild from
+ * `version` and `deltaSince` exist for the incremental recompute Phase 16 introduces
+ * (trust-filtered views over trust changes, #41); nothing in the codebase calls
+ * them today. `deltaSince` returning `null` means "rebuild from
  * scratch" and MUST be legal — a subtly wrong delta is worse than an occasional full rebuild.
  */
 export interface TrustProvider {
@@ -44,15 +46,16 @@ export const storageSymbol = Symbol.for('@scrutiny-fabric/storage')
 
 /**
  * A NIP-01 relay filter. `query.ts` (Phase 6) builds and returns exactly this type rather than a
- * parallel shape of its own. **Flat**, per Phase 13 (`docs/AUDIT-2026-07-31.md` P2,
+ * parallel shape of its own. **Flat**, per Phase 13 (`#46` P2,
  * `PLAN-2026-08-01-rewrite-mandate.md` §1): NIP-01 filters carry single-letter tag filters
  * (`#e`, `#t`, `#i`, `#k`, …) as top-level `#`-prefixed keys, not nested under a `tags` field no
  * relay recognises — a filter shaped the old way silently degrades to "match everything" the moment
  * it reaches a real relay, since NIP-01 ignores unrecognised filter members.
  *
  * A `type` alias, not an `interface`, because only a `type` receives an implicit index signature in
- * TypeScript (confirmed by compiling both under this repo's own `--strict` TS 5.8) — `` { [key:
- * `#${string}`]: readonly string[] } `` could not be added to an `interface` version of this shape.
+ * TypeScript (confirmed by compiling both under this repo's own `--strict` TS 5.8) — an index
+ * signature keyed on the `#${string}` tag pattern could not be added to an `interface` version of
+ * this shape.
  * Arrays stay `readonly`, unlike nostr-tools/NDK/nostrify's mutable convention: TypeScript's
  * structural typing already makes this type assignable to and from theirs with zero copying, so
  * matching their mutability would buy nothing while breaking this project's own readonly-everywhere

@@ -27,9 +27,9 @@ property after it. The strongest patterns, roughly in descending order of streng
 | **Inverse** | `undo(do(x)) === x` | Decrement/cleanup asymmetry |
 | **No-throw** | `f(x)` does not crash | Weakest. Use only as a floor |
 
-The four properties this project has committed to, each named for the specific bug it targets, are
-in `docs/IMPLEMENTATION-PLAN.md` under "Testing strategy". Do not invent new ones without an equally
-specific rationale.
+The four properties this project has committed to, each named for the specific bug it targets,
+are in the archived IMPLEMENTATION-PLAN (#53, "Testing strategy" section). Do not invent new ones
+without an equally specific rationale.
 
 ## The generator is where the bug hides
 

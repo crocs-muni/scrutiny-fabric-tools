@@ -200,7 +200,61 @@ describe('RL-3 — a resource limit is never a HALT', () => {
   it('reports the work ceiling as a limit, and charges it before scanning', () => {
     const result = applyPatchPayload(content, manyHunks, { maxWork: 1 })
     expect(result.status).toBe('limit')
-    if (result.status === 'limit') expect(result.limit).toBe('work')
+    if (result.status === 'limit') {
+      expect(result.limit).toBe('work')
+      // Charged before scanning: the first hunk's bound is what is reported (Step-5 pin — the
+      // existing assertions passed even when the charge tripped three hunks later, Stryker S5-4).
+      expect(result.observed).toBe(33)
+      expect(result.ceiling).toBe(1)
+    }
+  })
+
+  // Each hunk's charge is the F12 upper bound |L| × Σ(len + 1): 11 lines × 3 = 33 here.
+  it('permits counts and work exactly at the ceilings (Step-5 boundary pins)', () => {
+    // The ceilings are inclusive allowances: the operators are '>', not '>='.
+    expect(applyPatchPayload(content, manyHunks, { maxHunks: 10 }).status).toBe('applied')
+    expect(applyPatchPayload(content, manyHunks, { maxWork: 330 }).status).toBe('applied')
+    // One below the total work: the tenth hunk pushes 297 + 33 = 330 over, and that is reported.
+    const just = applyPatchPayload(content, manyHunks, { maxWork: 329 })
+    expect(just).toMatchObject({ status: 'limit', limit: 'work', observed: 330, ceiling: 329 })
+  })
+
+  it('refuses a single hunk that breaches the ceiling before any work is banked', () => {
+    // `work + cost`, charged before scanning: 2 × (1 + 1) = 4 against a budget of 3. Subtracting
+    // instead of adding proceeds past this point and applies the hunk — by hunk 3 the running
+    // total trips to the *same observable verdict* on the 10-hunk fixture above, which is why
+    // this needs the single-hunk case (Stryker surviver #75, S5-4).
+    const result = applyPatchPayload('A\n', body('@@ -1,1 +1,1 @@', '-A', '+B'), { maxWork: 3 })
+    expect(result).toMatchObject({ status: 'limit', limit: 'work', observed: 4, ceiling: 3 })
+  })
+
+  it('charges exactly the F12 bound, accumulated across hunks', () => {
+    const result = applyPatchPayload(content, manyHunks)
+    if (result.status !== 'applied') expect.fail(`expected applied, got ${result.status}`)
+    expect(result.work).toBe(330)
+  })
+
+  it('surfaces the §5.4 wording — an abandoned application, never a HALT — on both limit kinds', () => {
+    for (const r of [
+      applyPatchPayload(content, manyHunks, { maxHunks: 4 }),
+      applyPatchPayload(content, manyHunks, { maxWork: 32 }),
+    ]) {
+      if (r.status !== 'limit') expect.fail(`expected limit, got ${r.status}`)
+      expect(r.issues).toHaveLength(1)
+      expect(r.issues[0]?.message).toContain('application was abandoned')
+      expect(r.issues[0]?.message).toContain('remains valid')
+      expect(r.issues[0]?.message).toContain('not a HALT')
+    }
+  })
+
+  it('states what was observed against the ceiling in words, on both limit kinds', () => {
+    // The `what` clause is the human-readable half of the charged-before-scanning contract; the
+    // numbers are pinned as fields above, this pins that the message actually carries them.
+    const hunks = applyPatchPayload(content, manyHunks, { maxHunks: 4 })
+    const work = applyPatchPayload(content, manyHunks, { maxWork: 32 })
+    if (hunks.status !== 'limit' || work.status !== 'limit') expect.fail('expected limits')
+    expect(hunks.issues[0]?.message).toContain('patch carries 10 hunks')
+    expect(work.issues[0]?.message).toContain('compare at least 33 characters')
   })
 
   it('carries no content, so there is nothing to cache as canonical (RL-4)', () => {
@@ -234,6 +288,18 @@ describe('failure channels are normalised into one rejection signal', () => {
     }
   })
 
+  it('does not treat "--- " embedded mid-line as a header (Step-5 pin)', () => {
+    // The header check is anchored per line.^--- ` only mid-line must not count:
+    // without the anchor, garbage containing an indented diff header reads as valid input.
+    const payload = 'prose that mentions\n--- a/content@@ -1,1 +1,1 @@\n-x\n+y\n'
+    const result = applyPatchPayload('a\n', 'x --- y\nno header block here\n')
+    expectHalt(result, 'malformed-payload')
+    if (result.status === 'halt') {
+      expect(result.detail).toBe('payload has no "--- a/content" header line')
+      expect(result.hunkIndex).toBeNull()
+    }
+  })
+
   it('cites H1 on every halt', () => {
     for (const c of REGRESSIONS.filter((r) => r.expect.status === 'halt')) {
       const result = applyPatchPayload(c.content, c.payload)
@@ -259,12 +325,97 @@ describe('failure channels are normalised into one rejection signal', () => {
   })
 })
 
+describe('halt citation shape — Step-5 pins (S5-3)', () => {
+  // D34's coverage claim is that T1's code is emitted on a real ambiguity, and H2 downstream
+  // assembles its protocol-error annotation from these exact fields. Until now the suite only
+  // asserted "contains H1", so the *shape* — which code is cited first, how many issues, and
+  // where the line numbers land in the detail — was unobserved.
+
+  it('a malformed payload cites H1 exactly once and nothing else', () => {
+    const result = applyPatchPayload('a\n', 'total garbage\n')
+    if (result.status !== 'halt') expect.fail(`expected halt, got ${result.status}`)
+    expect(result.rule).toBe('H1')
+    expect(result.hunkIndex).toBeNull()
+    expect(result.issues.map((i) => i.code)).toEqual(['H1'])
+    expect(result.issues[0]?.message).toBe(result.detail)
+  })
+
+  it('a T1 halt cites the violated rule first, then H1, and folds the detail into both', () => {
+    const result = applyPatchPayload('q\n', body('@@ -1,1 +1,1 @@', '-absent', '+x'))
+    if (result.status !== 'halt') expect.fail(`expected halt, got ${result.status}`)
+    expect(result.rule).toBe('T1')
+    expect(result.issues.map((i) => i.code)).toEqual(['T1', 'H1'])
+    expect(result.issues[0]?.message).toBe(result.detail)
+    expect(result.issues[1]?.message).toBe(`patch application halted: ${result.detail}`)
+  })
+
+  it('names the failing hunk in the no-match detail', () => {
+    const result = applyPatchPayload(
+      'a\nb\n',
+      body('@@ -1,1 +1,1 @@', '-a', '+A', '@@ -2,1 +2,1 @@', '-missing', '+x'),
+    )
+    if (result.status !== 'halt') expect.fail(`expected halt, got ${result.status}`)
+    expect(result.detail).toBe(
+      'hunk 2 does not match the current content (T1: the pattern must occur exactly once, found none)',
+    )
+  })
+
+  it('names the failing hunk and both occurrences in the ambiguous-match detail', () => {
+    const result = applyPatchPayload(
+      'a\nDUP\ns\nDUP\n',
+      body('@@ -1,1 +1,1 @@', '-a', '+A', '@@ -2,1 +2,1 @@', '-DUP', '+Q'),
+    )
+    if (result.status !== 'halt') expect.fail(`expected halt, got ${result.status}`)
+    expect(result.hunkIndex).toBe(1)
+    expect(result.detail).toBe(
+      'hunk 2 matches the current content in 2 places (first at lines 2 and 4); T1 requires exactly one, and @@ line numbers may not be used to disambiguate',
+    )
+  })
+
+  it('names the failing hunk in the eof-mismatch detail', () => {
+    const result = applyPatchPayload(
+      'a\nb\nc\n',
+      '--- a/content\n+++ b/content\n@@ -2,1 +2,1 @@\n-b\n+x\n\\ No newline at end of file\n',
+    )
+    if (result.status !== 'halt') expect.fail(`expected halt, got ${result.status}`)
+    expect(result.hunkIndex).toBe(0)
+    // patch-matcher.ts owns the message past the hunk prefix; pin the prefix only.
+    expect(result.detail.startsWith('hunk 1: ')).toBe(true)
+  })
+})
+
 describe('F5 / C8 — a payload with two header blocks (multiple file-sections)', () => {
   it('sequences every parsed hunk under T3 rather than dropping any', () => {
     const payload = `${body('@@ -1,1 +1,1 @@', '-a', '+A')}${body('@@ -2,1 +2,1 @@', '-b', '+B')}`
     const result = applyPatchPayload('a\nb\n', payload)
     expectApplied(result, 'A\nB\n')
     if (result.status === 'applied') expect(result.hunksApplied).toBe(2)
+  })
+})
+
+describe('D31 / F8 — produced payloads are spec-canonical bytes', () => {
+  // Step-5/Stryker pinning: the round-trip gates only require that `applyPatchPayload` can parse
+  // what `makePatch` emits, and jsdiff tolerates exactly the bytes F8 strips. Nothing therefore
+  // observed the producer's actual byte shape — the `===` separator strip, the `a/content` /
+  // `b/content` header names, the single header pair — until these assertions. 14 mutants
+  // survived here on the first mutation pass; every one of them turns on bytes, not verdicts.
+
+  it('emits header pair, hunks, and no separator or Index preamble for a normal change', () => {
+    expect(makePatch('a\nb\nc\n', 'a\nB\nc\n')).toBe(
+      '--- a/content\n+++ b/content\n@@ -1,3 +1,3 @@\n a\n-b\n+B\n c\n',
+    )
+  })
+
+  it('emits the N2 header-only shape for identical content', () => {
+    // jsdiff's producer emits 'Index: a/content\n===…===\n--- a/content\n+++ b/content\n' here;
+    // F8 strips back to the header pair alone.
+    expect(makePatch('a\nb\n', 'a\nb\n')).toBe('--- a/content\n+++ b/content\n')
+  })
+
+  it('emits the zero-context shape without separators at context 0', () => {
+    expect(makePatch('x\ny\n', 'x\nz\n', 0)).toBe(
+      '--- a/content\n+++ b/content\n@@ -2,1 +2,1 @@\n-y\n+z\n',
+    )
   })
 })
 

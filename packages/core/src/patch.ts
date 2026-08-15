@@ -12,7 +12,7 @@
  * uniqueness and application decision made here.
  *
  * The full design, including the verified jsdiff transcripts behind each of those claims, is in
- * `docs/PATCH-MATCHER.md`. Phase 18 (`docs/CONTEXT-WIDENING.md` §1) extracted the matching
+ * `#35`. Phase 18 (`#42` §1) extracted the matching
  * primitives (`toLines`/`Hunk`/`occurrences`/`spliceAt`, and the pairing trial primitive
  * `diffHunks`) into the shared internal module `./patch-matcher.js`, which `build.ts`'s widening
  * loop also consumes; the T-gate and the parse channel stay here.
@@ -27,89 +27,27 @@ import {
   lineCount,
   occurrences,
   reduceHunk,
+  scanCost,
   spliceAt,
   toLines,
 } from './patch-matcher.js'
-import type { ApplyOptions, HaltReason, HaltRule, LimitKind } from './patch-types.js'
+import type {
+  ApplyOptions,
+  ApplyResult,
+  HaltReason,
+  HaltRule,
+  LimitKind,
+  PatchApplied,
+  PatchHalt,
+  PatchLimit,
+  PatchNoop,
+} from './patch-types.js'
 import { findPatchPayload } from './validate.js'
 
-// ---------------------------------------------------------------------------
-// Result (HaltReason/LimitKind/HaltRule/ApplyOptions live in `./patch-types.js` since
-// Phase 20 — re-exported here so existing import paths keep working; the barrel
-// (`index.ts`) pulls them from the type module directly per mandate §2)
-// ---------------------------------------------------------------------------
-
-export type { ApplyOptions, HaltReason, HaltRule, LimitKind } from './patch-types.js'
-
-export interface PatchApplied {
-  readonly status: 'applied'
-  readonly content: string
-  readonly hunksApplied: number
-  /** Characters compared, as charged against `maxWork`. */
-  readonly work: number
-  /** Always empty. Present on every variant so a caller need not switch on `status` to read it. */
-  readonly issues: readonly Issue[]
-}
-
-export interface PatchNoop {
-  readonly status: 'noop'
-  /** Unchanged, per N3. */
-  readonly content: string
-  /** N1 (no fenced block) or N2 (header block, zero hunks). */
-  readonly shape: 'prose-only' | 'header-only'
-  /** Always empty; see {@link PatchApplied.issues}. */
-  readonly issues: readonly Issue[]
-}
-
-/**
- * H1 — the patch genuinely failed to apply.
- *
- * Carries no content: §5.3 defines the patched content as "the state after the last successfully
- * applied patch", which only the chain walker knows. H2's protocol-error annotation needs the event
- * id and author, which never reach this module; `resolve.ts` assembles it from these fields.
- */
-export interface PatchHalt {
-  readonly status: 'halt'
-  readonly reason: HaltReason
-  /** The specific rule cited alongside H1, derived from `reason` — never passed in. */
-  readonly rule: HaltRule
-  /** Index of the offending hunk in document order, or `null` if the payload never parsed. */
-  readonly hunkIndex: number | null
-  readonly detail: string
-  /** One issue citing {@link PatchHalt.rule}, one citing H1. Both `warning` — see below. */
-  readonly issues: readonly Issue[]
-}
-
-/**
- * RL-3 — a configured ceiling was hit before any verdict was reached.
- *
- * Deliberately **not** a halt. §5.4: "Exceeding a ceiling aborts application and MUST be surfaced
- * as a distinct resource-limit-exceeded annotation, never as HALT. The event remains V-valid."
- * Carries no content, which is how RL-4 ("content abandoned for resource reasons MUST NOT be
- * served or cached as canonical bytes") is enforced structurally: there is nothing to cache.
- */
-export interface PatchLimit {
-  readonly status: 'limit'
-  readonly limit: LimitKind
-  readonly observed: number
-  readonly ceiling: number
-  readonly issues: readonly Issue[]
-}
-
-/**
- * The outcome of applying one patch payload.
- *
- * Four variants of a union rather than a nullable content plus an error field, so that no call site
- * can read content from a failure and none can treat a resource limit as a HALT.
- */
-export type ApplyResult = PatchApplied | PatchNoop | PatchHalt | PatchLimit
-
-/**
- * Ceilings, per §5.4. Defaults are the spec's recommended bounds.
- *
- * RL-2 asks consumers to bound *total work* in bytes compared rather than trusting hunk counts,
- * because an adversary optimises against whichever unit is counted.
- */
+// Result vocabulary lives in `./patch-types.js` (mandate §2) — `patch.ts` imports it for its own
+// use but no longer re-exports it: `./patch.js` is not in the package `exports` map (D32), so the
+// shim was only reachable by in-repo deep imports, and those now point at the type module itself.
+/** Ceilings for {@link ApplyOptions} — see its doc comment in `./patch-types.js` for the RL-2 rationale. */
 const DEFAULT_MAX_HUNKS = 64
 const DEFAULT_MAX_WORK = 16 * 1024 * 1024
 
@@ -118,7 +56,7 @@ const ABANDONED = 'application was abandoned. The event remains valid and this i
 
 // ---------------------------------------------------------------------------
 // Parsing (`reduceHunk` and the matching primitives it feeds live in
-// `./patch-matcher.js` since Phase 18 — see docs/CONTEXT-WIDENING.md §1)
+// `./patch-matcher.js` since Phase 18 — see #42 §1)
 // ---------------------------------------------------------------------------
 
 /**
@@ -157,7 +95,7 @@ function parseHunks(payload: string): Hunk[] {
   // grammar admits exactly one `header-block`, but read literally the second `---` line is also a
   // valid `hunk-line` (it begins with `-`), so the same bytes have two incompatible readings. We
   // take jsdiff's and sequence every hunk under T3, which drops nothing and stays deterministic.
-  // Recorded as SPEC-FEEDBACK F5 — resolved in spec v0.6.1 as C8, which codifies exactly this
+  // Recorded as F5 — resolved in spec v0.6.1 as C8, which codifies exactly this
   // reading: multiple `file-section`s are permitted, a `---` at hunk-line position starts a new
   // section rather than removing a line, and every section's hunks are processed as one sequence
   // in document order under T3. This code already did that before the rule existed to name it.
@@ -187,7 +125,11 @@ const NO_ISSUES: readonly Issue[] = Object.freeze([])
 
 const haltIssues = (code: HaltRule, detail: string): readonly Issue[] =>
   code === 'H1'
-    ? [issue('H1', 'warning', detail)]
+    ? // Stryker disable next-line StringLiteral: provably killed by the real suite — applied by
+      // hand, issue('') throws a TypeError and 10 patch.test.ts cases fail — but the vitest
+      // runner's per-mutant selection never runs any covering test for this mutant
+      // (stryker-js #6073-class attribution gap; recorded in #48 §4).
+      [issue('H1', 'warning', detail)]
     : [
         issue(code, 'warning', detail),
         issue('H1', 'warning', `patch application halted: ${detail}`),
@@ -251,6 +193,9 @@ export function applyPatchPayload(
   try {
     hunks = parseHunks(payload)
   } catch (error) {
+    // Stryker disable next-line ConditionalExpression: unreachable narrowing — the try body
+    // wraps everything jsdiff throws into MalformedPayload on the way out of parseHunks, so the
+    // catch can never hold anything else; mutating this check provably cannot change behaviour.
     if (!(error instanceof MalformedPayload)) throw error
     return halt('malformed-payload', null, error.message)
   }
@@ -271,19 +216,14 @@ export function applyPatchPayload(
   // or removed lines those two disagree, so the header number is carried forward by the net line
   // shift so far — what git and jsdiff both do, and the only reading under which T2 and T3 can
   // both hold. Hunks located by T1 are unaffected: they are found by content, not by number.
-  // Recorded as SPEC-FEEDBACK F6.
+  // Recorded as F6.
   let shift = 0
 
   for (const [index, hunk] of hunks.entries()) {
     // Charge the scan's exact upper bound *before* running it, so an adversarial patch is refused
-    // rather than executed and then regretted (RL-2).
-    // One unit per pattern line on top of its characters, so a pattern of *empty* lines is not
-    // free: `occurrences` still runs `|L| x |oldPat|` element comparisons for it, and charging the
-    // character total alone bills that scan at zero. RL-2's stated unit is "bytes compared", which
-    // is the hole — §5.4's own reasoning is that an adversary optimises against whichever unit is
-    // counted. Recorded as SPEC-FEEDBACK F12.
-    const patternChars = hunk.oldPat.reduce((sum, line) => sum + line.length + 1, 0)
-    const cost = lines.length * patternChars
+    // rather than executed and then regretted (RL-2). The formula is F12's per-element floor —
+    // see `scanCost`.
+    const cost = scanCost(lines, hunk.oldPat)
     if (work + cost > maxWork) {
       return limitReached(
         'work',
@@ -301,8 +241,11 @@ export function applyPatchPayload(
       // to disambiguate, so it applies at the position implied by its `@@` header's `-` line
       // number and the T1 uniqueness check does not apply. The index is clamped rather than
       // rejected: C6 makes the number advisory, so an out-of-range position is a producer error
-      // about placement, and T2 leaves no uniqueness test to fall back on.
-      at = Math.min(Math.max(hunk.insertAt + shift, 0), lines.length)
+      // about placement, and T2 leaves no uniqueness test to fall back on. Clamp against
+      // `lineCount`, not `.length`: the trailing newline rides in a final `''` element, and
+      // clamping at `.length` inserts *past* it — silently dropping the file's trailing newline
+      // and adding a spurious blank line (2026-08-08 audit, S3-18/S3-19).
+      at = Math.min(Math.max(hunk.insertAt + shift, 0), lineCount(lines))
     } else {
       // T1 — prove the pattern occurs exactly once across the *full* content. Never stop at the
       // first match and never early-exit at the second: the count itself is the evidence, and
@@ -371,7 +314,7 @@ export function applyPatchContent(
  *
  * `structuredPatch` with names `a/content` / `b/content` satisfies C1, and the default `context: 3`
  * is P1's enforcement point — P1 is a producer obligation that cannot be checked on receipt
- * (SPEC-FEEDBACK F1), and note that for content shorter than seven lines jsdiff supplies fewer than
+ * (F1), and note that for content shorter than seven lines jsdiff supplies fewer than
  * three context lines because three is a maximum the tool offers where the content affords it.
  *
  * `context` is a parameter only because zero context is a materially different shape to test
@@ -380,13 +323,18 @@ export function applyPatchContent(
  *
  * `formatPatch` prefixes a bare `===…===` separator line. §5.2's `index-preamble` production
  * requires an `Index: content` line *before* that separator, so the separator alone is not
- * grammatical and is stripped here. Recorded as SPEC-FEEDBACK F8.
+ * grammatical and is stripped here. Recorded as F8.
  */
 export function makePatch(before: string, after: string, context = 3): string {
   const formatted = formatPatch(
     structuredPatch('a/content', 'b/content', before, after, '', '', { context }),
   )
+  // Stryker disable next-line ConditionalExpression,StringLiteral: inert under the D31
+  // invocation — jsdiff's formatPatch always prefixes the bare `===…===` separator line
+  // (pinned by the makePatch byte-shape tests), so this early-return arm never fires.
   if (!formatted.startsWith('=')) return formatted
   const firstBreak = formatted.indexOf('\n')
+  // Stryker disable next-line ConditionalExpression,UnaryOperator: `firstBreak` is the index of
+  // the '\n' ending that same separator line, so it is always ≥ 0 and the fallback is dead.
   return firstBreak === -1 ? formatted : formatted.slice(firstBreak + 1)
 }

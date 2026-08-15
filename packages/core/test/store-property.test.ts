@@ -2,7 +2,7 @@
  * The Phase 5 gate: SG1 (confluence), SG2 (epoch cost), SG3 (dedup-after-verification), SG5
  * (generator bias and floors). SG4 (rule-coverage partition) is `a-store-coverage.test.ts`.
  *
- * Design in `docs/STORE.md` §9. SG1 compares `StoreView`, not raw `StoreState` — see STORE.md §3's
+ * Design in `#38` §9. SG1 compares `StoreView`, not raw `StoreState` — see #38 §3's
  * correction and §10's regression record for why full-state comparison would be the wrong gate.
  */
 
@@ -36,7 +36,7 @@ function gatedObserveEvents(deltas: readonly StoreDelta[]): NostrEvent[] {
 }
 
 /**
- * `applyStoreDelta` assumes its `observe` events already passed the verify gate (STORE.md §5) —
+ * `applyStoreDelta` assumes its `observe` events already passed the verify gate (#38 §5) —
  * that gate is `createStore`'s `add()`, not the reducer's job. The shared generator's dedup-race
  * shape (SG5) includes a forged submission precisely so SG1/SG2 exercise scenarios *containing* one,
  * but "first arrival wins" idempotent dedup inside the reducer is correctly order-dependent for two
@@ -62,7 +62,7 @@ describe('SG1 — confluence, store-level (UR-1)', () => {
         const shuffled = foldGated(permuted)
         expect(toStoreView(shuffled)).toEqual(toStoreView(ordered))
 
-        // Separately, per STORE.md §9: every root the scenario touches must resolve identically
+        // Separately, per #38 §9: every root the scenario touches must resolve identically
         // too, with a fresh memo each time so the memo itself is never a confound.
         for (const rootId of s.rootIds) {
           const a = resolveRootMemoized(ordered, rootId, createResolveMemo())
@@ -76,7 +76,7 @@ describe('SG1 — confluence, store-level (UR-1)', () => {
 
   it('also holds when every event is batched into one observe delta per scenario', () => {
     // Batching is a real code path (`add()` on a multi-event array) single-event folding cannot
-    // exercise on its own (STORE.md §9) — a bug reachable only via the batched branch would
+    // exercise on its own (#38 §9) — a bug reachable only via the batched branch would
     // otherwise slip through every other property here.
     fc.assert(
       fc.property(storeScenario, (s) => {
@@ -144,7 +144,7 @@ describe('SG3 — dedup-after-verification is not bypassable (D20)', () => {
 
         const order = forgedFirst ? [forgedEvent, genuineEvent] : [genuineEvent, forgedEvent]
         // Each arrival is its own delta (mirroring "across two add() calls"); foldGated is the gate
-        // itself (STORE.md §5) — a failing submission never reaches applyStoreDelta at all.
+        // itself (#38 §5) — a failing submission never reaches applyStoreDelta at all.
         const state = foldGated(order.map((event) => ({ kind: 'observe', events: [event] })))
 
         const stored = state.admit.observedById[genuineEvent.id]
@@ -182,10 +182,7 @@ describe('SG5 — generator bias and floors', () => {
     expect(mix.trustThenObserveSameTick, 'trust immediately followed by observe').toBeGreaterThan(
       100,
     )
-    expect(
-      mix.overlayCrossRoot,
-      'cross-root overlay shape (OVERLAY-AWAITING.md §8 RC-3)',
-    ).toBeGreaterThan(100)
+    expect(mix.overlayCrossRoot, 'cross-root overlay shape (#43 §8 RC-3)').toBeGreaterThan(100)
     expect(totalInvalidIds, 'invalid ids actually recorded').toBeGreaterThan(100)
   })
 })

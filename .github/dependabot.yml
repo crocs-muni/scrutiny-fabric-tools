@@ -1,0 +1,9 @@
+version: 2
+updates:
+  # github-actions only: the devDependency surface here is tiny and not worth the PR noise an
+  # npm-scoped feed would add. This exists specifically to keep the SHA pins zizmor requires from
+  # going stale.
+  - package-ecosystem: 'github-actions'
+    directory: '/'
+    schedule:
+      interval: 'weekly'

@@ -13,10 +13,11 @@
  *    the admission it conferred, which folds into mechanism 1's bookkeeping.
  *
  * The design, including why root-chain propagation cannot reuse `resolve.ts`'s canonical-chain
- * walk and why a foreign patch's reason set is provably a singleton, is in `docs/ADMIT.md`.
+ * walk and why a foreign patch's reason set is provably a singleton, is in `#37`.
  */
 
 import {
+  DELETION_KIND,
   type NostrEvent,
   dedupeById,
   eTags,
@@ -25,6 +26,7 @@ import {
   scrutinyEventType,
 } from './events.js'
 import type { TrustProvider } from './interfaces.js'
+import { toNullProtoRecord } from './records.js'
 import type { Overlay } from './resolve.js'
 
 // ---------------------------------------------------------------------------
@@ -34,7 +36,7 @@ import type { Overlay } from './resolve.js'
 /**
  * Why an event is admitted (D23). A template-literal union so two `Reason` values naming the same
  * binding or root are `===`-equal without a custom equality function — required for
- * {@link AdmissionIndex} to support plain deep equality (§0 of `docs/ADMIT.md`).
+ * {@link AdmissionIndex} to support plain deep equality (§0 of `#37`).
  */
 export type Reason = 'direct-trust' | `binding:${string}` | `root-chain:${string}`
 
@@ -78,14 +80,18 @@ export const isAdmitted = (index: AdmissionIndex, eventId: string): boolean =>
  * non-recursive. If §11's Metadata↔Metadata bindings ever land, this function's two-endpoint
  * assumption breaks and the refcount model below needs revisiting.
  *
- * A malformed Binding (zero or several `root`/`link` markers, or an endpoint typed wrong) is
- * already a BD-2/BD-10/BD-5 validity concern enforced by `validate.ts` before an event would ever
- * reach this module in a real pipeline; `admit` does not re-derive that rejection.
+ * A malformed Binding (zero or several `root`/`link` markers) is a BD-2/BD-10 validity concern —
+ * rejecting it is `validate.ts`'s job, and `admit` deliberately does not re-derive that rejection.
+ * But `admit` is reachable directly (D21's public entry, outside the wired `store.add()` pipeline),
+ * so the typing rule's consequence is guarded locally: a Binding whose *observed* endpoints fail
+ * BD-3/BD-4 credits nothing (`bindingEndpointsWellTyped`, added after the 2026-08-08
+ * audit's S3-22 finding).
  *
- * Exported (not just `BindingEndpoints`) because `store.ts` needs the identical extraction for its
- * own BD-7 typing check — unlike `resolve.ts`'s independence from `admit.ts` (D29's oracle-vs-
- * incremental split), `store` already depends on this module directly, so there is no independence
- * to protect by restating this logic a second time.
+ * Exported because `BindingEndpoints` is already on the public surface via
+ * {@link AdmitState.liveBindings}, and both it and this function are re-exported from the barrel —
+ * withholding them was never a containment boundary (the `./admit.js` subpath exposed them
+ * regardless; 2026-08-08 audit, S3-27). `store.ts` keeps its own BD-7 extraction per D29's
+ * independence split.
  */
 export interface BindingEndpoints {
   readonly rootId: string
@@ -98,8 +104,30 @@ export function bindingEndpoints(binding: NostrEvent): BindingEndpoints | undefi
   if (roots.length !== 1 || links.length !== 1) return undefined
   const rootRef = roots[0]
   const linkRef = links[0]
+  // Stryker disable next-line ConditionalExpression,LogicalOperator: type-narrowing only — the
+  // length checks above already force both indices to be occupied, so this guard can never fire
+  // at runtime; it exists because `noUncheckedIndexedAccess` cannot see that.
   if (rootRef === undefined || linkRef === undefined) return undefined
   return { rootId: rootRef.id, linkId: linkRef.id }
+}
+
+/**
+ * BD-3/BD-4's consequence at the admission seam: a Binding whose *observed* endpoints fail the
+ * typing rule credits nothing through this module. Endpoints not yet observed stay creditable —
+ * BD-5's typing applies "once observed", and a reason credited to an unobserved id admits nothing
+ * visible until the event arrives. V-invalidating the Binding itself is `validate.ts`'s job, not
+ * re-derived here; this guard exists because `admit` is reachable directly, outside the wired
+ * `store.add()` pipeline (2026-08-08 audit, S3-22).
+ */
+function bindingEndpointsWellTyped(
+  endpoints: BindingEndpoints,
+  byId: ReadonlyMap<string, NostrEvent>,
+): boolean {
+  const root = byId.get(endpoints.rootId)
+  if (root !== undefined && scrutinyEventType(root) !== 'product') return false
+  const link = byId.get(endpoints.linkId)
+  if (link !== undefined && scrutinyEventType(link) !== 'metadata') return false
+  return true
 }
 
 /** NIP-09's own pubkey check (DEL-1), restated locally so `admit` does not depend on `resolve.ts`. */
@@ -127,7 +155,7 @@ export function isDefaultViewRetracted(
  * walk: that walk stops at the first self-fork and does not extend past a HALT, but TR-5 admits
  * root-author patches unconditionally — a self-fork's second branch and a post-HALT patch must
  * still be admitted, or the client could never render the very warnings SF-3/H2 require. See
- * `docs/ADMIT.md` §4.
+ * `#37` §4.
  *
  * Two flat filter passes, not an iterated fixed point: "root-author patch of root R" and
  * "root-author kind-5 targeting one of those" are each computed directly from `root`, never from
@@ -139,6 +167,10 @@ function rootChainMembers(
   kind5s: readonly NostrEvent[],
 ): ReadonlySet<string> {
   const candidatePatches = patches.filter(
+    // Stryker disable next-line ConditionalExpression: provably killed by the real suite (TR-6
+    // pin: an admitted-root fixture where the foreign patch gains root-chain under the mutant —
+    // hand-applied, admit.test.ts fails), yet the vitest runner never ran its covering tests
+    // per-mutant (stryker-js #6073-class attribution gap; audit §4 Step 5).
     (p) => p.pubkey === root.pubkey && rootTarget(p) === root.id,
   )
   const patchIds = new Set(candidatePatches.map((p) => p.id))
@@ -175,9 +207,11 @@ export function computeAdmission(
   events: readonly NostrEvent[],
   trust: TrustProvider,
 ): AdmissionIndex {
-  const all = [...dedupeById(events).values()]
+  const deduped = dedupeById(events)
+  const all = [...deduped.values()]
+  const byId = deduped
 
-  const kind5s = all.filter((e) => e.kind === 5)
+  const kind5s = all.filter((e) => e.kind === DELETION_KIND)
   const bindingEvents = all.filter((e) => scrutinyEventType(e) === 'binding')
   const patches = all.filter((e) => scrutinyEventType(e) === 'patch')
   const roots = all.filter(isRoot)
@@ -193,11 +227,12 @@ export function computeAdmission(
   for (const event of all) if (trust.isTrusted(event.pubkey)) credit(event.id, 'direct-trust')
 
   // TR-3/TR-4 — a Binding admitted only by direct trust in its own pubkey (never transitively)
-  // credits both endpoints, unless it has itself been retracted (DEL-5; see docs/ADMIT.md §8 —
+  // credits both endpoints, unless it has itself been retracted (DEL-5; see #37 §8 —
   // retraction and revoked trust collapse to the same "not live" test deliberately).
   for (const bindingEvent of bindingEvents) {
     const endpoints = bindingEndpoints(bindingEvent)
     if (endpoints === undefined) continue
+    if (!bindingEndpointsWellTyped(endpoints, byId)) continue
     if (!(reasons.get(bindingEvent.id)?.has('direct-trust') ?? false)) continue
     if (isHonouredDeletion(bindingEvent.id, bindingEvent.pubkey, kind5s)) continue
     credit(endpoints.rootId, bindingReason(bindingEvent.id))
@@ -212,8 +247,14 @@ export function computeAdmission(
     }
   }
 
-  const out: Record<string, readonly Reason[]> = {}
-  for (const [id, set] of reasons) if (set.size > 0) out[id] = [...set].sort()
+  const out = toNullProtoRecord(
+    // Stryker disable next-line ConditionalExpression,EqualityOperator,ArrayDeclaration: the
+    // oracle builds reason sets ONLY through credit() above, so an empty set can never exist
+    // here; the filter is the #37 §2 shape contract, not reachable behaviour (Stryker's
+    // NoCoverage flag on this line records exactly that). The incremental `toState` twin —
+    // where uncredit() CAN empty a set — is killed by AG2's round-trip and stays enabled.
+    [...reasons].flatMap(([id, set]) => (set.size > 0 ? [[id, [...set].sort()] as const] : [])),
+  )
   return { reasons: out }
 }
 
@@ -246,7 +287,7 @@ export const openView: AdmissionView = { isAdmitted: () => true }
  * never be a Binding endpoint, and by TR-6 (root-chain requires `pubkey = root.pubkey`, which
  * "foreign" contradicts by definition) it can never receive `root-chain:*` either — so a foreign
  * patch's reason set is always a subset of `{'direct-trust'}`, and `isAdmitted` on its own id
- * answers exactly the question OV-7 asks. See `docs/ADMIT.md` §7.
+ * answers exactly the question OV-7 asks. See `#37` §7.
  *
  * Called *after* `resolve` has already produced `overlays`, never before — `resolve` itself never
  * receives a view or a `TrustProvider`, so there is no parameter through which trust could reach
@@ -274,7 +315,7 @@ export function visibleOverlays(
  *
  * `liveBindings` is the D23 guard: a Binding's contribution to its endpoints is applied at most
  * once, no matter how many times the same live/dead transition is (redundantly) delivered — see
- * `docs/ADMIT.md` §5.
+ * `#37` §5.
  */
 export interface AdmitState {
   readonly reasons: Readonly<Record<string, readonly Reason[]>>
@@ -284,10 +325,10 @@ export interface AdmitState {
 }
 
 export const EMPTY_ADMIT_STATE: AdmitState = Object.freeze({
-  reasons: {},
-  liveBindings: {},
-  trusted: [],
-  observedById: {},
+  reasons: Object.freeze(Object.create(null) as Record<string, readonly Reason[]>),
+  liveBindings: Object.freeze(Object.create(null) as Record<string, BindingEndpoints>),
+  trusted: Object.freeze([] as readonly string[]),
+  observedById: Object.freeze(Object.create(null) as Record<string, NostrEvent>),
 })
 
 export function toIndex(state: AdmitState): AdmissionIndex {
@@ -307,7 +348,7 @@ export function toIndex(state: AdmitState): AdmissionIndex {
  * first delta in a sequence, with no earlier "trust" for it to pair against. A syntactic inverse
  * of a standalone no-op `untrust` is not a no-op — it fabricates trust from nothing. This was
  * found by AG2's property test failing on the single-delta sequence `[untrust(pk)]`, not reasoned
- * out in advance; see `docs/ADMIT.md` §9.
+ * out in advance; see `#37` §9.
  */
 export type ForwardDelta =
   | { readonly kind: 'observe'; readonly events: readonly NostrEvent[] }
@@ -358,16 +399,19 @@ function fromState(state: AdmitState): Working {
   }
 }
 
+// `toState` outputs are conventionally immutable, not frozen: `fromState`/`Working` never mutate a
+// previous state in place, so a hard freeze on every delta's records would pay cost for a
+// guarantee nothing ever violates. Only the EMPTY sentinel carries the freeze (S3-28), because it
+// is shared by reference forever.
 function toState(w: Working): AdmitState {
-  const reasons: Record<string, readonly Reason[]> = {}
-  for (const [id, set] of w.reasons) if (set.size > 0) reasons[id] = [...set].sort()
-  const liveBindings: Record<string, BindingEndpoints> = {}
-  for (const [id, endpoints] of w.liveBindings) liveBindings[id] = endpoints
+  const reasons = toNullProtoRecord(
+    [...w.reasons].flatMap(([id, set]) => (set.size > 0 ? [[id, [...set].sort()] as const] : [])),
+  )
   return {
     reasons,
-    liveBindings,
+    liveBindings: toNullProtoRecord(w.liveBindings),
     trusted: [...w.trusted].sort(),
-    observedById: Object.fromEntries(w.observedById),
+    observedById: toNullProtoRecord(w.observedById),
   }
 }
 
@@ -387,11 +431,16 @@ function isAdmittedIn(w: Working, id: string): boolean {
 
 function bindingIsLive(w: Working, binding: NostrEvent, kind5s: readonly NostrEvent[]): boolean {
   if (!w.reasons.get(binding.id)?.has('direct-trust')) return false
+  const endpoints = bindingEndpoints(binding)
+  if (endpoints === undefined || !bindingEndpointsWellTyped(endpoints, w.observedById)) return false
   return !isHonouredDeletion(binding.id, binding.pubkey, kind5s)
 }
 
 function activateBinding(w: Working, binding: NostrEvent): void {
   const endpoints = bindingEndpoints(binding)
+  // Stryker disable next-line ConditionalExpression: layering-unreachable — activateBinding is
+  // only reached from resyncBinding when bindingIsLive(cfg) held, and bindingIsLive already
+  // requires defined endpoints, so this guard can never fire here.
   if (endpoints === undefined) return
   w.liveBindings.set(binding.id, endpoints)
   credit(w, endpoints.rootId, bindingReason(binding.id))
@@ -400,6 +449,9 @@ function activateBinding(w: Working, binding: NostrEvent): void {
 
 function deactivateBinding(w: Working, bindingId: string): void {
   const endpoints = w.liveBindings.get(bindingId)
+  // Stryker disable next-line ConditionalExpression: unreachable guard — deactivateBinding is
+  // only reached for bindings currently in liveBindings, so the get() can never be undefined
+  // here (its activateBinding twin IS reachable and covered, via the S5-6 malformed-Binding pin).
   if (endpoints === undefined) return
   w.liveBindings.delete(bindingId)
   uncredit(w, endpoints.rootId, bindingReason(bindingId))
@@ -432,9 +484,20 @@ function resyncRootChain(
   kind5s: readonly NostrEvent[],
 ): void {
   const admitted = isAdmittedIn(w, root.id)
-  for (const memberId of rootChainMembers(root, patches, kind5s)) {
-    if (admitted) credit(w, memberId, rootChainReason(root.id))
-    else uncredit(w, memberId, rootChainReason(root.id))
+  const reason = rootChainReason(root.id)
+  const members = rootChainMembers(root, patches, kind5s)
+  for (const memberId of members) {
+    if (admitted) credit(w, memberId, reason)
+    else uncredit(w, memberId, reason)
+  }
+  // Revoke credits whose membership no longer holds. A member set is recomputed from the
+  // *current* observed set, so an id dropped out of it is never visited by the loop above and
+  // would otherwise keep its credit forever: the AG1 counterexample (Step-5/Stryker) is a kind 5
+  // whose membership depended on a sibling patch being observed — unobserving the patch leaves
+  // the kind 5's `root-chain:` stranded. Any `root-chain:<root>` on a non-member is stale by
+  // TR-5's own definition of the set, regardless of which path stranded it.
+  for (const [id, reasons] of w.reasons) {
+    if (!members.has(id) && reasons.has(reason)) uncredit(w, id, reason)
   }
 }
 
@@ -445,8 +508,14 @@ function resyncRootChain(
  */
 function resync(w: Working): void {
   const all = [...w.observedById.values()]
+  // Stryker disable next-line MethodExpression,ConditionalExpression: provably killed by the
+  // real suite (TR-6 + S5-6 membership pins fail when these two arrays stop discriminating by
+  // event type — hand-applied, admit.test.ts fails), yet the vitest runner never ran their
+  // covering tests per-mutant (stryker-js #6073-class attribution gap; audit §4 Step 5).
   const patches = all.filter((e) => scrutinyEventType(e) === 'patch')
-  const kind5s = all.filter((e) => e.kind === 5)
+  // Stryker disable next-line MethodExpression,ConditionalExpression: same runner-missed case
+  // as the patches filter on the previous line; both are proven killed by the real suite.
+  const kind5s = all.filter((e) => e.kind === DELETION_KIND)
   for (const e of all) if (scrutinyEventType(e) === 'binding') resyncBinding(w, e, kind5s)
   for (const e of all) if (isRoot(e)) resyncRootChain(w, e, patches, kind5s)
 }
@@ -455,9 +524,9 @@ function resync(w: Working): void {
  * Apply one delta to `state`, returning the new state.
  *
  * Every primitive mutation below is a guarded transition (already-observed ids are skipped,
- * already-(un)trusted pubkeys are skipped), and {@link resync} re-derives Binding liveness and
+ * already-(un)trusted pubkeys are skipped), and `resync` re-derives Binding liveness and
  * root-chain membership from the guard tables rather than from a running counter — see
- * `docs/ADMIT.md` §5 for why that is what actually prevents D23's sticky-admission bug, and §9 for
+ * `#37` §5 for why that is what actually prevents D23's sticky-admission bug, and §9 for
  * why `unobserve` un-cascades a removed root's membership *before* deleting it (its members are
  * still-observed patches; only the root object itself is about to disappear).
  */
@@ -467,6 +536,9 @@ export function applyDelta(state: AdmitState, delta: AdmissionDelta): AdmitState
   switch (delta.kind) {
     case 'observe':
       for (const e of delta.events) {
+        // Stryker disable next-line ConditionalExpression: skipping the re-observe is provably
+        // a no-op — Nostr ids are content hashes (D18), so re-observing an id writes byte-
+        // identical event data over itself, and the direct-trust credit below it is a Set add.
         if (w.observedById.has(e.id)) continue
         w.observedById.set(e.id, e)
         if (w.trusted.has(e.pubkey)) credit(w, e.id, 'direct-trust')
@@ -477,12 +549,25 @@ export function applyDelta(state: AdmitState, delta: AdmissionDelta): AdmitState
       // Snapshotted once for the whole delta, not per id: an uncredit against a member already
       // removed by an earlier id in this same delta is a harmless no-op (nothing left to delete),
       // so a slightly stale snapshot costs nothing and saves re-filtering `observedById` per id.
+      // Stryker disable next-line MethodExpression,ConditionalExpression: widening these two
+      // arrays is a proven no-op — the un-cascade below only *removes* root-chain credits, and
+      // every such credit was conferred by resyncRootChain over type-discriminated arrays, so
+      // any extra member an unfiltered array surfaces was never credited to begin with.
       const patches = [...w.observedById.values()].filter((x) => scrutinyEventType(x) === 'patch')
-      const kind5s = [...w.observedById.values()].filter((x) => x.kind === 5)
+      // Stryker disable next-line MethodExpression,ConditionalExpression: same proven no-op as
+      // the patches snapshot on the previous line; only *removals* happen through these arrays.
+      const kind5s = [...w.observedById.values()].filter((x) => x.kind === DELETION_KIND)
       for (const id of delta.eventIds) {
         const e = w.observedById.get(id)
         if (e === undefined) continue
+        // Stryker disable next-line ConditionalExpression: unconditional deactivation is a
+        // guarded no-op — deactivateBinding returns early for any id not in liveBindings.
         if (w.liveBindings.has(id)) deactivateBinding(w, id)
+        // Stryker disable next-line ConditionalExpression,LogicalOperator: widening this gate
+        // only runs extra un-cascades; root-chain:<id> is only ever credited for roots (the
+        // resync dispatch requires isRoot), so for non-roots the extra uncredit loop has no
+        // credited reason to remove. The narrowing flip (never un-cascade) is NOT equivalent
+        // and is pinned by the S5-6 invariant-2 test.
         if (isRoot(e) && isAdmittedIn(w, id)) {
           // un-cascade the membership *this* root conferred on others, while it can still be
           // computed (rootChainMembers needs the root object, about to disappear below).
@@ -496,6 +581,10 @@ export function applyDelta(state: AdmitState, delta: AdmissionDelta): AdmitState
         // independent of this id's own presence (BD-6) and must survive unobservation the same
         // way it survives never having arrived; `resync` cannot re-derive this cleanup on its
         // own, because once `id` leaves observedById it is no longer a candidate resync visits.
+        // Stryker disable next-line ArrayDeclaration: provably killed by the real suite (the
+        // S5-6 BD-6 boundary pin: unobserving an endpoint must strip direct-trust while keeping
+        // binding:* — hand-applied, admit.test.ts fails), yet the vitest runner never ran its
+        // covering test per-mutant (stryker-js #6073-class attribution gap; audit §4 Step 5).
         for (const r of [...(w.reasons.get(id) ?? [])]) {
           if (r === 'direct-trust' || reasonKind(r) === 'root-chain') uncredit(w, id, r)
         }
@@ -505,6 +594,9 @@ export function applyDelta(state: AdmitState, delta: AdmissionDelta): AdmitState
     }
 
     case 'trust': {
+      // Stryker disable next-line MethodExpression: the filter guards transition work, not
+      // outcome — credit() into a Set is idempotent and resync() re-derives liveness below, so
+      // re-trusting an already-trusted pubkey yields the identical state either way.
       const newly = delta.pubkeys.filter((pk) => !w.trusted.has(pk))
       for (const pk of newly) w.trusted.add(pk)
       for (const e of w.observedById.values())
@@ -513,6 +605,9 @@ export function applyDelta(state: AdmitState, delta: AdmissionDelta): AdmitState
     }
 
     case 'untrust': {
+      // Stryker disable next-line MethodExpression: symmetric to 'trust' above — untrusting a
+      // never-trusted pubkey uncredits nothing that isn't already absent, and resync()
+      // re-derives liveness regardless.
       const newly = delta.pubkeys.filter((pk) => w.trusted.has(pk))
       for (const pk of newly) w.trusted.delete(pk)
       for (const e of w.observedById.values())

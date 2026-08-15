@@ -9,12 +9,13 @@ import { RULES, type Rule, type RuleId, type RuleLayer } from './rules.js'
  * **This distinction has no basis in the spec text.** §6.0 gives the Validity layer exactly one
  * disposition — a V failure keeps the event out of processing entirely — so rules that are really
  * advisory to producers (P3's LF clause) or obligations to *accept* (C7) have no disposition that
- * fits them. Severity is a local affordance for that gap, recorded as item F-crosscutting in
- * `docs/SPEC-FEEDBACK-v0.6.0.md`.
+ * fits them. Severity is a local affordance for that gap (F-crosscutting).
  *
- * The invariant that keeps it honest is TR-1: no issue citing a D-layer rule may be an `error`,
- * because a V-valid event MUST NOT be rejected by a D rule. `test/invariants.test.ts` asserts this
- * across every issue the suite produces.
+ * The invariant that keeps it honest is TR-1: no issue citing an A-layer *or* D-layer rule may be
+ * an `error`, because a V-valid event MUST NOT be rejected by an A or D rule — §6.0 gives the
+ * Validity layer the only rejection disposition, so an A or D finding can only ever be
+ * annotation-shaped. `test/invariants.test.ts` asserts the full A∪D form across every issue the
+ * suite produces.
  */
 export type Severity = 'error' | 'warning'
 
@@ -32,7 +33,7 @@ export interface Issue {
   /** The spec section defining the rule. Derived from {@link RULES}. */
   readonly section: string
   readonly severity: Severity
-  /** Human-readable detail. The rule's own summary is available via {@link Issue.rule}. */
+  /** Human-readable detail. The rule's own summary is available via {@link Issue.code}. */
   readonly message: string
 }
 
@@ -45,6 +46,11 @@ export interface Issue {
  */
 export function issue(code: RuleId, severity: Severity, message: string): Issue {
   const rule = RULES[code]
+  if (rule.reserved) {
+    throw new TypeError(
+      `cannot build an Issue citing reserved rule ${code} — reserved ids carry no normative content (2026-08-08 audit, S3-15)`,
+    )
+  }
   return { code, layer: rule.layer, section: rule.section, severity, message }
 }
 

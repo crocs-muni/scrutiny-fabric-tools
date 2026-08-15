@@ -4,7 +4,7 @@
 // Regenerate:  pnpm rules:gen
 // Verify:      pnpm rules:check
 //
-// 139 rules: V=44, A=63, D=31, 1 reserved.
+// 142 rules: V=46, A=64, D=31, 1 reserved.
 
 /**
  * The layer a rule belongs to (§6.0). The partition is by *subject*, not by normative strength —
@@ -64,6 +64,8 @@ export type RuleId =
   | 'PT-7'
   | 'PT-8'
   | 'PT-9'
+  | 'PT-10'
+  | 'PT-11'
   | 'IX-1'
   | 'IX-2'
   | 'IX-3'
@@ -141,6 +143,7 @@ export type RuleId =
   | 'UR-1'
   | 'UR-2'
   | 'UR-3'
+  | 'UR-4'
   | 'DQ-1'
   | 'DQ-2'
   | 'DQ-3'
@@ -194,7 +197,7 @@ export const RULES: Readonly<Record<RuleId, Rule>> = Object.freeze({
     section: '3',
     layer: 'V',
     inheritsFrom: null,
-    summary: 'Exactly one version `t` tag matching `^scrutiny-v\\d{3}$`.',
+    summary: 'Exactly one version `t` tag matching `^scrutiny-v\\d+\\.\\d+\\.\\d+$`.',
     reserved: false,
   },
   'TAG-3': {
@@ -226,7 +229,7 @@ export const RULES: Readonly<Record<RuleId, Rule>> = Object.freeze({
     section: '3',
     layer: 'V',
     inheritsFrom: null,
-    summary: '`scrutiny-vMMP` digits encode MAJOR/MINOR/PATCH; lexicographic ordering.',
+    summary: 'Version tags order per-field by digit string (leading zeros ignored; greater length, then lexicographic); never host-number conversion, never whole-tag lexicographic.',
     reserved: false,
   },
   'VER-2': {
@@ -498,7 +501,7 @@ export const RULES: Readonly<Record<RuleId, Rule>> = Object.freeze({
     section: '4.4',
     layer: 'A',
     inheritsFrom: null,
-    summary: 'Root-author patch `e reply` MUST point at root or root-author patch (otherwise ignored for chain).',
+    summary: 'Root-author patch `e reply` MUST point at root or root-author patch (otherwise ignored for chain); unevaluable while the target is unobserved — held per UR-4.',
     reserved: false,
   },
   'PT-7': {
@@ -523,6 +526,22 @@ export const RULES: Readonly<Record<RuleId, Rule>> = Object.freeze({
     layer: 'A',
     inheritsFrom: null,
     summary: 'Patches append-only; removal only via author\'s own kind 5.',
+    reserved: false,
+  },
+  'PT-10': {
+    id: 'PT-10',
+    section: '4.4',
+    layer: 'V',
+    inheritsFrom: null,
+    summary: '`e root` MUST reference a `scrutiny-product` or `scrutiny-metadata` event.',
+    reserved: false,
+  },
+  'PT-11': {
+    id: 'PT-11',
+    section: '4.4',
+    layer: 'V',
+    inheritsFrom: null,
+    summary: 'Patch with an observed `e root` violating PT-10 MUST NOT be admitted.',
     reserved: false,
   },
   'IX-1': {
@@ -802,7 +821,7 @@ export const RULES: Readonly<Record<RuleId, Rule>> = Object.freeze({
     section: '5.3',
     layer: 'A',
     inheritsFrom: null,
-    summary: 'Insertion carve-out: pure-insertion hunks apply at the `@@` `-`-line position.',
+    summary: 'Insertion carve-out: pure-insertion hunks apply at the `@@` `-`-line position, clamped to the content\'s line range.',
     reserved: false,
   },
   'T3': {
@@ -994,7 +1013,7 @@ export const RULES: Readonly<Record<RuleId, Rule>> = Object.freeze({
     section: '7.2',
     layer: 'A',
     inheritsFrom: null,
-    summary: 'Root self-fork: two root-author patches at same parent → chain undefined.',
+    summary: 'Root self-fork: two root-author patches at same parent → chain undefined; a shared pending parent holds both (UR-4), no fork yet.',
     reserved: false,
   },
   'SF-2': {
@@ -1139,6 +1158,14 @@ export const RULES: Readonly<Record<RuleId, Rule>> = Object.freeze({
     layer: 'D',
     inheritsFrom: null,
     summary: 'Classification cached as permanent only when no further observation could change it.',
+    reserved: false,
+  },
+  'UR-4': {
+    id: 'UR-4',
+    section: '7.6',
+    layer: 'A',
+    inheritsFrom: null,
+    summary: 'Root-author patch with unobserved `e reply` target is retained and re-evaluated on arrival; no chain or fork participation until then.',
     reserved: false,
   },
   'DQ-1': {

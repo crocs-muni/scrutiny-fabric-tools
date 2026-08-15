@@ -5,7 +5,7 @@
  * for the Validity layer only: `v-coverage.test.ts` derives its expected set from the generated
  * registry, so an unclassified V rule fails the build. Every A/D gate instead asserts its table
  * against an `OWNED` array hand-transcribed from the module-ownership table in
- * `docs/IMPLEMENTATION-PLAN.md` — which closes the loop against a *document*, not against the spec.
+ * `#53` — which closes the loop against a *document*, not against the spec.
  * A rule the document forgot was therefore invisible to every gate at once, and 21 of them were:
  * six that `validate.ts` actively emits (PR-2/3/4, MD-2/3/4), RL-1 and IX-2 (both implementable and
  * now implemented in `build.ts`), RL-4, and eleven genuinely out of scope.
@@ -15,7 +15,7 @@
  *
  * It deliberately does **not** check that a rule appears in only one table. Several legitimately
  * appear in more than one: one obligation can carry several rule IDs across layers (P2's V-layer
- * receipt half vs `build`'s producer half, `docs/QUERY-BUILD.md` §2.2), and a ceiling is observed
+ * receipt half vs `build`'s producer half, `#39` §2.2), and a ceiling is observed
  * by whichever module reaches it first. Uniqueness is not the invariant; coverage is.
  */
 

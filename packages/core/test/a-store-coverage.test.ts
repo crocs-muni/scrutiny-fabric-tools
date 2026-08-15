@@ -1,7 +1,7 @@
 /**
- * The Phase 5 gate, item SG4 (`docs/STORE.md` §8/§9).
+ * The Phase 5 gate, item SG4 (`#38` §8/§9).
  *
- * Every rule `docs/IMPLEMENTATION-PLAN.md` assigns to the `store` module must either emit its code
+ * Every rule `#53` assigns to the `store` module must either emit its code
  * here, or be listed as not-test-covered with a stated reason. The partition is machine-checked
  * against the plan's assignment, so a rule cannot be silently dropped.
  */
@@ -11,7 +11,7 @@ import type { RuleId } from '../src/rules.js'
 import { A_STORE_COVERAGE } from './_a-store-coverage.js'
 import { itCoversEachRule, itReportsTheSplit } from './_coverage.js'
 
-/** From the module-ownership table in `docs/IMPLEMENTATION-PLAN.md`. */
+/** From the module-ownership table in `#53`. */
 const OWNED: readonly RuleId[] = [
   'UR-1',
   'UR-2',

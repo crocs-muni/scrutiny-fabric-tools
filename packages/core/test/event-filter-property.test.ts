@@ -1,5 +1,5 @@
 /**
- * Phase 13 gate (`docs/AUDIT-2026-07-31.md` §7, `PLAN-2026-08-01-rewrite-mandate.md` §1) —
+ * Phase 13 gate (`#46` §7, `PLAN-2026-08-01-rewrite-mandate.md` §1) —
  * `EventFilter` is now a flat NIP-01 shape, not the old `{ tags: {...} }` nesting a real relay
  * silently ignores. This file is the property-test demonstration the audit's own reproduction
  * called for: a hand-rolled NIP-01 matcher, run against both the old (nested) and new (flat) filter
@@ -17,7 +17,7 @@ import { ev } from './_fixtures.js'
 /**
  * A from-scratch NIP-01 matcher, written directly from the spec text — this project stays its own
  * reference implementation for matching, not just for validation/patching/resolution (the same
- * posture `PATCH-MATCHER.md`/`RESOLVE.md` already take for their own domains). Unrecognised filter
+ * posture `#35`/`#36` already take for their own domains). Unrecognised filter
  * members (e.g. a stray `tags` object under the old, pre-Phase-13 shape) are silently ignored,
  * exactly as a real relay ignores them — this is the mechanism the audit's own reproduction depends
  * on, and the reason a filter shaped the old way degrades to "match everything."
@@ -56,7 +56,7 @@ function nip01Matches(filter: Readonly<Record<string, unknown>>, event: NostrEve
   return true
 }
 
-describe('AUDIT-2026-07-31.md §7 — reproduction and fix', () => {
+describe('#46 §7 — reproduction and fix', () => {
   it('the old nested `tags` shape silently drops every constraint under a real NIP-01 matcher', () => {
     // The exact pre-Phase-13 shape `query.ts` used to emit — no longer expressible as an
     // `EventFilter`, constructed here as a plain object to reproduce what a real relay actually saw.

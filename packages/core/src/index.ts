@@ -1,7 +1,7 @@
 /**
  * `@scrutiny-fabric/core` — reference implementation of the SCRUTINY Fabric protocol.
  *
- * Target specification: **v0.6.1** (`scrutiny-v061`), 139 normative rules.
+ * Target specification: **v0.8.0** (`scrutiny-v0.8.0`), 142 normative rules.
  *
  * This root barrel is the primary documented import (D5). Subpath exports exist only where they buy
  * a consumer graph exclusion, never as organisation.
@@ -16,6 +16,7 @@
 export { SPEC_VERSION, VERSION_TAG } from './version.js'
 
 export {
+  DELETION_KIND,
   EVENT_TYPE_TAGS,
   FABRIC_TAG,
   INDEXER_PREFIX_PATTERN,
@@ -76,7 +77,17 @@ export { hasError, issue, ruleOf, type Issue, type Severity } from './errors.js'
  * The applier's type vocabulary — ceilings (`ApplyOptions`) and halt classification. Moved here
  * per mandate §2 so a consumer can name these without reaching the unexported applier (D32).
  */
-export type { ApplyOptions, HaltReason, HaltRule, LimitKind } from './patch-types.js'
+export type {
+  ApplyOptions,
+  ApplyResult,
+  HaltReason,
+  HaltRule,
+  LimitKind,
+  PatchApplied,
+  PatchHalt,
+  PatchLimit,
+  PatchNoop,
+} from './patch-types.js'
 
 /**
  * Trust admission — reason sets, refcounting, and the `TrustedView`/`OpenView` distinction (D22).
@@ -86,6 +97,7 @@ export type { ApplyOptions, HaltReason, HaltRule, LimitKind } from './patch-type
 export {
   EMPTY_ADMIT_STATE,
   applyDelta,
+  bindingEndpoints,
   bindingReason,
   computeAdmission,
   invertDelta,
@@ -101,6 +113,7 @@ export {
   type AdmissionIndex,
   type AdmissionView,
   type AdmitState,
+  type BindingEndpoints,
   type ForwardDelta,
   type Reason,
 } from './admit.js'
@@ -152,7 +165,7 @@ export {
 } from './rules.js'
 
 /**
- * §8 discovery/traversal filter builders and result classifiers (D34 partition: `docs/QUERY-BUILD.md`
+ * §8 discovery/traversal filter builders and result classifiers (D34 partition: `#39`
  * §4). Plain NIP-01 `EventFilter` objects out, no relay I/O, no async.
  */
 export {

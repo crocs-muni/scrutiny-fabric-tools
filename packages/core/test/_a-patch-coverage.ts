@@ -26,7 +26,7 @@ const issuesFrom =
   }
 
 /**
- * The rules `docs/IMPLEMENTATION-PLAN.md` assigns to the `patch` module, plus RL-3 which it emits
+ * The rules `#53` assigns to the `patch` module, plus RL-3 which it emits
  * and C8 (new in spec v0.6.1, added here rather than to the plan's original list).
  */
 export const A_PATCH_COVERAGE: CoverageTable = {

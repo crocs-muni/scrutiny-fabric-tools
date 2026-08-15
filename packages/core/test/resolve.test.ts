@@ -1,13 +1,13 @@
 /**
  * §7 chain resolution — canonical chain, cascade, self-fork, HALT, overlays.
  *
- * Design and rule mapping in `docs/RESOLVE.md`. The permanent regression corpus is replayed first,
+ * Design and rule mapping in `#36`. The permanent regression corpus is replayed first,
  * as in Phase 2.
  */
 
 import { describe, expect, it } from 'vitest'
 import { resolve } from '../src/resolve.js'
-import { PK_FOREIGN, PK_OTHER, PK_ROOT, binding, metadata } from './_fixtures.js'
+import { PK_FOREIGN, PK_OTHER, PK_ROOT, baseTags, binding, metadata } from './_fixtures.js'
 import {
   badPatch,
   deletion,
@@ -274,7 +274,7 @@ describe('RL-3 — a ceiling is never a HALT', () => {
   it('leaves an overlay unclassified rather than calling a ceiling a conflict (F11)', () => {
     // §7.3 offers four overlay states and none of them fits a resource limit: the overlay may well
     // apply, so `conflict` would be a lie, and the target is perfectly well defined, so `orphaned`
-    // would be too. Recorded as SPEC-FEEDBACK F11.
+    // would be too. Recorded as F11.
     const r = root(A)
     const over = foreignPatch('over', r.id, r.id, A, AB)
     const res = resolve(r.id, [r, over], { apply: { maxHunks: 0 } })
@@ -422,5 +422,307 @@ describe('UR-1 — arrival order does not reach the result', () => {
       foreignPatch('orphan', r.id, idOf('never'), A, 'X\n'),
     ]
     expect(resolve(r.id, reversed(events))).toEqual(resolve(r.id, events))
+  })
+})
+
+describe('UR-4 — a root-author patch whose `e reply` target is unobserved is held (spec v0.8.0, F16)', () => {
+  it('holds the patch out of the chain, reports it pending, and two siblings sharing the unobserved parent are NOT a fork (SF-1 carve-out)', () => {
+    const r = root(A)
+    const missing = idOf('unobserved-parent')
+    const p1 = diffPatch('held-1', r.id, missing, A, 'a\nx\n')
+    const p2 = diffPatch('held-2', r.id, missing, A, 'a\ny\n')
+    const res = resolve(r.id, [r, p1, p2])
+    expect(res.chain).toEqual({ status: 'resolved', content: A, tipId: r.id, applied: [] })
+    expect(res.pending).toEqual([p1.id, p2.id].sort())
+    expect(res.annotations.filter((a) => a.kind === 'self-fork')).toEqual([])
+  })
+
+  it('re-evaluates on arrival: the patch joins the chain in order once its parent is observed', () => {
+    const r = root(A)
+    const parent = diffPatch('parent', r.id, r.id, A, AB)
+    const late = diffPatch('late', r.id, parent.id, AB, ABC)
+    expect(resolve(r.id, [r, late]).pending).toEqual([late.id])
+    const res = resolve(r.id, [r, late, parent])
+    expect(res.chain).toEqual({
+      status: 'resolved',
+      content: ABC,
+      tipId: late.id,
+      applied: [parent.id, late.id],
+    })
+    expect(res.pending).toEqual([])
+  })
+
+  it('holds transitively: a patch replying to a held patch is held with it (§5.3 step 1)', () => {
+    const r = root(A)
+    const held = diffPatch('held', r.id, idOf('unobserved-grandparent'), A, AB)
+    const child = diffPatch('child', r.id, held.id, AB, ABC)
+    const res = resolve(r.id, [r, held, child])
+    expect(res.chain).toEqual({ status: 'resolved', content: A, tipId: r.id, applied: [] })
+    expect(res.pending).toEqual([child.id, held.id].sort())
+  })
+
+  it('keeps PT-6 distinct: replying to an *observed foreign* patch is ignored permanently, never held', () => {
+    const r = root(A)
+    const foreign = foreignPatch('foreign', r.id, r.id, A, AB)
+    const misdirected = diffPatch('misdirected', r.id, foreign.id, AB, ABC)
+    const res = resolve(r.id, [r, foreign, misdirected])
+    expect(res.chain).toEqual({ status: 'resolved', content: A, tipId: r.id, applied: [] })
+    expect(res.pending).toEqual([])
+  })
+
+  it('orphans an overlay whose target is a held patch, α since the target is observed (§7.3/OV-3)', () => {
+    const r = root(A)
+    const held = diffPatch('held', r.id, idOf('unobserved-parent'), A, AB)
+    const overlay = foreignPatch('overlay-on-held', r.id, held.id, AB, ABC)
+    const res = resolve(r.id, [r, held, overlay])
+    expect(res.pending).toEqual([held.id])
+    expect(res.overlays).toEqual([
+      expect.objectContaining({ id: overlay.id, state: 'orphaned', degradation: 'alpha' }),
+    ])
+  })
+
+  it('excludes a retracted held patch from pending — a completed decision is not a pending one', () => {
+    const r = root(A)
+    const held = diffPatch('held', r.id, idOf('unobserved-parent'), A, AB)
+    const res = resolve(r.id, [r, held, deletion('retract-held', [held.id], PK_OTHER)])
+    expect(res.pending).toEqual([held.id])
+    const res2 = resolve(r.id, [r, held, deletion('retract-held', [held.id], PK_ROOT)])
+    expect(res2.pending).toEqual([])
+  })
+})
+
+describe('S3-30 — retracting the ROOT itself preserves the canonical chain for audit (DEL-4, 2026-08-08 audit)', () => {
+  // DEL-4: the root leaves the default view, but the canonical chain is preserved — `cascade()`
+  // seeds `removed` from chain candidates ∩ honouredly-deleted, never from raw `deleted`, so a
+  // kind-5 *on the root Event* cannot cascade into its patches. That removed-vs-deleted
+  // seeding distinction was what the property generator could not reach (deleteAt ≥ 1 skips the
+  // root) and no unit test pinned either — three of the four verification shapes below were
+  // previously only true incidentally.
+  it('resolve() still applies every chain patch after the root author retracts the root', () => {
+    const r = root(A)
+    const p1 = diffPatch('p1', r.id, r.id, A, AB)
+    const p2 = diffPatch('p2', r.id, p1.id, AB, ABC)
+    const retract = deletion('retract-root', [r.id], PK_ROOT)
+    const res = resolve(r.id, [r, p1, p2, retract])
+    expect(res.chain).toEqual({
+      status: 'resolved',
+      content: ABC,
+      tipId: p2.id,
+      applied: [p1.id, p2.id],
+    })
+    expect(res.pending).toEqual([])
+  })
+
+  it('a same-author kind-5 on a root-authored PATCH still cascades — the distinction holds in both directions', () => {
+    const r = root(A)
+    const p1 = diffPatch('p1', r.id, r.id, A, AB)
+    const p2 = diffPatch('p2', r.id, p1.id, AB, ABC)
+    const retractPatch = deletion('retract-p1', [p1.id], PK_ROOT)
+    const res = resolve(r.id, [r, p1, p2, retractPatch])
+    // deleting p1 removes p1 AND its descendant p2 from the canonical walk (DEL-2) — the root's
+    // own deletion above removes nothing but the root's default-view presence.
+    expect(res.chain).toEqual({ status: 'resolved', content: A, tipId: r.id, applied: [] })
+  })
+})
+
+describe('S5 — Step-5 pins: walk termination, marker floors, deterministic annotation shape', () => {
+  it('a root-author patch without an e reply marker is neither chained nor held (PT grammar floor)', () => {
+    const r = root(A)
+    const noReply = diffPatch('no-reply', r.id, r.id, A, AB, {
+      tags: [...baseTags('patch'), ['e', r.id, '', 'root', PK_ROOT]],
+    })
+    const res = resolve(r.id, [r, noReply])
+    expect(res.chain).toEqual({ status: 'resolved', content: A, tipId: r.id, applied: [] })
+    // It is not an UR-2/UR-4 hold either — those are for patches whose POSITION is unknowable;
+    // a missing marker is a grammar-level defect, permanently out of scope for this event set.
+    expect(res.pending).toEqual([])
+  })
+
+  it('a foreign overlay without an e reply marker is not classified at all', () => {
+    // OV-7 families classify by reply-targeted position; with none, §5.2's tolerance means the
+    // event is V-invalid somewhere else, not an overlay — resolve does not re-derive that.
+    const r = root(A)
+    const f = diffPatch('f', r.id, r.id, A, AB, {
+      pubkey: PK_FOREIGN,
+      tags: [...baseTags('patch'), ['e', r.id, '', 'root', PK_ROOT]],
+    })
+    expect(resolve(r.id, [r, f]).overlays).toEqual([])
+  })
+
+  it('terminates deterministically on reply cycles and self-loops (walk + classify guards)', () => {
+    const r = root(A)
+    const p1 = diffPatch('p1', r.id, idOf('p2'), A, 'a\np1\n')
+    const p2 = diffPatch('p2', r.id, idOf('p1'), A, 'a\np2\n')
+    const selfLoop = diffPatch('self', r.id, idOf('self'), A, 'a\nself\n')
+    const res = resolve(r.id, [r, p1, p2, selfLoop])
+    expect(res.chain).toEqual({ status: 'resolved', content: A, tipId: r.id, applied: [] })
+    expect(res.pending).toEqual([])
+  })
+
+  it('sorts resource-limit annotations deterministically by event id', () => {
+    // #36 §7's confluence rows: every output list is sorted by a total, content-derived
+    // key. The annotations sort comparator needs ≥2 annotations to even run — this is the only
+    // shape that produces them without a fork.
+    const r = root(A)
+    const f1 = diffPatch('f-one', r.id, r.id, A, AB, { pubkey: PK_FOREIGN })
+    const f2 = diffPatch('f-two', r.id, r.id, A, 'a\nc\n', { pubkey: PK_FOREIGN })
+    const res = resolve(r.id, [r, f2, f1], { apply: { maxWork: 3 } })
+    const rl = res.annotations.filter((a) => a.kind === 'resource-limit')
+    expect(rl.map((a) => (a.kind === 'resource-limit' ? a.eventId : ''))).toEqual(
+      [f1.id, f2.id].sort((x, y) => (x < y ? -1 : x > y ? 1 : 0)),
+    )
+  })
+
+  it('orders mixed-kind annotations by kind before falling back to the locator', () => {
+    const r = root(A)
+    const left = diffPatch('left', r.id, r.id, A, AB)
+    const right = diffPatch('right', r.id, r.id, A, 'a\nc\n')
+    const f = diffPatch('f', r.id, r.id, A, 'a\nd\n', { pubkey: PK_FOREIGN })
+    const res = resolve(r.id, [r, left, right, f], { apply: { maxWork: 3 } })
+    expect(res.chain.status).toBe('forked')
+    expect(res.annotations.map((a) => a.kind)).toEqual(['resource-limit', 'self-fork'])
+  })
+
+  it('names the fork, its branch count and its parent in the SF-3 annotation', () => {
+    const r = root(A)
+    const left = diffPatch('left', r.id, r.id, A, AB)
+    const right = diffPatch('right', r.id, r.id, A, 'a\nc\n')
+    const res = resolve(r.id, [r, left, right])
+    const fork = res.annotations.find((a) => a.kind === 'self-fork')
+    if (fork?.kind !== 'self-fork') expect.fail('expected a self-fork annotation')
+    expect(fork.issues.map((i) => i.code)).toEqual(['SF-3'])
+    // S5-12: severity is the validity claim's own field (never 'error' — the freeze is
+    // informational), and the issue message is what the SF-3 surface actually reports.
+    expect(fork.issues[0]?.severity).toBe('warning')
+    expect(fork.issues[0]?.message).toContain('frozen at the shared parent')
+    expect(fork.message).toContain('root self-fork')
+    expect(fork.message).toContain(`2 root-author patches reply to ${r.id}`)
+    expect(fork.branches.map((b) => b.id)).toEqual(
+      [left.id, right.id].sort((x, y) => (x < y ? -1 : x > y ? 1 : 0)),
+    )
+  })
+
+  it('carries the failing patch id and rule in the protocol-error annotation (H2)', () => {
+    const r = root(A)
+    const bad = badPatch('bad', r.id, r.id)
+    const res = resolve(r.id, [r, bad])
+    const err = res.annotations.find((a) => a.kind === 'protocol-error')
+    if (err?.kind !== 'protocol-error') expect.fail('expected a protocol-error annotation')
+    expect(err.eventId).toBe(bad.id)
+    expect(err.message).toContain(`patch ${bad.id} failed pre-validation`)
+    expect(err.message).toContain(`(${err.reason === 'no-match' ? 'T1' : err.reason})`)
+  })
+
+  it('states the ceiling in words on both resource-limit annotation shapes', () => {
+    const r = root(AB)
+    const heavy = diffPatch('heavy', r.id, r.id, AB, 'a\nLONGER\nb\n')
+    const chainLimited = resolve(r.id, [r, heavy], { apply: { maxWork: 1 } })
+    const rlChain = chainLimited.annotations.find((a) => a.kind === 'resource-limit')
+    if (rlChain?.kind !== 'resource-limit') expect.fail('expected a chain resource-limit')
+    expect(rlChain.message).toContain(`patch ${heavy.id} hit the`)
+    expect(rlChain.message).toContain('ceiling; application stopped here')
+
+    const f = diffPatch('f', r.id, r.id, AB, 'a\nLONGER\nb\n', { pubkey: PK_FOREIGN })
+    const overlayLimited = resolve(r.id, [r, f], { apply: { maxWork: 1 } })
+    const rlOverlay = overlayLimited.annotations.find((a) => a.kind === 'resource-limit')
+    if (rlOverlay?.kind !== 'resource-limit') expect.fail('expected an overlay resource-limit')
+    expect(rlOverlay.message).toContain(`overlay ${f.id} hit the`)
+    expect(rlOverlay.message).toContain('ceiling and was not classified')
+  })
+})
+
+describe('S5-11 — Step-5 pins: cascade fixpoint, absent-shape fields, partition floors', () => {
+  it('cascades a patch deletion through every canonical descendant, however deep (DEL-2/CHN-2)', () => {
+    const r = root(A)
+    const p1 = diffPatch('p1', r.id, r.id, A, AB)
+    const p2 = diffPatch('p2', r.id, p1.id, AB, ABC)
+    const p3 = diffPatch('p3', r.id, p2.id, ABC, 'a\nb\nc\nd\n')
+    const del = deletion('del-p1', [p1.id], PK_ROOT)
+    const res = resolve(r.id, [r, p1, p2, p3, del])
+    // Two levels below the deletion must also be gone — a first-order cascade leaves the
+    // grandchild hanging and the chain wrongly extensible past the deletion.
+    expect(res.chain).toEqual({
+      status: 'resolved',
+      content: A,
+      tipId: r.id,
+      applied: [],
+    })
+    // And the same holds when the edges arrive in the worst possible order for a one-pass scan:
+    // the fixed point, not the array order, decides membership.
+    const res2 = resolve(r.id, [del, p3, p2, r, p1])
+    expect(res2.chain).toEqual(res.chain)
+  })
+
+  it('a binding root yields a fully absent resolution, overlay/pending/annotations empty (BD-9 fields)', () => {
+    const b = binding('some-root', 'some-link')
+    const res = resolve(b.id, [b])
+    expect(res).toEqual({
+      chain: { status: 'absent', reason: 'root-not-patchable' },
+      overlays: [],
+      pending: [],
+      annotations: [],
+    })
+  })
+
+  it('an unobserved root reports every held patch, sorted, with nothing else attached (UR-2 fields)', () => {
+    const ghost = idOf('ghost-root')
+    const p1 = diffPatch('p1', ghost, ghost, A, AB)
+    const p2 = diffPatch('p2', ghost, ghost, A, ABC)
+    const res = resolve(ghost, [p2, p1])
+    expect(res).toEqual({
+      chain: { status: 'absent', reason: 'root-unobserved' },
+      overlays: [],
+      pending: [p1.id, p2.id].sort((x, y) => (x < y ? -1 : x > y ? 1 : 0)),
+      annotations: [],
+    })
+  })
+
+  it('a Product wearing patch markers is not partitioned as a patch (kind discriminates, PT-5 floor)', () => {
+    const r = root(A)
+    const p1 = diffPatch('p1', r.id, r.id, A, AB)
+    // §5.2 tolerance means tag-soup can exist; here the tags scream "patch" but the t-tag says
+    // product, so it must never enter the patch bucket (and never the chain).
+    const impostor = diffPatch('impostor', r.id, p1.id, AB, ABC, {
+      tags: [
+        ...baseTags('product'),
+        ['e', r.id, '', 'root', PK_ROOT],
+        ['e', p1.id, '', 'reply', PK_ROOT],
+      ],
+    })
+    const res = resolve(r.id, [r, p1, impostor])
+    expect(res.chain).toEqual({
+      status: 'resolved',
+      content: AB,
+      tipId: p1.id,
+      applied: [p1.id],
+    })
+    expect(res.chain).not.toHaveProperty('forkParentId')
+  })
+
+  it('a patch belonging to a different root is neither chained nor held here (partition pollution)', () => {
+    const r = root(A)
+    const other = root('x\n', 'other-root')
+    const alien = diffPatch('alien', other.id, other.id, 'x\n', 'x\ny\n')
+    const res = resolve(r.id, [r, alien])
+    expect(res.chain).toEqual({ status: 'resolved', content: A, tipId: r.id, applied: [] })
+    expect(res.pending).toEqual([])
+  })
+
+  it('a root-author patch replying to a FOREIGN patch never enters the chain, even well-parented (PT-6)', () => {
+    const r = root(A)
+    const p1 = diffPatch('p1', r.id, r.id, A, AB)
+    const fA = diffPatch('fA', r.id, p1.id, AB, ABC, { pubkey: PK_FOREIGN })
+    const adopted = diffPatch('adopted', r.id, fA.id, ABC, 'a\nb\nc\nd\n')
+    const res = resolve(r.id, [r, p1, fA, adopted])
+    // The PT-6 patch carries a real, uniquely-matchable diff — if it were chained, content
+    // would advance past ABC. It is ignored as a link, and it is not held: its parent IS
+    // observed, the hold is for unobserved lineage only.
+    expect(res.chain).toEqual({
+      status: 'resolved',
+      content: AB,
+      tipId: p1.id,
+      applied: [p1.id],
+    })
+    expect(res.pending).toEqual([])
   })
 })

@@ -231,7 +231,7 @@ describe('rejections', () => {
   })
 
   it('does not evaluate P1 — the reference toolchain emits zero-context hunks (F1)', () => {
-    // See docs/SPEC-FEEDBACK-v0.6.0.md F1. T2 normatively defines apply semantics for a
+    // See F1. T2 normatively defines apply semantics for a
     // zero-context hunk, so rejecting one at the V layer would make T2 unreachable.
     expect(codes(fenced(MINIMAL_PAYLOAD))).not.toContain('P1')
   })

@@ -33,6 +33,7 @@ const ROOT = product()
 const META = metadata({ pubkey: PK_FOREIGN })
 const OTHER_PRODUCT = product()
 const FOREIGN_PATCH = patch(ROOT.id, ROOT.id, '', { pubkey: PK_FOREIGN })
+const WRONG_TYPE_ROOT = binding(ROOT.id, META.id)
 
 const patchOf = (content: string) => () => issuesOf(patch(ROOT.id, ROOT.id, content), lookup(ROOT))
 
@@ -68,14 +69,14 @@ export const V_COVERAGE: CoverageTable = {
   ),
   'VER-2': notCovered(
     'A permission (higher-version events MAY be admitted opaquely), so it has no failure mode. ' +
-      'Covered behaviourally: a scrutiny-v099 event that satisfies every V invariant is valid.',
+      'Covered behaviourally: a scrutiny-v0.99.0 event that satisfies every V invariant is valid.',
   ),
   'VER-3': emitted(() =>
     issuesOf(
       ev({
         tags: [
           ['t', 'scrutiny-fabric'],
-          ['t', 'scrutiny-v099'],
+          ['t', 'scrutiny-v0.99.0'],
           ['t', 'scrutiny-attestation'],
         ],
       }),
@@ -150,6 +151,13 @@ export const V_COVERAGE: CoverageTable = {
       lookup(ROOT, FOREIGN_PATCH),
     ),
   ),
+  // New in v0.7.0 (F13): mirrors BD-3/BD-5's typed/rejected pattern for a Patch's own e root.
+  'PT-10': emitted(() =>
+    issuesOf(patch(WRONG_TYPE_ROOT.id, WRONG_TYPE_ROOT.id, ''), lookup(WRONG_TYPE_ROOT)),
+  ),
+  'PT-11': emitted(() =>
+    issuesOf(patch(WRONG_TYPE_ROOT.id, WRONG_TYPE_ROOT.id, ''), lookup(WRONG_TYPE_ROOT)),
+  ),
 
   // --- §4.6 imeta -----------------------------------------------------------
   'IM-5': notCovered(
@@ -165,8 +173,8 @@ export const V_COVERAGE: CoverageTable = {
       'across diff/patch/DIFF/extra-token/non-matching info strings.',
   ),
   E3: emitted(patchOf(`\`\`\`diff\n${MINIMAL_PAYLOAD}\n`)),
-  // E4 retagged V -> A in v0.6.1 (producer obligation, unfalsifiable on receipt — see docs/
-  // SPEC-FEEDBACK-v0.6.0.md). No longer a V-layer rule, so it does not belong in this table at
+  // E4 retagged V -> A in v0.6.1 (producer obligation, unfalsifiable on receipt — F-crosscutting).
+  // No longer a V-layer rule, so it does not belong in this table at
   // all; it lands with whichever module implements build.ts (Phase 6).
   E5: notCovered(
     'Defines the payload byte boundary rather than a constraint that can fail. Covered by a ' +
@@ -202,7 +210,7 @@ export const V_COVERAGE: CoverageTable = {
   // P1 and P3 retagged V -> A in v0.6.1 — both are producer obligations (context-line minimum,
   // payload encoding/line endings), not Validity criteria for a received event, and neither
   // belongs in this table any longer. P1 was already `notCovered` here for exactly that reason
-  // before the retag made it official (see SPEC-FEEDBACK F1); P3 was wrongly `emitted` as a V-layer
+  // before the retag made it official (see F1); P3 was wrongly `emitted` as a V-layer
   // rejection — validate.ts still observes it (the check is falsifiable on receipt, unlike P1/E4),
   // but now as a non-rejecting A-layer annotation, tracked by patch-grammar.test.ts rather than
   // this V-only partition.

@@ -33,7 +33,7 @@ function assertPartial(actual: unknown, expected: Record<string, unknown>, ctx: 
  * protocol-error annotation, SF-3 for a self-fork report, RL-3 for a resource-limit report — never
  * by an arbitrary issue code nested inside it. Confirmed empirically: across every `chain` case in
  * `application.json`, `annotations`/`noAnnotations` use exactly these three values and no others.
- * H2 in particular is never itself an emitted issue code (RESOLVE.md §9 — it is satisfied by the
+ * H2 in particular is never itself an emitted issue code (#36 §9 — it is satisfied by the
  * annotation's *shape*, carrying event id/author/reason, not by a code inside it), so checking for
  * the literal string "H2" in `issues[].code` would always fail regardless of correctness.
  */
@@ -76,6 +76,13 @@ describe('conformance vectors — application.json, kind: chain (Appendix G)', (
       if (c.expect.chain !== undefined) {
         expect(result.chain.status, c.why).toBe(c.expect.chain.status)
         assertPartial(result.chain, c.expect.chain, c.why)
+      }
+
+      if (c.expect.pending !== undefined) {
+        expect(
+          result.pending,
+          `${c.why} — held patches (UR-2/UR-4) differ from the case's expectation`,
+        ).toEqual([...c.expect.pending].sort())
       }
 
       if (c.expect.overlays !== undefined) {

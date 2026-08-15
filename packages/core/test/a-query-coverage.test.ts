@@ -1,7 +1,7 @@
 /**
- * The Phase 6 gate, item BQ-6, `query` half (`docs/QUERY-BUILD.md` §4/§5).
+ * The Phase 6 gate, item BQ-6, `query` half (`#39` §4/§5).
  *
- * Every rule `docs/IMPLEMENTATION-PLAN.md` assigns to the `query` module must either emit its code
+ * Every rule `#53` assigns to the `query` module must either emit its code
  * here, or be listed as not-test-covered with a stated reason. The partition is machine-checked
  * against the plan's assignment, so a rule cannot be silently dropped.
  */
@@ -11,7 +11,7 @@ import type { RuleId } from '../src/rules.js'
 import { A_QUERY_COVERAGE } from './_a-query-coverage.js'
 import { itCoversEachRule, itReportsTheSplit } from './_coverage.js'
 
-/** From the module-ownership table in `docs/IMPLEMENTATION-PLAN.md`. */
+/** From the module-ownership table in `#53`. */
 const OWNED: readonly RuleId[] = ['DQ-1', 'DQ-2', 'DQ-3', 'DQ-4', 'BD-8']
 
 describe('Phase 6 gate — query-module rule coverage', () => {

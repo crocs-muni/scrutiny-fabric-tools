@@ -52,8 +52,18 @@ export const FABRIC_TAG = 'scrutiny-fabric'
 /** Every SCRUTINY event uses this Nostr kind (§3) — short text notes, disambiguated by `t` tags. */
 export const SCRUTINY_KIND = 1
 
-/** Version tag grammar (TAG-2). Three digits encoding MAJOR, MINOR, PATCH (VER-1). */
-export const VERSION_TAG_PATTERN = /^scrutiny-v\d{3}$/
+/** NIP-09 kind 5 deletions (§10). The single named source, exactly as {@link SCRUTINY_KIND} is for kind 1. */
+export const DELETION_KIND = 5
+
+/**
+ * Version tag grammar (TAG-2, amended in spec v0.7.0 — F14).
+ *
+ * Unpadded decimal integers encoding MAJOR.MINOR.PATCH (VER-1), with no fixed width and no
+ * digit-count ceiling in any field. Retires the old fixed-width `^scrutiny-v\d{3}$` form outright —
+ * no dual-path acceptance of it anywhere, since no real corpus exists to preserve compatibility
+ * with.
+ */
+export const VERSION_TAG_PATTERN = /^scrutiny-v(\d+)\.(\d+)\.(\d+)$/
 
 /** Indexer prefix grammar (IR-1): lowercase ASCII. */
 export const INDEXER_PREFIX_PATTERN = /^[a-z0-9-]+$/
@@ -176,35 +186,65 @@ export function versionTag(event: NostrEvent): string | undefined {
   return found.length === 1 ? found[0] : undefined
 }
 
-/** A version tag decomposed into its three digits (VER-1). */
+/**
+ * A version tag decomposed into its three fields (VER-1).
+ *
+ * Fields are kept as decimal **text**, never converted to `Number`: §3 imposes no digit-count
+ * ceiling on any field, and `Number` would silently lose integer precision above 2^53 —
+ * `Number('9007199254740993') === Number('9007199254740992')`. Callers needing arithmetic convert
+ * explicitly and own that choice; ordering ({@link compareVersionTags}) never pays it.
+ */
 export interface ProtocolVersion {
-  readonly major: number
-  readonly minor: number
-  readonly patch: number
+  readonly major: string
+  readonly minor: string
+  readonly patch: string
 }
 
 /** Parse a version tag, or `undefined` if it does not match the grammar. */
 export function parseVersionTag(tag: string): ProtocolVersion | undefined {
-  if (!VERSION_TAG_PATTERN.test(tag)) return undefined
-  const digits = tag.slice('scrutiny-v'.length)
-  return {
-    major: Number(digits[0]),
-    minor: Number(digits[1]),
-    patch: Number(digits[2]),
-  }
+  const match = VERSION_TAG_PATTERN.exec(tag)
+  if (match === null) return undefined
+  const [, major, minor, patch] = match
+  if (major === undefined || minor === undefined || patch === undefined) return undefined
+  return { major, minor, patch }
+}
+
+/**
+ * Arbitrary-precision numeric comparison of one unpadded decimal field: strip leading zeros (so
+ * `007` and `7` compare equal — the grammar admits them even though producers emit unpadded),
+ * then longer digit string wins, then lexicographic. The canonical width-independent algorithm —
+ * `cmp`-style digit-string comparison used by Go's `x/mod/semver` (`compareInt`), RPM's
+ * `rpmvercmp`, and glibc's `strverscmp` for exactly this problem.
+ */
+function compareVersionField(a: string, b: string): number {
+  const x = a.replace(/^0+(?=\d)/, '')
+  const y = b.replace(/^0+(?=\d)/, '')
+  if (x.length !== y.length) return x.length < y.length ? -1 : 1
+  if (x === y) return 0
+  return x < y ? -1 : 1
 }
 
 /**
  * Compare two version tags: negative if `a` precedes `b`, zero if equal, positive if `a` follows.
  *
- * VER-1 guarantees lexicographic comparison of the three-digit suffix coincides with semantic
- * ordering, because the digits are zero-padded and fixed-width. Non-matching tags sort before all
- * valid ones rather than throwing.
+ * VER-1 (amended in spec v0.7.0 — F14): ordering is a per-field numeric tuple comparison, never a
+ * lexicographic or wholesale string comparison. The retired three-digit form's "zero-padded, so
+ * lexicographic coincides with numeric" claim does not survive an unpadded field — this replaces it
+ * rather than layering on top of it. Per-field comparison is width-independent by construction
+ * (see `compareVersionField`) — `scrutiny-v9007199254740993.0.0` sorts strictly after
+ * `scrutiny-v9007199254740992.0.0`, which `Number`-based comparison could not tell apart.
+ * Non-matching tags sort before all valid ones rather than throwing.
  */
 export function compareVersionTags(a: string, b: string): number {
-  const sa = VERSION_TAG_PATTERN.test(a) ? a.slice('scrutiny-v'.length) : ''
-  const sb = VERSION_TAG_PATTERN.test(b) ? b.slice('scrutiny-v'.length) : ''
-  return sa < sb ? -1 : sa > sb ? 1 : 0
+  const va = parseVersionTag(a)
+  const vb = parseVersionTag(b)
+  if (va === undefined) return vb === undefined ? 0 : -1
+  if (vb === undefined) return 1
+  return (
+    compareVersionField(va.major, vb.major) ||
+    compareVersionField(va.minor, vb.minor) ||
+    compareVersionField(va.patch, vb.patch)
+  )
 }
 
 /** A parsed `i` tag value (§9). */

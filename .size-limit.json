@@ -1,0 +1,14 @@
+[
+  {
+    "name": "index.js (full barrel)",
+    "path": "packages/core/dist/index.js",
+    "import": "*",
+    "limit": "20 KB"
+  },
+  {
+    "name": "id.js (subpath, D5 tree-shaking)",
+    "path": "packages/core/dist/id.js",
+    "import": "*",
+    "limit": "1 KB"
+  }
+]

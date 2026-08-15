@@ -3,15 +3,16 @@
  * those three are the injected signer's job.
  *
  * E4 (variable-length fences) and P1/P3/P4 (producer obligations unfalsifiable on receipt) are this
- * module's sole enforcement point. See `docs/QUERY-BUILD.md` §2 for the full design, including the
+ * module's sole enforcement point. See `#39` §2 for the full design, including the
  * P2 double-listing note (§2.2) and why P4 is the one rule here with a real emission (§2.4).
  */
 
 import { type Issue, issue } from './errors.js'
 import { EVENT_TYPE_TAGS, FABRIC_TAG, SCRUTINY_KIND, parseIndexer } from './events.js'
 import type { IndexedEventType, ScrutinyEventType, UnsignedEvent } from './events.js'
-import { type Hunk, diffHunks, lineCount, occurrences, spliceAt, toLines } from './patch-matcher.js'
-import { type ApplyOptions, applyPatchContent, makePatch } from './patch.js'
+import { widenContext } from './patch-matcher.js'
+import type { ApplyOptions } from './patch-types.js'
+import { applyPatchContent, makePatch } from './patch.js'
 import { VERSION_TAG } from './version.js'
 
 /** The result of every builder in this module. `issues` is always present (see the module doc). */
@@ -139,7 +140,7 @@ function buildIndexedEvent(
 
   // IX-2, producer side. `validate.ts` already enforces the same ceiling on receipt, but cites the
   // per-event-type siblings PR-2/MD-2 there — IX-2 states it for events generally, and this is the
-  // only place a producer can be told before publishing. See docs/QUERY-BUILD.md §2.2 for why one
+  // only place a producer can be told before publishing. See #39 §2.2 for why one
   // obligation carrying several rule IDs is normal here rather than a conflict.
   const own =
     indexers.length > MAX_INDEXER_TAGS
@@ -211,7 +212,7 @@ export function buildBinding(
 
 /**
  * Longest run of consecutive backticks anywhere in `payload` (E4). Scanned globally rather than
- * line-anchored — see `docs/QUERY-BUILD.md` §2.3 for why the wider scan is the correct conservative
+ * line-anchored — see `#39` §2.3 for why the wider scan is the correct conservative
  * choice rather than a re-derivation of CommonMark's closing-fence grammar.
  */
 function longestBacktickRun(payload: string): number {
@@ -220,7 +221,7 @@ function longestBacktickRun(payload: string): number {
   return max
 }
 
-/** E4 — `max(3, N + 1)`, where `N` is {@link longestBacktickRun}. */
+/** E4 — `max(3, N + 1)`, where `N` is `longestBacktickRun`. */
 export function fenceLength(payload: string): number {
   return Math.max(3, longestBacktickRun(payload) + 1)
 }
@@ -239,80 +240,15 @@ export function fencePatchPayload(payload: string, info = 'diff'): string {
  * §5.4's recommended bound on the widening search's own total work, identical unit and default to
  * `patch.ts`'s `ApplyOptions.maxWork`: a pair whose widening cannot finish inside the budget a
  * consumer's default would allow is one whose eventual application would strain that consumer
- * anyway (CONTEXT-WIDENING.md §3) — so the producer degrades to the same P4 warning the consumer's
+ * anyway (#42 §3) — so the producer degrades to the same P4 warning the consumer's
  * own gate would have produced.
  */
 const DEFAULT_MAX_WIDEN_WORK = 16 * 1024 * 1024
 
-/** The widening search's outcome: the context that won (or the last one tried), and its hunks. */
-export interface WidenResult {
-  readonly context: number
-  readonly hunks: readonly Hunk[]
-  readonly exhausted: boolean
-}
+// The widening machinery lives in ./patch-matcher.js (S3-17 — internal algorithms stay off public modules).
 
 /**
- * Widen linearly — step EXACTLY 1, never a stride or binary search (CONTEXT-WIDENING.md §2.1) —
- * from `startContext` up to full-file context, stopping at the first context where every hunk's
- * T1 pattern is unique. Each hunk is checked against the content produced by every prior hunk in
- * the same trial payload via `spliceAt`, exactly mirroring T3's sequencing in `applyPatchPayload`
- * (§2.2: an independent per-hunk check against the static pre-patch lines can report `unique`
- * where the real consumer-side scan would still find ambiguity). Work is charged per F12's
- * per-element floor (`len(line) + 1` per pattern line times the *running* line count), so a
- * blank-line-dominated pattern still costs the scan it causes (§3).
- *
- * Termination is arithmetic: `context` increases by one per iteration, clamped to `fullContext`,
- * and §2.3 proves a pattern spanning the whole file is unique by a length argument alone — so
- * `exhausted: true` is reachable only through a `ceilingWork` cut-off (or kept as the honest
- * fullContext guard the spec's own comment requires). A `spliceAt` failure mid-trial (an
- * EOF-marker branch, C5-shaped) is not an ambiguity widening is guaranteed to fix: the trial
- * treats it as unresolved and keeps widening — the final verdict remains the P4 self-check's,
- * which is exactly the §4 composition.
- */
-export function widenContext(
-  before: string,
-  after: string,
-  startContext: number,
-  ceilingWork: number,
-): WidenResult {
-  const beforeLines = toLines(before)
-  const afterLines = toLines(after)
-  const fullContext = Math.max(lineCount(beforeLines), lineCount(afterLines))
-  let work = 0
-
-  for (let context = startContext; ; context++) {
-    const capped = Math.min(context, fullContext)
-    const hunks = diffHunks(before, after, capped)
-
-    let lines = beforeLines
-    let ambiguous = false
-    for (const hunk of hunks) {
-      if (hunk.oldPat.length === 0) continue // T2's carve-out — no pattern to disambiguate
-
-      const cost = lines.length * hunk.oldPat.reduce((sum, line) => sum + line.length + 1, 0)
-      work += cost
-      if (work > ceilingWork) return { context: capped, hunks, exhausted: true }
-
-      const found = occurrences(lines, hunk.oldPat)
-      if (found.count !== 1) {
-        ambiguous = true
-        break // atomic, same as T3 — a later hunk in this trial is never scanned past the first miss
-      }
-      const spliced = spliceAt(lines, hunk, found.first)
-      if (!spliced.ok) {
-        ambiguous = true
-        break
-      }
-      lines = spliced.lines
-    }
-
-    if (!ambiguous) return { context: capped, hunks, exhausted: false }
-    if (capped === fullContext) return { context: capped, hunks, exhausted: true } // see §2.3
-  }
-}
-
-/**
- * `buildPatch`'s parameters as ONE named-fields object (mandate §10 / `AUDIT-2026-07-31.md` §10
+ * `buildPatch`'s parameters as ONE named-fields object (mandate §10 / `#46` §10
  * item 3): `root`/`reply` and `before`/`after` are same-typed positional pairs, and swapping
  * `before`/`after` used to produce a plausible *inverse* patch that still passed the P4
  * self-check — against the wrong baseline. With named fields the swap is a compile error, not a
@@ -325,14 +261,14 @@ export interface BuildPatchOptions {
   readonly after: string
   readonly createdAt: number
   /**
-   * P1's floor and the widening search's *starting* context (CONTEXT-WIDENING.md §2 — the floor
+   * P1's floor and the widening search's *starting* context (#42 §2 — the floor
    * is the fast path, widening elects to do better than the floor when the floor itself would
    * make the patch ambiguous on its own admitted input). Defaults to 3. Leave it alone except to
    * exercise the zero-context shape in a test, exactly as `patch.ts`'s own `context` exists for.
    */
   readonly context?: number
   /**
-   * The widening search's work ceiling (CONTEXT-WIDENING.md §3, Phase 18's option folded into
+   * The widening search's work ceiling (#42 §3, Phase 18's option folded into
    * this object). Defaults to `DEFAULT_MAX_WIDEN_WORK`.
    */
   readonly maxWidenWork?: number
@@ -347,7 +283,7 @@ export interface BuildPatchOptions {
 /**
  * Build a Patch template carrying the unified diff from `before` to `after`.
  *
- * Resolves the context via the widening loop first (CONTEXT-WIDENING.md §2), then calls
+ * Resolves the context via the widening loop first (#42 §2), then calls
  * `makePatch` exactly once at the resolved context. P4 (self-verification) is unchanged in
  * shape: after assembling `template.content`, this re-applies it via the same
  * fence-lookup-then-apply path a real consumer uses (`applyPatchContent`, now with the caller's
