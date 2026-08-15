@@ -56,7 +56,7 @@ export const SCRUTINY_KIND = 1
 export const DELETION_KIND = 5
 
 /**
- * Version tag grammar (TAG-2, amended in spec v0.7.0 — SPEC-FEEDBACK F14).
+ * Version tag grammar (TAG-2, amended in spec v0.7.0 — F14).
  *
  * Unpadded decimal integers encoding MAJOR.MINOR.PATCH (VER-1), with no fixed width and no
  * digit-count ceiling in any field. Retires the old fixed-width `^scrutiny-v\d{3}$` form outright —

@@ -4,7 +4,7 @@
  * D16 names four branded interfaces (`RelayTransport`, `EventStorage`, `ScrutinySigner`,
  * `TrustProvider`); this file holds the ones an implemented module already consumes: `admit`
  * brought `TrustProvider` (D21), `store` brought `EventStorage` (D15/D37), and `RelayTransport`
- * landed here in Phase 17 (docs/RELAY-TRANSPORT.md). `ScrutinySigner` remains deferred to its
+ * landed here in Phase 17 (#44). `ScrutinySigner` remains deferred to its
  * first consumer (the CLI, Phase 10).
  *
  * Not a subpath export (see the plan's exports map) — these types are re-exported from the root
@@ -28,7 +28,7 @@ export const trustSymbol = Symbol.for('@scrutiny-fabric/trust')
  * this interface — it assumes only that a pubkey can be classified trusted or not.
  *
  * `version` and `deltaSince` exist for the incremental recompute Phase 16 introduces
- * (trust-filtered views over trust changes, docs/TRUST-VIEW.md); nothing in the codebase calls
+ * (trust-filtered views over trust changes, #41); nothing in the codebase calls
  * them today. `deltaSince` returning `null` means "rebuild from
  * scratch" and MUST be legal — a subtly wrong delta is worse than an occasional full rebuild.
  */
@@ -46,7 +46,7 @@ export const storageSymbol = Symbol.for('@scrutiny-fabric/storage')
 
 /**
  * A NIP-01 relay filter. `query.ts` (Phase 6) builds and returns exactly this type rather than a
- * parallel shape of its own. **Flat**, per Phase 13 (`docs/AUDIT-2026-07-31.md` P2,
+ * parallel shape of its own. **Flat**, per Phase 13 (`#46` P2,
  * `PLAN-2026-08-01-rewrite-mandate.md` §1): NIP-01 filters carry single-letter tag filters
  * (`#e`, `#t`, `#i`, `#k`, …) as top-level `#`-prefixed keys, not nested under a `tags` field no
  * relay recognises — a filter shaped the old way silently degrades to "match everything" the moment

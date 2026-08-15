@@ -14,7 +14,7 @@
  * unmutated baseline, and mutates src/ for the patched run).
  *
  * Evidence convention: every "equivalent mutant" justification in this repo must cite a
- * `pnpm mutant-check` run as its evidence (docs/QUALITY-AUDIT-2026-08-08.md §3 Step-5, T5-a).
+ * `pnpm mutant-check` run as its evidence (#48 §3 Step-5, T5-a).
  */
 
 import { execFileSync } from 'node:child_process'

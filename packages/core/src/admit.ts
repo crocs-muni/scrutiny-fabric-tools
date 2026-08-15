@@ -13,7 +13,7 @@
  *    the admission it conferred, which folds into mechanism 1's bookkeeping.
  *
  * The design, including why root-chain propagation cannot reuse `resolve.ts`'s canonical-chain
- * walk and why a foreign patch's reason set is provably a singleton, is in `docs/ADMIT.md`.
+ * walk and why a foreign patch's reason set is provably a singleton, is in `#37`.
  */
 
 import {
@@ -36,7 +36,7 @@ import type { Overlay } from './resolve.js'
 /**
  * Why an event is admitted (D23). A template-literal union so two `Reason` values naming the same
  * binding or root are `===`-equal without a custom equality function — required for
- * {@link AdmissionIndex} to support plain deep equality (§0 of `docs/ADMIT.md`).
+ * {@link AdmissionIndex} to support plain deep equality (§0 of `#37`).
  */
 export type Reason = 'direct-trust' | `binding:${string}` | `root-chain:${string}`
 
@@ -155,7 +155,7 @@ export function isDefaultViewRetracted(
  * walk: that walk stops at the first self-fork and does not extend past a HALT, but TR-5 admits
  * root-author patches unconditionally — a self-fork's second branch and a post-HALT patch must
  * still be admitted, or the client could never render the very warnings SF-3/H2 require. See
- * `docs/ADMIT.md` §4.
+ * `#37` §4.
  *
  * Two flat filter passes, not an iterated fixed point: "root-author patch of root R" and
  * "root-author kind-5 targeting one of those" are each computed directly from `root`, never from
@@ -227,7 +227,7 @@ export function computeAdmission(
   for (const event of all) if (trust.isTrusted(event.pubkey)) credit(event.id, 'direct-trust')
 
   // TR-3/TR-4 — a Binding admitted only by direct trust in its own pubkey (never transitively)
-  // credits both endpoints, unless it has itself been retracted (DEL-5; see docs/ADMIT.md §8 —
+  // credits both endpoints, unless it has itself been retracted (DEL-5; see #37 §8 —
   // retraction and revoked trust collapse to the same "not live" test deliberately).
   for (const bindingEvent of bindingEvents) {
     const endpoints = bindingEndpoints(bindingEvent)
@@ -250,7 +250,7 @@ export function computeAdmission(
   const out = toNullProtoRecord(
     // Stryker disable next-line ConditionalExpression,EqualityOperator,ArrayDeclaration: the
     // oracle builds reason sets ONLY through credit() above, so an empty set can never exist
-    // here; the filter is the ADMIT.md §2 shape contract, not reachable behaviour (Stryker's
+    // here; the filter is the #37 §2 shape contract, not reachable behaviour (Stryker's
     // NoCoverage flag on this line records exactly that). The incremental `toState` twin —
     // where uncredit() CAN empty a set — is killed by AG2's round-trip and stays enabled.
     [...reasons].flatMap(([id, set]) => (set.size > 0 ? [[id, [...set].sort()] as const] : [])),
@@ -287,7 +287,7 @@ export const openView: AdmissionView = { isAdmitted: () => true }
  * never be a Binding endpoint, and by TR-6 (root-chain requires `pubkey = root.pubkey`, which
  * "foreign" contradicts by definition) it can never receive `root-chain:*` either — so a foreign
  * patch's reason set is always a subset of `{'direct-trust'}`, and `isAdmitted` on its own id
- * answers exactly the question OV-7 asks. See `docs/ADMIT.md` §7.
+ * answers exactly the question OV-7 asks. See `#37` §7.
  *
  * Called *after* `resolve` has already produced `overlays`, never before — `resolve` itself never
  * receives a view or a `TrustProvider`, so there is no parameter through which trust could reach
@@ -315,7 +315,7 @@ export function visibleOverlays(
  *
  * `liveBindings` is the D23 guard: a Binding's contribution to its endpoints is applied at most
  * once, no matter how many times the same live/dead transition is (redundantly) delivered — see
- * `docs/ADMIT.md` §5.
+ * `#37` §5.
  */
 export interface AdmitState {
   readonly reasons: Readonly<Record<string, readonly Reason[]>>
@@ -348,7 +348,7 @@ export function toIndex(state: AdmitState): AdmissionIndex {
  * first delta in a sequence, with no earlier "trust" for it to pair against. A syntactic inverse
  * of a standalone no-op `untrust` is not a no-op — it fabricates trust from nothing. This was
  * found by AG2's property test failing on the single-delta sequence `[untrust(pk)]`, not reasoned
- * out in advance; see `docs/ADMIT.md` §9.
+ * out in advance; see `#37` §9.
  */
 export type ForwardDelta =
   | { readonly kind: 'observe'; readonly events: readonly NostrEvent[] }
@@ -526,7 +526,7 @@ function resync(w: Working): void {
  * Every primitive mutation below is a guarded transition (already-observed ids are skipped,
  * already-(un)trusted pubkeys are skipped), and `resync` re-derives Binding liveness and
  * root-chain membership from the guard tables rather than from a running counter — see
- * `docs/ADMIT.md` §5 for why that is what actually prevents D23's sticky-admission bug, and §9 for
+ * `#37` §5 for why that is what actually prevents D23's sticky-admission bug, and §9 for
  * why `unobserve` un-cascades a removed root's membership *before* deleting it (its members are
  * still-observed patches; only the root object itself is about to disappear).
  */

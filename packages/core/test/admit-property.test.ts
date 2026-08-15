@@ -1,5 +1,5 @@
 /**
- * The Phase 4 gate, items AG1 and AG2 (`docs/ADMIT.md` §10).
+ * The Phase 4 gate, items AG1 and AG2 (`#37` §10).
  *
  * AG1 — incremental admission ≡ full recompute, checked after **every prefix** of a delta
  * sequence, not only at the end: D23's sticky-admission bug is specifically a bug that appears
@@ -97,7 +97,7 @@ const actionArb: fc.Arbitrary<Action> = fc.oneof(
 
 const sequenceArb: fc.Arbitrary<readonly Action[]> = fc.array(actionArb, { maxLength: 40 })
 
-/** `observe`/`trust` only — the subset {@link invertDelta} accepts; see `docs/ADMIT.md` §9 on
+/** `observe`/`trust` only — the subset {@link invertDelta} accepts; see `#37` §9 on
  * why `untrust` cannot originate an invertible sequence: it can be a standalone no-op with no
  * earlier `trust` to pair against under a LIFO undo, which a syntactic inverse cannot detect. */
 const forwardActionArb: fc.Arbitrary<Action> = fc.oneof(
@@ -175,7 +175,7 @@ describe('AG1 — incremental admission ≡ full recompute, after every prefix',
 
   /**
    * A pubkey trusted more than once, then later untrusted in the same sequence — the exact D23
-   * shape ("a revocation following a redundant re-application") ADMIT.md §10 names, distinct from
+   * shape ("a revocation following a redundant re-application") #37 §10 names, distinct from
    * `redundantObserve` below, which counts any repeated action regardless of whether it is ever
    * revoked.
    */
@@ -300,7 +300,7 @@ describe('AG4 — two Bindings credit the same endpoint, only one revoked', () =
     (revocation) => [...guaranteedPrefix, ...revocation],
   )
 
-  it('reaches the shape ADMIT.md §10 names, with a floor', () => {
+  it('reaches the shape #37 §10 names, with a floor', () => {
     let hits = 0
     fc.assert(
       fc.property(twoBindingsSequenceArb, (actions) => {
@@ -351,7 +351,7 @@ describe('AG4 — self-fork admitted via root-chain only, root author untrusted'
     .array(harmlessNoiseArb, { maxLength: 15 })
     .map((noise) => [...guaranteedPrefix, ...noise])
 
-  it('reaches the shape ADMIT.md §10 names, with a floor', () => {
+  it('reaches the shape #37 §10 names, with a floor', () => {
     let hits = 0
     fc.assert(
       fc.property(rootChainOnlySequenceArb, (actions) => {
@@ -444,7 +444,7 @@ const sequenceWithUnobserveArb: fc.Arbitrary<readonly Action[]> = fc.array(
 
 /** True when `state` shows root admitted with at least one member holding its root-chain
  * reason and delta `d` unobserves the root, or when `d` unobserves an id that currently holds
- * at least one reason — the two transitions ADMIT.md §9 invariants 2 and 3 name. */
+ * at least one reason — the two transitions #37 §9 invariants 2 and 3 name. */
 function isCascadeShape(state: AdmissionIndex, d: AdmissionDelta): boolean {
   if (d.kind !== 'unobserve') return false
   const rootAdmitted = (state.reasons[root.id]?.length ?? 0) > 0

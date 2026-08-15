@@ -390,7 +390,7 @@ function checkPatch(
     )
     // No BD-7-equivalent caching rule: UR-3 already forbids caching while the root is unobserved,
     // and a root's own type cannot change on further observation once it is, so this rejection is
-    // safe to treat as permanent without a dedicated rule (see SPEC-FEEDBACK F13).
+    // safe to treat as permanent without a dedicated rule (see F13).
     issues.push(issue('PT-11', 'error', 'Patch e root violates the typing rule; not admitted'))
   }
 
@@ -568,7 +568,7 @@ function checkPatchPayload(event: NostrEvent, issues: Issue[]): void {
 /**
  * Check a payload against §5.2's consumer grammar.
  *
- * Two points, both once departures and both now agreements — see `docs/SPEC-FEEDBACK-v0.6.0.md`:
+ * Two points, both once departures and both now agreements (F3, F7):
  *
  * - Line bodies are any sequence of characters other than LF. This *was* a departure: v0.6.0's
  *   grammar said `*VCHAR`, ABNF `%x21-7E`, which excludes the space and every non-ASCII byte, so

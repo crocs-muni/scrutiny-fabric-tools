@@ -9,12 +9,12 @@
  *
  * The design, including the pending-reference buffer's actual shape, the epoch data structure, why
  * BD-7's rejection cache and DEL-8/9's deletion cache cannot cross-contaminate, and a design gap
- * found and fixed before any code existed, is in `docs/STORE.md`. Phase 14
- * (`docs/VALIDATION-WIRING.md`) wires `validateEvent` into the observe path, generalizing the
+ * found and fixed before any code existed, is in `#38`. Phase 14
+ * (`#40`) wires `validateEvent` into the observe path, generalizing the
  * Binding-only `rejectedBindings`/`bindingsAwaiting` fields into rule-agnostic `invalidIds`/
  * `pendingAwaiting` and excluding `invalidIds` from `resolveRoot`'s event feed. Phase 15
- * (`docs/OVERLAY-AWAITING.md`) adds the `overlayAwaiting` reverse index that closes the resolve-memo
- * staleness gap (D24/C10). Phase 16 (`docs/TRUST-VIEW.md`) adds `admissionView()`/`viewRoot()` — the
+ * (`#43`) adds the `overlayAwaiting` reverse index that closes the resolve-memo
+ * staleness gap (D24/C10). Phase 16 (`#41`) adds `admissionView()`/`viewRoot()` — the
  * store's own trust-filtered overlay view, composing `resolveRoot` with `trustedView`/`visibleOverlays`.
  */
 
@@ -53,7 +53,7 @@ import { validateEvent } from './validate.js'
 /**
  * Plain data — no methods, no closures (D43's precedent, same discipline as `Resolution`/
  * `AdmissionIndex`). SG1 compares a projection of this (`StoreView`, below), not this type directly
- * — see `docs/STORE.md` §3's correction and §9.
+ * — see `#38` §3's correction and §9.
  */
 export interface StoreState {
   /**
@@ -64,7 +64,7 @@ export interface StoreState {
   readonly admit: AdmitState
 
   /**
-   * Every id whose current V-verdict is `'invalid'` (VALIDATION-WIRING.md §3). Generalizes the
+   * Every id whose current V-verdict is `'invalid'` (#40 §3). Generalizes the
    * pre-Phase-14 `rejectedBindings` — BD-7 was never a special case, it was the only rejection rule
    * `store` happened to check before every V rule was wired through `validateEvent`. Sorted, for
    * deep-equality-friendly plain data. Monotone: no V rule re-examines an already-resolved
@@ -74,11 +74,11 @@ export interface StoreState {
    */
   readonly invalidIds: readonly string[]
 
-  /** Patch/overlay event id → the root id it declared via `e root`. See STORE.md §2. */
+  /** Patch/overlay event id → the root id it declared via `e root`. See #38 §2. */
   readonly chainMembership: Readonly<Record<string, string>>
   /**
    * Awaited event id → ids of events whose V-verdict is still `'pending'` on it
-   * (VALIDATION-WIRING.md §2). Generalizes the pre-Phase-14 `bindingsAwaiting` (Binding-endpoint-only)
+   * (#40 §2). Generalizes the pre-Phase-14 `bindingsAwaiting` (Binding-endpoint-only)
    * into a rule-agnostic buffer driven entirely by `validateEvent`'s own `awaiting` field — BD-6's
    * two endpoints, UR-2's patch root, and PT-7's foreign-overlay reply target are three instances of
    * one mechanism, not three separate ones.
@@ -86,13 +86,13 @@ export interface StoreState {
   readonly pendingAwaiting: Readonly<Record<string, readonly string[]>>
   /**
    * Overlay-reply target id → root id(s) whose resolution reads that target's observedness.
-   * See docs/OVERLAY-AWAITING.md §3/§4. Never cleared, in either direction.
+   * See #43 §3/§4. Never cleared, in either direction.
    */
   readonly overlayAwaiting: Readonly<Record<string, readonly string[]>>
 
   readonly trustEpoch: number
   readonly observedEpoch: number
-  /** Per-root chain epoch. Bump count is arrival-order-dependent by design — STORE.md §3/§10. */
+  /** Per-root chain epoch. Bump count is arrival-order-dependent by design — #38 §3/§10. */
   readonly chainEpoch: Readonly<Record<string, number>>
 }
 
@@ -108,7 +108,7 @@ export const EMPTY_STORE_STATE: StoreState = Object.freeze({
 })
 
 /**
- * The confluence-tested projection (STORE.md §3/§9). Excludes `chainEpoch`/`chainMembership`/
+ * The confluence-tested projection (#38 §3/§9). Excludes `chainEpoch`/`chainMembership`/
  * `pendingAwaiting`/`overlayAwaiting`, whose exact values are legitimately arrival-order-dependent
  * cache bookkeeping — the same move `admit.ts`'s own `toIndex` makes over `AdmitState`'s order-sensitive
  * `liveBindings`.
@@ -128,7 +128,7 @@ export function toStoreView(state: StoreState): StoreView {
 }
 
 // ---------------------------------------------------------------------------
-// The pending-reference buffer (VALIDATION-WIRING.md §2) — rule-agnostic, driven by
+// The pending-reference buffer (#40 §2) — rule-agnostic, driven by
 // `validateEvent`'s own `awaiting` field for any V rule that produces one.
 // ---------------------------------------------------------------------------
 
@@ -151,7 +151,7 @@ function removeAwaiting(
 
 /**
  * Runs `validateEvent` once and folds the verdict into `invalidIds`/`pendingAwaiting`
- * (VALIDATION-WIRING.md §2/§3) — the single place this reducer decides what the V layer currently
+ * (#40 §2/§3) — the single place this reducer decides what the V layer currently
  * says about an event. `checkBindingTyping`'s hand-rolled BD-3/BD-4/BD-7 comparison is gone: this
  * calls the public `validateEvent`, which dispatches to `checkBinding` (and every other per-type
  * checker) internally, so there is exactly one implementation of each rule, not two.
@@ -190,13 +190,13 @@ function bump(epochs: Map<string, number>, id: string): void {
 }
 
 /**
- * STORE.md §3's per-event chain-epoch table: which root id(s) does this event's own arrival *or*
+ * #38 §3's per-event chain-epoch table: which root id(s) does this event's own arrival *or*
  * removal affect. Shared by `processObservedEvent` (observe) and the `unobserve` loop below, which
  * previously hand-duplicated this dispatch — the one real asymmetry between the two callers is
  * *how* a kind-5 deletion's target resolves to an owning root (a live `chainMembership` Map being
  * built during observe vs. the frozen `state.chainMembership` snapshot during unobserve), which is
  * why that lookup is the one thing parameterised rather than shared outright. Phase 15
- * (docs/OVERLAY-AWAITING.md) adds a third parameter for the overlay-awaiting reverse index.
+ * (#43) adds a third parameter for the overlay-awaiting reverse index.
  */
 function chainEpochTargets(
   event: NostrEvent,
@@ -225,9 +225,9 @@ function chainEpochTargets(
 }
 
 /**
- * The per-event chainMembership/chainEpoch bookkeeping in STORE.md §3, plus the V-layer verdict
- * wiring (VALIDATION-WIRING.md §2) that populates/drains `invalidIds`/`pendingAwaiting`. Phase 15
- * (docs/OVERLAY-AWAITING.md) adds `overlayAwaiting` population and lookup.
+ * The per-event chainMembership/chainEpoch bookkeeping in #38 §3, plus the V-layer verdict
+ * wiring (#40 §2) that populates/drains `invalidIds`/`pendingAwaiting`. Phase 15
+ * (#43) adds `overlayAwaiting` population and lookup.
  */
 function processObservedEvent(
   event: NostrEvent,
@@ -262,7 +262,7 @@ function processObservedEvent(
   const waiting = pendingAwaiting.get(event.id)
   if (waiting !== undefined) {
     for (const pendingId of [...waiting]) {
-      // Remove only this one resolved slot (VALIDATION-WIRING.md §2) — a still-unresolved awaited
+      // Remove only this one resolved slot (#40 §2) — a still-unresolved awaited
       // id from an earlier partial check is re-derived, not pruned, by the re-validation below.
       removeAwaiting(pendingAwaiting, event.id, pendingId)
       const pendingEvent = observedById[pendingId]
@@ -360,9 +360,9 @@ export function applyStoreDelta(state: StoreState, delta: StoreDelta): StoreStat
         if (event === undefined) continue
 
         // If this event's own V-verdict was pending, stop waiting for whatever it awaited — it can
-        // no longer resolve to anything once it leaves the observed set (VALIDATION-WIRING.md §2's
+        // no longer resolve to anything once it leaves the observed set (#40 §2's
         // generalization of the pre-Phase-14 BD-6-only cleanup). `invalidIds` needs no equivalent
-        // cleanup (VALIDATION-WIRING.md §4): a verdict already resolved to `invalid` is permanent —
+        // cleanup (#40 §4): a verdict already resolved to `invalid` is permanent —
         // no V rule re-examines an already-resolved dependency and reverses course — and it simply
         // also leaves `observedById`, at which point `resolveRoot`'s exclusion filter is moot for it.
         const verdict = validateEvent(event, {
@@ -372,9 +372,9 @@ export function applyStoreDelta(state: StoreState, delta: StoreDelta): StoreStat
           for (const awaitedId of verdict.awaiting) removeAwaiting(pendingAwaiting, awaitedId, id)
         }
 
-        // Symmetric to observe (STORE.md §3): removing an event can affect a root's resolve()
+        // Symmetric to observe (#38 §3): removing an event can affect a root's resolve()
         // output too, so the same epoch(s) that would have been bumped on arrival bump on removal.
-        // Phase 15 adds the overlayAwaiting lookup — never mutated on unobserve (docs/OVERLAY-AWAITING.md §4).
+        // Phase 15 adds the overlayAwaiting lookup — never mutated on unobserve (#43 §4).
         for (const target of chainEpochTargets(
           event,
           (refId) => state.chainMembership[refId],
@@ -422,7 +422,7 @@ export function applyStoreDelta(state: StoreState, delta: StoreDelta): StoreStat
 }
 
 // ---------------------------------------------------------------------------
-// The Resolution memo (D28/D38) — beside StoreState, not inside it (STORE.md §6)
+// The Resolution memo (D28/D38) — beside StoreState, not inside it (#38 §6)
 // ---------------------------------------------------------------------------
 
 interface MemoEntry {
@@ -459,10 +459,10 @@ function optionsKeyOf(options: ResolveOptions | undefined): string {
 
 /**
  * Reads a root through the epoch-gated memo, recomputing via `resolve()` only when absent or when
- * `chainEpoch[rootId]` has moved since the cached entry (STORE.md §6). Trust is deliberately not part
+ * `chainEpoch[rootId]` has moved since the cached entry (#38 §6). Trust is deliberately not part
  * of the key or the cache at all (D26's precedent) — `overlays` here is every overlay in the observed
  * set, unfiltered. For a trust-filtered overlay view, use `Store.viewRoot` (or `admissionView()` +
- * `visibleOverlays`) — see docs/TRUST-VIEW.md.
+ * `visibleOverlays`) — see #41.
  */
 export function resolveRootMemoized(
   state: StoreState,
@@ -478,7 +478,7 @@ export function resolveRootMemoized(
     return cached.resolution
   }
 
-  // Excludes `invalidIds` (VALIDATION-WIRING.md §4) — no separate cache key is needed for it: the
+  // Excludes `invalidIds` (#40 §4) — no separate cache key is needed for it: the
   // only way `invalidIds` changes is within an `observe` delta, and every `observe` delta bumps
   // `observedEpoch`, so the epoch gate below already re-filters exactly when `invalidIds` could
   // have changed.
@@ -495,7 +495,7 @@ export function resolveRootMemoized(
 }
 
 // ---------------------------------------------------------------------------
-// Verification and dedup (D18/D19/D20, SIG-1 enforcement) — STORE.md §5
+// Verification and dedup (D18/D19/D20, SIG-1 enforcement) — #38 §5
 // ---------------------------------------------------------------------------
 
 export interface CreateStoreOptions {
@@ -534,7 +534,7 @@ export interface PendingEvent {
 
 /**
  * `accepted` answers "did this id get folded into `applyStoreDelta`'s `observe` case" — a storage
- * question, never a validity one (VALIDATION-WIRING.md §0/§1): every event that passes the SIG-1
+ * question, never a validity one (#40 §0/§1): every event that passes the SIG-1
  * gate is accepted, full stop, regardless of what `validateEvent` later says about it. A validator
  * bug must never be indistinguishable from a real protocol violation by silently discarding the
  * event — the DEL-4 "never silently drop, preserve for audit" argument, applied to this failure mode.
@@ -580,12 +580,12 @@ export interface Store {
   trust(pubkeys: readonly string[]): void
   untrust(pubkeys: readonly string[]): void
   resolveRoot(rootId: string, options?: ResolveOptions): Resolution
-  /** The current trust view of this Store's admit state, for OV-7 overlay filtering (TRUST-VIEW.md §2). */
+  /** The current trust view of this Store's admit state, for OV-7 overlay filtering (#41 §2). */
   admissionView(): AdmissionView
   /**
    * A trust-filtered resolution: `resolveRoot` followed by filtering ONLY `overlays` through
    * `visibleOverlays` with the given (or defaulted) admission view — D25/TR-7, so `chain`/
-   * `pending`/`annotations` are never gated on trust (docs/TRUST-VIEW.md §2).
+   * `pending`/`annotations` are never gated on trust (#41 §2).
    */
   viewRoot(rootId: string, options?: ViewRootOptions): Resolution
   getState(): StoreState
@@ -599,7 +599,7 @@ export interface Store {
 /**
  * DEL-1 (pubkey must match the target's) / DEL-6 (a kind 5 cannot itself be deleted) — the same
  * raw predicate `resolve.ts`'s own `honouredDeletions` applies, kept local here rather than shared
- * since this is a storage-level, non-cascading check (STORE.md §7): "is this exact event targeted by
+ * since this is a storage-level, non-cascading check (#38 §7): "is this exact event targeted by
  * an honoured kind 5," never chain-topology-aware. DEL-2's canonical-descendant cascade stays
  * `resolve.ts`'s job — nothing here re-derives it.
  */
@@ -619,7 +619,7 @@ function honouredlyDeletedIds(byId: ReadonlyMap<string, NostrEvent>): Set<string
 }
 
 /**
- * Phase 21 (mandate §14, `AUDIT-2026-07-31.md` §5): the default in-memory adapter gets real
+ * Phase 21 (mandate §14, `#46` §5): the default in-memory adapter gets real
  * indexes instead of one `Map` plus a full scan per filter — by `kind`, by exact `i`-tag value,
  * by `e`-tag reference, and by `t`-tag **restricted to the four event-type tags**. Applicable
  * indexes are *intersected* per filter, never welshman's fixed-priority-first-index-no-intersect
@@ -834,7 +834,7 @@ export function createStore(options: CreateStoreOptions): Store {
       const putDone = storage.put(accepted)
       state = applyStoreDelta(state, { kind: 'observe', events: accepted })
 
-      // Report this batch's own accepted events' current V-verdict (VALIDATION-WIRING.md §1) — a
+      // Report this batch's own accepted events' current V-verdict (#40 §1) — a
       // second, cheap call to the same pure function the reducer already ran internally, not a
       // re-derivation of its logic. `lookupEvent` already sees every sibling in this batch, since
       // the reducer folded the whole batch before this loop runs.

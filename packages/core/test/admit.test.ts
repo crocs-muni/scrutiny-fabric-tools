@@ -172,7 +172,7 @@ describe('TR-5 — root-chain admission includes what resolve.ts would exclude f
     const followUp = rootPatch('followup', root.id, foreign.id) // replies into a foreign patch
     const index = computeAdmission([root, foreign, followUp], fakeTrust([PK_ROOT]))
     // Not a chain extension per resolve.ts, but TR-5's admission does not care about chain
-    // validity — see docs/ADMIT.md §4.
+    // validity — see #37 §4.
     expect(isAdmitted(index, followUp.id)).toBe(true)
   })
 

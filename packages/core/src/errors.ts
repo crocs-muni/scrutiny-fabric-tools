@@ -9,8 +9,7 @@ import { RULES, type Rule, type RuleId, type RuleLayer } from './rules.js'
  * **This distinction has no basis in the spec text.** §6.0 gives the Validity layer exactly one
  * disposition — a V failure keeps the event out of processing entirely — so rules that are really
  * advisory to producers (P3's LF clause) or obligations to *accept* (C7) have no disposition that
- * fits them. Severity is a local affordance for that gap, recorded as item F-crosscutting in
- * `docs/SPEC-FEEDBACK-v0.6.0.md`.
+ * fits them. Severity is a local affordance for that gap (F-crosscutting).
  *
  * The invariant that keeps it honest is TR-1: no issue citing an A-layer *or* D-layer rule may be
  * an `error`, because a V-valid event MUST NOT be rejected by an A or D rule — §6.0 gives the

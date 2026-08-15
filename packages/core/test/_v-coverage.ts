@@ -173,8 +173,8 @@ export const V_COVERAGE: CoverageTable = {
       'across diff/patch/DIFF/extra-token/non-matching info strings.',
   ),
   E3: emitted(patchOf(`\`\`\`diff\n${MINIMAL_PAYLOAD}\n`)),
-  // E4 retagged V -> A in v0.6.1 (producer obligation, unfalsifiable on receipt — see docs/
-  // SPEC-FEEDBACK-v0.6.0.md). No longer a V-layer rule, so it does not belong in this table at
+  // E4 retagged V -> A in v0.6.1 (producer obligation, unfalsifiable on receipt — F-crosscutting).
+  // No longer a V-layer rule, so it does not belong in this table at
   // all; it lands with whichever module implements build.ts (Phase 6).
   E5: notCovered(
     'Defines the payload byte boundary rather than a constraint that can fail. Covered by a ' +
@@ -210,7 +210,7 @@ export const V_COVERAGE: CoverageTable = {
   // P1 and P3 retagged V -> A in v0.6.1 — both are producer obligations (context-line minimum,
   // payload encoding/line endings), not Validity criteria for a received event, and neither
   // belongs in this table any longer. P1 was already `notCovered` here for exactly that reason
-  // before the retag made it official (see SPEC-FEEDBACK F1); P3 was wrongly `emitted` as a V-layer
+  // before the retag made it official (see F1); P3 was wrongly `emitted` as a V-layer
   // rejection — validate.ts still observes it (the check is falsifiable on receipt, unlike P1/E4),
   // but now as a non-rejecting A-layer annotation, tracked by patch-grammar.test.ts rather than
   // this V-only partition.

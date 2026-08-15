@@ -1,7 +1,7 @@
 /**
  * The Phase 3 gate, item G4.
  *
- * Every rule `docs/IMPLEMENTATION-PLAN.md` assigns to the `resolve` module must either emit its
+ * Every rule `#53` assigns to the `resolve` module must either emit its
  * code here, or be listed as not-test-covered with a stated reason. The partition is machine-checked
  * against the plan's assignment, so a rule cannot be silently dropped.
  */
@@ -11,7 +11,7 @@ import { RULES, type RuleId } from '../src/rules.js'
 import { A_RESOLVE_COVERAGE } from './_a-resolve-coverage.js'
 import { itCoversEachRule, itReportsTheSplit } from './_coverage.js'
 
-/** From the module-ownership table in `docs/IMPLEMENTATION-PLAN.md`, plus RL-3, passed through. */
+/** From the module-ownership table in `#53`, plus RL-3, passed through. */
 const OWNED: readonly RuleId[] = [
   'CHN-1',
   'CHN-2',

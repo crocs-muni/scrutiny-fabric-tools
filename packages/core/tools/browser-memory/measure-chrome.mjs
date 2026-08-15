@@ -233,7 +233,7 @@ const send = (method, params = {}, sessionId = undefined) =>
 
 // ── measurement runs ─────────────────────────────────────────────────────────
 // Two loads per size by default (the acceptance round-trip); BM_RUNS=1 for exploratory big
-// sizes where the superlinear-admit finding (see docs/BROWSER-MEMORY-2026-08-10.md) makes a
+// sizes where the superlinear-admit finding (see #47) makes a
 // second load cost tens of minutes.
 const runsPerSize = Number(process.env.BM_RUNS ?? 2)
 const results = []

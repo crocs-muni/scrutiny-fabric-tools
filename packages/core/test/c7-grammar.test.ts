@@ -6,7 +6,7 @@
  * proves acceptance of the cases considered, not of every payload the grammar admits. This emits
  * from the grammar productions instead and asserts no `error`-severity issue for any of them.
  *
- * A line body is any sequence of characters other than LF. This was reported as SPEC-FEEDBACK F3
+ * A line body is any sequence of characters other than LF. This was reported as F3
  * against v0.6.0, whose `*VCHAR` was ABNF `%x21-7E` — excluding the space and every non-ASCII
  * byte, and so rejecting the spec's own em-dash example and the `patch -u` timestamps C2 mandates
  * tolerating. **v0.6.1 closed F3 by defining `line-content = *( %x00-09 / %x0B-FF )`**, so this

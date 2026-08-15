@@ -1,5 +1,5 @@
 /**
- * Phase 21 (mandate §14, AUDIT-2026-07-31.md §5) — the indexed in-memory EventStorage must
+ * Phase 21 (mandate §14, #46 §5) — the indexed in-memory EventStorage must
  * answer EXACTLY what the naive one did. Gate shape: a differential property over a random
  * corpus and random filters, checked against an oracle that re-derives the answer independently
  * from the EventFilter shape's own semantics (ids/authors/kinds/since/until keys, each `#` key

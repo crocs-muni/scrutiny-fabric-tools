@@ -4,7 +4,7 @@
  * Same discipline as every prior phase's (D34). A rule is covered when a test **observes its code
  * being emitted** through the real, integrated path (`createStore().add()`), or it is listed as
  * not-test-covered **with a written reason**. The working expectation was drafted in
- * `docs/STORE.md` §8 before this file existed: BD-7 and SIG-1 (enforcement) are the two rules with a
+ * `#38` §8 before this file existed: BD-7 and SIG-1 (enforcement) are the two rules with a
  * real rejection disposition; the rest are bookkeeping obligations whose violation is silently wrong
  * behaviour rather than a reportable condition.
  */
@@ -24,7 +24,7 @@ const AB = 'a\nb\n'
  * directly (`applyStoreDelta`) rather than `createStore().add()`'s async wrapper — `add()` is
  * genuinely async (it awaits the `EventStorage` port), which the coverage harness's synchronous
  * `emitted(() => Issue[])` shape cannot accommodate. Re-runs `validateEvent` once against the
- * post-fold state (VALIDATION-WIRING.md §1) — the identical call `add()` itself makes to populate
+ * post-fold state (#40 §1) — the identical call `add()` itself makes to populate
  * `AddResult.rejected`, not a re-derivation of BD-7's own logic, which lives solely in
  * `validate.ts`'s `checkBinding`.
  */
@@ -54,7 +54,7 @@ export const A_STORE_COVERAGE: CoverageTable = {
       'of the whole delta sequence reaches an identical StoreView and identical resolveRoot output.',
   ),
   'UR-2': notCovered(
-    'A patch whose root is unobserved is retained and re-evaluated once the root arrives. STORE.md ' +
+    'A patch whose root is unobserved is retained and re-evaluated once the root arrives. #38 ' +
       '§2 argues this reduces to chain-epoch bumping rather than a tracked buffer; the failure mode ' +
       'is a stale resolveRoot answer, not an issue. Covered behaviourally in store.test.ts.',
   ),
@@ -68,7 +68,7 @@ export const A_STORE_COVERAGE: CoverageTable = {
     'An obligation on how a non-UI consumer behaves (recompute canonical bytes on observed-set ' +
       'change), satisfied structurally by the epoch-gated memo rather than by emitting anything ' +
       'when honoured. Covered by the memo tests asserting a bumped chainEpoch always produces a ' +
-      'fresh resolve() call (a new Resolution reference). Strengthened per OVERLAY-AWAITING.md §8: ' +
+      'fresh resolve() call (a new Resolution reference). Strengthened per #43 §8: ' +
       'the cross-root regression now exists — an event X with no relationship to root R in any of ' +
       'the four original dispatch rows, arriving after an overlay on R names it as a reply target, ' +
       'must bump chainEpoch[R]. This is recorded as a permanent regression in store.test.ts. Under ' +
@@ -84,7 +84,7 @@ export const A_STORE_COVERAGE: CoverageTable = {
   ),
   'BD-7': emitted(bd7Issues),
   'DEL-8': notCovered(
-    'A deletion observed before its target applies retroactively once the target arrives. STORE.md ' +
+    'A deletion observed before its target applies retroactively once the target arrives. #38 ' +
       "§4 argues this is resolve.ts's purity plus retention, not a store-owned code path — there is " +
       'no deletion-specific cache to invalidate. Covered behaviourally in store.test.ts.',
   ),

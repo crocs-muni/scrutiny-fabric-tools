@@ -804,3 +804,61 @@ and is in fact extended by `TRUST-VIEW.md` §6 to state plainly that `computeAdm
 hold this oracle role for `Store`'s trust surface specifically — matching AG1's already-established
 incremental-equals-oracle property. `store.ts`'s `trust`/`untrust` were always compatible with D21
 under this reading; only D21's own text did not make the distinction explicit until now.
+
+
+---
+
+**C13 (2026-08-10) — §5 open questions resolved.**
+
+All five open questions from §5 (2026-07-27) now have explicit resolutions:
+
+1. **npm org `@scrutiny-fabric`** — unheld as of 2026-08-10. Create at v0.1 publish time.
+2. **Repo name `scrutiny-fabric-tools`** — keep. The consumer-visible identity is the npm scope
+   (D3), not the repo URL. The repo hosts core+cli+mcp+tools; "tools" describes the monorepo.
+3. **Prose attribution in the spec** — leave to LICENSE and README. The spec README already
+   carries the CRoCS/Masaryk attribution line; the normative text stays free of provenance
+   prose.
+4. **Upstream library findings** — resolved. No further action from this repo.
+5. **Demo relay NIP-77 Negentropy** — closed as obsolete. NIP-77 sync is out of v0.1 scope.
+   When relay sync returns to scope, probe NIP-11 `supported_nips` at that point.
+
+**C14 (2026-08-10) — docs/ carries only the ADR and the generated coverage table.**
+
+Comparable protocol implementation repos keep their working markdown to README,
+contribution/security guides, per-package READMEs, and CHANGELOG. Planning, status, and
+design-history documents live in the issue tracker, not in the repo.
+
+This repo adopts the same discipline:
+
+- **`docs/` carries only:** `DECISIONS-2026-07-27.md` (this ADR, append-only) and `COVERAGE.md`
+  (generated module-ownership table, `pnpm ownership:gen`).
+- **Design mini-specs and audit reports** are closed issues (`design-reference` /
+  `audit-evidence` labels) with verbatim content.
+- **Spec-feedback findings** (F1–F17) are issues on `crocs-muni/scrutiny-fabric`
+  (`spec-feedback` label).
+- **Phase status** is the milestone board.
+- **Code comments cite stable IDs only** (rule IDs like T2/UR-4, D-numbers, F-numbers,
+  issue/PR numbers) — never file paths or branch names.
+**C15 (2026-08-10) — Build-order rationale.**
+
+- **Phases 0–8** are merged to `main` (PRs #1–#10). Phases 0–6 built the six core modules in
+  dependency order: `events`/`validate`/`id` → `patch` → `resolve` → `admit` → `store` →
+  `query`/`build`. Phase 8 was the deep implementation audit (three correctness defects and a
+  coverage-machinery gap, all fixed). Phase 9 (`artifacts`) was dropped (C4 — no motivating
+  consumer in the real corpus).
+- **Phases 13–23** are the v0.1-completion line: `EventFilter` reshape (13), validation wiring (14),
+  `overlayAwaiting` index (15), trust-filtered view (16), `RelayTransport` interface (17),
+  context widening (18), `buildPatch` options object (19), public-surface hygiene (20), storage
+  indexes (21), reference signer (22), ownership-table codegen (23). Phases 13–17 unblock Phase 7
+  (coverage tooling, adapters, docs), which was blocked by the missing `RelayTransport` interface
+  and the non-NIP-01 `EventFilter` shape.
+- **Phases 10–12** are v0.2: `@scrutiny-fabric/cli` (10, first consumer of `ScrutinySigner`),
+  `@scrutiny-fabric/mcp` (11, needs its own scoping pass), published relay adapters (12, contingent
+  on a reversal of D6).
+
+**C16 (2026-08-10) — Board-based SDLC rationale.**
+
+Two previous implementations died of protocol drift, not bad code — one targeted spec v0.3.2 while
+the spec reached v0.5.9, with a version constant in a form the spec no longer recognised, and nothing
+in CI ever complained. The countermeasure is generated, CI-enforced rule coverage and a board
+protocol (AGENTS.md) that makes status visible and citation-stable.

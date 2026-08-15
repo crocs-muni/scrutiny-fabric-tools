@@ -22,7 +22,7 @@ export interface ScenarioMix {
   readonly bindingEndpointsNonAdjacent: number
   readonly dedupRaces: number
   readonly trustThenObserveSameTick: number
-  readonly overlayCrossRoot: number // OVERLAY-AWAITING.md §8: cross-root overlay shape for RC-3 regression
+  readonly overlayCrossRoot: number // #43 §8: cross-root overlay shape for RC-3 regression
 }
 
 export const emptyMix = (): ScenarioMix => ({
@@ -77,7 +77,7 @@ const spec = fc.record({
   trustActions: fc.uniqueArray(trustAction, { maxLength: 2, selector: (a) => a.pubkey }),
   trustImmediatelyBeforeObserve: fc.boolean(),
   deleteFirstPatch: fc.boolean(),
-  overlayCrossRoot: fc.boolean(), // OVERLAY-AWAITING.md §8: generate cross-root overlay shape
+  overlayCrossRoot: fc.boolean(), // #43 §8: generate cross-root overlay shape
 })
 
 function build(s: {
@@ -89,7 +89,7 @@ function build(s: {
   trustActions: readonly { pubkey: string; trust: boolean }[]
   trustImmediatelyBeforeObserve: boolean
   deleteFirstPatch: boolean
-  overlayCrossRoot: boolean // OVERLAY-AWAITING.md §8: cross-root overlay shape
+  overlayCrossRoot: boolean // #43 §8: cross-root overlay shape
 }): StoreScenario {
   scenarioCounter += 1
   const tag = `s${scenarioCounter}`
@@ -166,7 +166,7 @@ function build(s: {
     }
   }
 
-  // OVERLAY-AWAITING.md §8: cross-root overlay shape (RC-3 regression). A Patch on root R1 with
+  // #43 §8: cross-root overlay shape (RC-3 regression). A Patch on root R1 with
   // a reply tag naming an event X that has no relationship to R1. Reuses the exported overlayPatch()
   // helper verbatim — the same constructor the store.test.ts permanent regressions use, whose
   // overlayAwaiting-population assertion anchors this shape as non-vacuous (a t-tag-less lookalike
@@ -200,7 +200,7 @@ export const storeScenarioAndPermutation: fc.Arbitrary<{
 )
 
 /**
- * OVERLAY-AWAITING.md §7/§8: a cross-root overlay patch for the RC-3 regression. Returns three events
+ * #43 §7/§8: a cross-root overlay patch for the RC-3 regression. Returns three events
  * (R, X, O) where R is a root, X is an unrelated root, and O is a Patch on R with e reply = X.
  * The caller controls arrival order; this just builds the shape.
  */

@@ -1,9 +1,9 @@
 /**
  * Shared line/hunk matching primitives (`patch.ts`'s T1 machinery, extracted for `build.ts`'s
- * widening loop — `docs/CONTEXT-WIDENING.md` §1).
+ * widening loop — `#42` §1).
  *
  * **This module is internal and is never added to the `exports` map — the identical treatment D32
- * already gives `./patch` (CONTEXT-WIDENING.md §1.1).** Nothing in it is a port, a type contract
+ * already gives `./patch` (#42 §1.1).** Nothing in it is a port, a type contract
  * for external implementers, or anything a consumer would construct: it is pure arithmetic on
  * string arrays, owned by neither caller (`patch.ts`'s applier and `build.ts`'s widening loop both
  * import from here; `build.ts` never imports `diff` for this).
@@ -163,8 +163,8 @@ export function occurrences(lines: readonly string[], pattern: readonly string[]
  * {@link occurrences} still runs `|L| x |pattern|` element comparisons for it, and charging the
  * character total alone would bill that scan at zero. RL-2's stated unit is "bytes compared",
  * which is the hole — §5.4's own reasoning is that an adversary optimises against whichever unit
- * is counted. Recorded as SPEC-FEEDBACK F12; shared by `patch.ts`'s applier and `build.ts`'s
- * widening loop (docs/CONTEXT-WIDENING.md §3).
+ * is counted. Recorded as F12; shared by `patch.ts`'s applier and `build.ts`'s
+ * widening loop (#42 §3).
  */
 export function scanCost(lines: readonly string[], pattern: readonly string[]): number {
   return lines.length * pattern.reduce((sum, line) => sum + line.length + 1, 0)
@@ -235,7 +235,7 @@ export interface WidenResult {
 }
 
 /**
- * Widen linearly — step EXACTLY 1, never a stride or binary search (CONTEXT-WIDENING.md §2.1) —
+ * Widen linearly — step EXACTLY 1, never a stride or binary search (#42 §2.1) —
  * from `startContext` up to full-file context, stopping at the first context where every hunk's
  * T1 pattern is unique. Each hunk is checked against the content produced by every prior hunk in
  * the same trial payload via `spliceAt`, exactly mirroring T3's sequencing in `applyPatchPayload`

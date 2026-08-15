@@ -5,7 +5,7 @@
  * calls `issue()` at all (see its own module doc comment). This is the same shape as `admit.ts`'s
  * AG3 partition (0/9 emitted, all D-layer): `_coverage.ts`'s `itReportsTheSplit` accepts an
  * all-not-covered table exactly when every rule in it is D-layer. Working expectations drafted in
- * `docs/QUERY-BUILD.md` §4 before this file existed.
+ * `#39` §4 before this file existed.
  */
 
 import type { Issue } from '../src/errors.js'
@@ -26,7 +26,7 @@ export const A_QUERY_COVERAGE: CoverageTable = {
   'DQ-3': notCovered(
     'searchFilter builds the NIP-50 fallback filter (the structural half). Verifying returned ' +
       'events carry valid scrutiny-fabric tags and match user intent is explicitly a caller concern ' +
-      '(docs/QUERY-BUILD.md §1.2) — this module never sees results. Covered behaviourally for the ' +
+      '(#39 §1.2) — this module never sees results. Covered behaviourally for the ' +
       'filter-building half in query.test.ts.',
   ),
   'DQ-4': notCovered(
@@ -39,7 +39,7 @@ export const A_QUERY_COVERAGE: CoverageTable = {
       'relay-agnostic by construction, which is the necessary condition for a caller’s own ' +
       'fall-back-to-full-relay-set logic to be possible at all — never enforce it structurally, ' +
       'since a plain EventFilter carries no relay field for this module to police ' +
-      '(docs/QUERY-BUILD.md §1.4).',
+      '(#39 §1.4).',
   ),
 }
 

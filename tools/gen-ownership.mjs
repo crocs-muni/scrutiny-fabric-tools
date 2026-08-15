@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
- * Phase 23 (mandate §8, AUDIT-2026-07-31.md §3/C6) — regenerate the module-ownership table in
- * `docs/IMPLEMENTATION-PLAN.md` from the per-module coverage tables, never by hand.
+ * Phase 23 (mandate §8, #46 §3/C6) — regenerate the module-ownership table in
+ * `#53` from the per-module coverage tables, never by hand.
  *
  * Sources of truth (in order): the rule registry (`tools/rules.json`, itself generated from the
  * spec), and the coverage partition the gates actually execute — `packages/core/test/_v-coverage.ts`,
@@ -21,7 +21,7 @@ import { readFileSync, writeFileSync } from 'node:fs'
 const ROOT = new URL('..', import.meta.url).pathname
   .replace(/^\/([A-Za-z]:)/, '$1')
   .replace(/\/$/, '')
-const PLAN = `${ROOT}/docs/IMPLEMENTATION-PLAN.md`
+const PLAN = `${ROOT}/docs/COVERAGE.md`
 const RULES_JSON = `${ROOT}/tools/rules.json`
 const START = '<!-- ownership:table:start -->'
 const END = '<!-- ownership:table:end -->'
@@ -194,9 +194,7 @@ if (orphans.length > 0 && !planText.includes(START)) {
 
 if (process.argv.includes('--check')) {
   if (nextPlan !== planText) {
-    console.error(
-      'DRIFT — the ownership table in docs/IMPLEMENTATION-PLAN.md is stale. Run `pnpm ownership:gen`.',
-    )
+    console.error('DRIFT — the ownership table in #53 is stale. Run `pnpm ownership:gen`.')
     process.exit(1)
   }
   console.log('ownership table is in sync with the coverage partition.')

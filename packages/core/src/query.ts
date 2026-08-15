@@ -4,7 +4,7 @@
  * Pure and synchronous: this module returns plain NIP-01 filter objects and classifies already-
  * fetched events. It never touches a relay — that is `RelayTransport`'s job, not this module's — and
  * it never calls {@link issue}: every rule it owns (DQ-1…4, BD-8) is D-layer, with no rejection or
- * annotation disposition to emit (see `docs/QUERY-BUILD.md` §1.4/§4, the same shape as `admit.ts`'s
+ * annotation disposition to emit (see `#39` §1.4/§4, the same shape as `admit.ts`'s
  * AG3 partition).
  */
 

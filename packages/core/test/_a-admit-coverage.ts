@@ -6,7 +6,7 @@
  * event itself," and `admit` never rejects or annotates an event — it only computes visibility.
  * There is no defect disposition for any rule here to emit, so an all-`not-covered` partition is
  * not a weaker gate than Phase 3's 3/32 — each entry cites the behavioural test that substitutes,
- * per D34's own instruction that intent is not evidence. See `docs/ADMIT.md` §10 (AG3).
+ * per D34's own instruction that intent is not evidence. See `#37` §10 (AG3).
  */
 
 import type { Issue } from '../src/errors.js'
@@ -34,7 +34,7 @@ export const A_ADMIT_COVERAGE: CoverageTable = {
     'The root-chain reachability step. Its failure mode is under- or over-admission, not an ' +
       "issue code. Covered behaviourally, including the two cases resolve.ts's own walk would " +
       'exclude but TR-5 does not: both branches of an unresolved self-fork, and a root-authored ' +
-      'patch replying into a foreign patch (PT-6/OV-8) — see docs/ADMIT.md §4 for why admission ' +
+      'patch replying into a foreign patch (PT-6/OV-8) — see #37 §4 for why admission ' +
       "must diverge from resolve's walk here.",
   ),
   'TR-6': notCovered(

@@ -134,7 +134,7 @@ export const REGRESSIONS: readonly RegressionCase[] = [
       'removed a line. Applying the header number literally against the current content inserts ' +
       'one position too late and yields "+++ b/content\\n\\na". T2 and T3 disagree here and the ' +
       'spec does not reconcile them; the header number is carried forward by the net line shift. ' +
-      'See SPEC-FEEDBACK F6.',
+      'See F6.',
     content: 'a\n+++ b/content\n',
     payload: body('@@ -1,1 +0,0 @@', '-a', '@@ -2,0 +2,1 @@', '+a', '\\ No newline at end of file'),
     expect: { status: 'applied', content: '+++ b/content\na' },
@@ -194,7 +194,7 @@ export const REGRESSIONS: readonly RegressionCase[] = [
     why:
       'A blank context line loses its leading space to editor and mail pipelines, so a bare "" ' +
       "line is common in the wild. git, patch(1) and jsdiff all accept it; §5.2's hunk-line " +
-      'production does not. See SPEC-FEEDBACK F7.',
+      'production does not. See F7.',
     content: 'a\n\nb\n',
     payload: '--- a/content\n+++ b/content\n@@ -1,3 +1,3 @@\n a\n\n-b\n+c\n',
     expect: { status: 'applied', content: 'a\n\nc\n' },

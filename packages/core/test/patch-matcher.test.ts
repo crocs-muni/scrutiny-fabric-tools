@@ -1,5 +1,5 @@
 /**
- * `patch-matcher.ts` — the extraction's own gates (CONTEXT-WIDENING.md §1/§6): that `diffHunks`
+ * `patch-matcher.ts` — the extraction's own gates (#42 §1/§6): that `diffHunks`
  * may feed `reduceHunk` hunks it was designed against a *parsed* shape for, because
  * `structuredPatch`'s own `hunks` array is shape-identical to what `parsePatch` reconstructs from
  * the formatted text. Verified live against `diff@9.0.0`, per the mini-spec's own standard.
@@ -39,7 +39,7 @@ const CASES: ReadonlyArray<{ name: string; before: string; after: string }> = [
   },
 ]
 
-describe('structuredPatch hunks ≡ parsePatch∘formatPatch hunks (diff@9.0.0, CONTEXT-WIDENING.md §6)', () => {
+describe('structuredPatch hunks ≡ parsePatch∘formatPatch hunks (diff@9.0.0, #42 §6)', () => {
   for (const { name, before, after } of CASES) {
     it(name, () => {
       for (const context of [0, 1, 3, 10]) {

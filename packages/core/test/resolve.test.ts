@@ -1,7 +1,7 @@
 /**
  * §7 chain resolution — canonical chain, cascade, self-fork, HALT, overlays.
  *
- * Design and rule mapping in `docs/RESOLVE.md`. The permanent regression corpus is replayed first,
+ * Design and rule mapping in `#36`. The permanent regression corpus is replayed first,
  * as in Phase 2.
  */
 
@@ -274,7 +274,7 @@ describe('RL-3 — a ceiling is never a HALT', () => {
   it('leaves an overlay unclassified rather than calling a ceiling a conflict (F11)', () => {
     // §7.3 offers four overlay states and none of them fits a resource limit: the overlay may well
     // apply, so `conflict` would be a lie, and the target is perfectly well defined, so `orphaned`
-    // would be too. Recorded as SPEC-FEEDBACK F11.
+    // would be too. Recorded as F11.
     const r = root(A)
     const over = foreignPatch('over', r.id, r.id, A, AB)
     const res = resolve(r.id, [r, over], { apply: { maxHunks: 0 } })
@@ -560,7 +560,7 @@ describe('S5 — Step-5 pins: walk termination, marker floors, deterministic ann
   })
 
   it('sorts resource-limit annotations deterministically by event id', () => {
-    // RESOLVE.md §7's confluence rows: every output list is sorted by a total, content-derived
+    // #36 §7's confluence rows: every output list is sorted by a total, content-derived
     // key. The annotations sort comparator needs ≥2 annotations to even run — this is the only
     // shape that produces them without a fork.
     const r = root(A)

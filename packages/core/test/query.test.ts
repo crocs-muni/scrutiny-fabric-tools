@@ -1,5 +1,5 @@
 /**
- * The Phase 6 gate, items BQ-1/BQ-2 (`docs/QUERY-BUILD.md` §5) — `query.ts`'s filter builders and
+ * The Phase 6 gate, items BQ-1/BQ-2 (`#39` §5) — `query.ts`'s filter builders and
  * `classifyByRole`.
  *
  * BQ-1 asserts each builder's output is deep-equal to the literal JSON §8.1/§8.2 show, substituting

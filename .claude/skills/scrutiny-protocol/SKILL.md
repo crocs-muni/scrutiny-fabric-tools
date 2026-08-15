@@ -13,17 +13,17 @@ metadata:
 
 Read in this order. Do not skip 2 — it exists to stop you redoing settled work.
 
-1. `docs/IMPLEMENTATION-PLAN.md` — what to build, in what order. The work order.
-2. `docs/DECISIONS-2026-07-27.md` — 45 decisions, 13 rejected alternatives, and 8 dated corrections.
-   **Append-only.** If a decision looks wrong, say so and stop; add a correction entry rather than
-   quietly doing something else.
-3. `~/scrutiny-fabric/docs/protocol-spec.md` — v0.6.1, 139 rules. The only normative source.
+1. `docs/DECISIONS-2026-07-27.md` — the architecture decision record. Append-only; if a decision
+   looks wrong, add a correction entry rather than quietly doing something else. §6 carries the
+   build-order rationale and the docs-doctrine decision (C14).
+2. `~/scrutiny-fabric/docs/protocol-spec.md` — v0.8.0, 142 rules. The only normative source.
    Appendix F is the flat index.
-4. `docs/SPEC-FEEDBACK-v0.6.0.md` — verified spec defects and how this implementation handles each.
+3. Spec-feedback findings (F1–F17) are issues on `crocs-muni/scrutiny-fabric` (label
+   `spec-feedback`). Cite by F-number; the issue resolves it.
 
 **`~/scrutiny-fabric` is read-only.** Never edit the spec from this repo. A defect found while
-implementing goes into `SPEC-FEEDBACK-v0.6.0.md` with the line number and the evidence — batched, not
-worked around locally (D2).
+implementing becomes a new spec-feedback issue on the spec repo (next free F-number) with the
+line number and the evidence — batched into an amendment session, not worked around locally (D2).
 
 ## Why this project is paranoid
 
@@ -122,7 +122,7 @@ preference: a `// Stryker disable next-line <Mutators>: <evidence>` comment for 
 equivalent mutants, or a landed test the runner attests as a kill.
 
 Do **not** trust Stryker's verdicts at face value — all of these were measured in the 2026-08-09
-audit (evidence in `docs/QUALITY-AUDIT-2026-08-08.md` §3 Step-5; do not re-derive):
+audit (evidence in #48 §3 Step-5; do not re-derive):
 
 - The vitest runner's per-mutant test selection can mark a genuinely suite-killed mutant as
   Survived (stryker-js #6073-class, ~1 in 30 mutants here). Any disputed survivor gets an

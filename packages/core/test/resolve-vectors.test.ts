@@ -33,7 +33,7 @@ function assertPartial(actual: unknown, expected: Record<string, unknown>, ctx: 
  * protocol-error annotation, SF-3 for a self-fork report, RL-3 for a resource-limit report — never
  * by an arbitrary issue code nested inside it. Confirmed empirically: across every `chain` case in
  * `application.json`, `annotations`/`noAnnotations` use exactly these three values and no others.
- * H2 in particular is never itself an emitted issue code (RESOLVE.md §9 — it is satisfied by the
+ * H2 in particular is never itself an emitted issue code (#36 §9 — it is satisfied by the
  * annotation's *shape*, carrying event id/author/reason, not by a code inside it), so checking for
  * the literal string "H2" in `issues[].code` would always fail regardless of correctness.
  */

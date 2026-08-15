@@ -1,6 +1,6 @@
 /**
  * `store` — reducer behaviour, the pending-reference buffer, epoch-gated memo, and the
- * `EventStorage` default adapter. Design in `docs/STORE.md`, amended by `docs/VALIDATION-WIRING.md`
+ * `EventStorage` default adapter. Design in `#38`, amended by `#40`
  * for Phase 14's `invalidIds`/`pendingAwaiting` generalization.
  */
 
@@ -223,7 +223,7 @@ describe('unobserve', () => {
     expect(Object.keys(store.getState().admit.observedById)).not.toContain(r.id)
   })
 
-  it('bumps chainEpoch for the affected root, invalidating the Resolution memo (STORE.md §3 symmetry)', () => {
+  it('bumps chainEpoch for the affected root, invalidating the Resolution memo (#38 §3 symmetry)', () => {
     let state = EMPTY_STORE_STATE
     const memo = createResolveMemo()
     const r = root(A, 'unobserve-epoch-root')
@@ -355,9 +355,9 @@ describe('the default in-memory EventStorage adapter', () => {
   })
 })
 
-describe('OVERLAY-AWAITING.md §7 — the P1 worked trace (permanent regression)', () => {
+describe('#43 §7 — the P1 worked trace (permanent regression)', () => {
   it('memoized store vs fresh store agreement for a cross-root overlay target arrival', () => {
-    // Scenario from OVERLAY-AWAITING.md §7, read in its post-Phase-14 form: Root R (a Product),
+    // Scenario from #43 §7, read in its post-Phase-14 form: Root R (a Product),
     // then foreign overlay O (e root = R, e reply = X) observed while X is absent → resolveRootMemoized(R)
     // through the store's memo includes O (PT-7-pending) as orphaned/β; then X (an unrelated
     // Metadata event, no relationship to R in any of the four original dispatch rows) is observed
@@ -367,7 +367,7 @@ describe('OVERLAY-AWAITING.md §7 — the P1 worked trace (permanent regression)
     // memo hole would otherwise leak are O's *continued presence* after it went invalid. What
     // this test genuinely pins is therefore exclusion-driven staleness: the SAME memo must
     // recompute after X's arrival (fifth-row bump) and agree with a fresh store over the same
-    // final set. AUDIT-2026-07-31.md §2 P1's reproduction, closed in its post-Phase-14 form.
+    // final set. #46 §2 P1's reproduction, closed in its post-Phase-14 form.
     const events = overlayPatch('overlay-awaiting-p1')
     const r = events[0]
     const x = events[1]
@@ -418,11 +418,11 @@ describe('OVERLAY-AWAITING.md §7 — the P1 worked trace (permanent regression)
   })
 })
 
-describe('OVERLAY-AWAITING.md §8 — RC-3 cross-root regression (permanent regression)', () => {
+describe('#43 §8 — RC-3 cross-root regression (permanent regression)', () => {
   it('an unrelated event arriving after an overlay on R bumps chainEpoch[R]', () => {
     // RC-3 cross-root shape: event X with no relationship to root R in any of the four original
     // dispatch rows, arriving AFTER an overlay on R names it as a reply target, must bump chainEpoch[R].
-    // This closes the second regression path for RC-3 per OVERLAY-AWAITING.md §8.
+    // This closes the second regression path for RC-3 per #43 §8.
     const events = overlayPatch('rc3-cross-root')
     const r = events[0]
     const x = events[1]
@@ -481,11 +481,11 @@ describe('OVERLAY-AWAITING.md §8 — RC-3 cross-root regression (permanent regr
 
 describe('OVERLAY-AWAITING × VALIDATION-WIRING — exclusion-driven staleness (permanent regression)', () => {
   it("a pending foreign overlay that flips to invalid on its awaited target's arrival leaves the resolveRoot feed AND invalidates the memo", () => {
-    // The memo hole the audit caught (AUDIT-2026-07-31.md §2 P1 / DECISIONS C5), in its
+    // The memo hole the audit caught (#46 §2 P1 / DECISIONS C5), in its
     // post-Phase-14 form: a foreign overlay passes PT-7 while its reply target is unobserved
     // (pending), so a memoized resolution includes it as orphaned/β; the target's arrival flips
     // the verdict to invalid (PT-7: neither the root nor a root-author patch — validate.ts), and
-    // VALIDATION-WIRING.md §4 says it must then leave resolveRoot's event feed. The only signal
+    // #40 §4 says it must then leave resolveRoot's event feed. The only signal
     // that R's resolution changed on that arrival is the fifth chainEpochTargets row
     // (overlayAwaiting[target] -> [R]): without it, chainEpoch[R] never moves and the memo keeps
     // serving the stale resolution with the now-invalid overlay still listed as orphaned/β.
@@ -520,7 +520,7 @@ describe('OVERLAY-AWAITING × VALIDATION-WIRING — exclusion-driven staleness (
   })
 })
 
-describe('TRUST-VIEW.md §2 — the trust-filtered store view (admissionView / viewRoot)', () => {
+describe('#41 §2 — the trust-filtered store view (admissionView / viewRoot)', () => {
   /** A store holding root R plus a foreign overlay (reply to R) by an untrusted pubkey. */
   async function storeWithForeignOverlay(): Promise<ReturnType<typeof createStore>> {
     const store = createStore({ verify: verifyBySig })

@@ -12,7 +12,7 @@
  * uniqueness and application decision made here.
  *
  * The full design, including the verified jsdiff transcripts behind each of those claims, is in
- * `docs/PATCH-MATCHER.md`. Phase 18 (`docs/CONTEXT-WIDENING.md` §1) extracted the matching
+ * `#35`. Phase 18 (`#42` §1) extracted the matching
  * primitives (`toLines`/`Hunk`/`occurrences`/`spliceAt`, and the pairing trial primitive
  * `diffHunks`) into the shared internal module `./patch-matcher.js`, which `build.ts`'s widening
  * loop also consumes; the T-gate and the parse channel stay here.
@@ -56,7 +56,7 @@ const ABANDONED = 'application was abandoned. The event remains valid and this i
 
 // ---------------------------------------------------------------------------
 // Parsing (`reduceHunk` and the matching primitives it feeds live in
-// `./patch-matcher.js` since Phase 18 — see docs/CONTEXT-WIDENING.md §1)
+// `./patch-matcher.js` since Phase 18 — see #42 §1)
 // ---------------------------------------------------------------------------
 
 /**
@@ -95,7 +95,7 @@ function parseHunks(payload: string): Hunk[] {
   // grammar admits exactly one `header-block`, but read literally the second `---` line is also a
   // valid `hunk-line` (it begins with `-`), so the same bytes have two incompatible readings. We
   // take jsdiff's and sequence every hunk under T3, which drops nothing and stays deterministic.
-  // Recorded as SPEC-FEEDBACK F5 — resolved in spec v0.6.1 as C8, which codifies exactly this
+  // Recorded as F5 — resolved in spec v0.6.1 as C8, which codifies exactly this
   // reading: multiple `file-section`s are permitted, a `---` at hunk-line position starts a new
   // section rather than removing a line, and every section's hunks are processed as one sequence
   // in document order under T3. This code already did that before the rule existed to name it.
@@ -128,7 +128,7 @@ const haltIssues = (code: HaltRule, detail: string): readonly Issue[] =>
     ? // Stryker disable next-line StringLiteral: provably killed by the real suite — applied by
       // hand, issue('') throws a TypeError and 10 patch.test.ts cases fail — but the vitest
       // runner's per-mutant selection never runs any covering test for this mutant
-      // (stryker-js #6073-class attribution gap; recorded in docs/QUALITY-AUDIT-2026-08-08 §4).
+      // (stryker-js #6073-class attribution gap; recorded in #48 §4).
       [issue('H1', 'warning', detail)]
     : [
         issue(code, 'warning', detail),
@@ -216,7 +216,7 @@ export function applyPatchPayload(
   // or removed lines those two disagree, so the header number is carried forward by the net line
   // shift so far — what git and jsdiff both do, and the only reading under which T2 and T3 can
   // both hold. Hunks located by T1 are unaffected: they are found by content, not by number.
-  // Recorded as SPEC-FEEDBACK F6.
+  // Recorded as F6.
   let shift = 0
 
   for (const [index, hunk] of hunks.entries()) {
@@ -314,7 +314,7 @@ export function applyPatchContent(
  *
  * `structuredPatch` with names `a/content` / `b/content` satisfies C1, and the default `context: 3`
  * is P1's enforcement point — P1 is a producer obligation that cannot be checked on receipt
- * (SPEC-FEEDBACK F1), and note that for content shorter than seven lines jsdiff supplies fewer than
+ * (F1), and note that for content shorter than seven lines jsdiff supplies fewer than
  * three context lines because three is a maximum the tool offers where the content affords it.
  *
  * `context` is a parameter only because zero context is a materially different shape to test
@@ -323,7 +323,7 @@ export function applyPatchContent(
  *
  * `formatPatch` prefixes a bare `===…===` separator line. §5.2's `index-preamble` production
  * requires an `Index: content` line *before* that separator, so the separator alone is not
- * grammatical and is stripped here. Recorded as SPEC-FEEDBACK F8.
+ * grammatical and is stripped here. Recorded as F8.
  */
 export function makePatch(before: string, after: string, context = 3): string {
   const formatted = formatPatch(

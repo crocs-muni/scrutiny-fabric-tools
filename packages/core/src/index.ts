@@ -165,7 +165,7 @@ export {
 } from './rules.js'
 
 /**
- * §8 discovery/traversal filter builders and result classifiers (D34 partition: `docs/QUERY-BUILD.md`
+ * §8 discovery/traversal filter builders and result classifiers (D34 partition: `#39`
  * §4). Plain NIP-01 `EventFilter` objects out, no relay I/O, no async.
  */
 export {

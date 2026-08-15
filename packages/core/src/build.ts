@@ -3,7 +3,7 @@
  * those three are the injected signer's job.
  *
  * E4 (variable-length fences) and P1/P3/P4 (producer obligations unfalsifiable on receipt) are this
- * module's sole enforcement point. See `docs/QUERY-BUILD.md` §2 for the full design, including the
+ * module's sole enforcement point. See `#39` §2 for the full design, including the
  * P2 double-listing note (§2.2) and why P4 is the one rule here with a real emission (§2.4).
  */
 
@@ -140,7 +140,7 @@ function buildIndexedEvent(
 
   // IX-2, producer side. `validate.ts` already enforces the same ceiling on receipt, but cites the
   // per-event-type siblings PR-2/MD-2 there — IX-2 states it for events generally, and this is the
-  // only place a producer can be told before publishing. See docs/QUERY-BUILD.md §2.2 for why one
+  // only place a producer can be told before publishing. See #39 §2.2 for why one
   // obligation carrying several rule IDs is normal here rather than a conflict.
   const own =
     indexers.length > MAX_INDEXER_TAGS
@@ -212,7 +212,7 @@ export function buildBinding(
 
 /**
  * Longest run of consecutive backticks anywhere in `payload` (E4). Scanned globally rather than
- * line-anchored — see `docs/QUERY-BUILD.md` §2.3 for why the wider scan is the correct conservative
+ * line-anchored — see `#39` §2.3 for why the wider scan is the correct conservative
  * choice rather than a re-derivation of CommonMark's closing-fence grammar.
  */
 function longestBacktickRun(payload: string): number {
@@ -240,7 +240,7 @@ export function fencePatchPayload(payload: string, info = 'diff'): string {
  * §5.4's recommended bound on the widening search's own total work, identical unit and default to
  * `patch.ts`'s `ApplyOptions.maxWork`: a pair whose widening cannot finish inside the budget a
  * consumer's default would allow is one whose eventual application would strain that consumer
- * anyway (CONTEXT-WIDENING.md §3) — so the producer degrades to the same P4 warning the consumer's
+ * anyway (#42 §3) — so the producer degrades to the same P4 warning the consumer's
  * own gate would have produced.
  */
 const DEFAULT_MAX_WIDEN_WORK = 16 * 1024 * 1024
@@ -248,7 +248,7 @@ const DEFAULT_MAX_WIDEN_WORK = 16 * 1024 * 1024
 // The widening machinery lives in ./patch-matcher.js (S3-17 — internal algorithms stay off public modules).
 
 /**
- * `buildPatch`'s parameters as ONE named-fields object (mandate §10 / `AUDIT-2026-07-31.md` §10
+ * `buildPatch`'s parameters as ONE named-fields object (mandate §10 / `#46` §10
  * item 3): `root`/`reply` and `before`/`after` are same-typed positional pairs, and swapping
  * `before`/`after` used to produce a plausible *inverse* patch that still passed the P4
  * self-check — against the wrong baseline. With named fields the swap is a compile error, not a
@@ -261,14 +261,14 @@ export interface BuildPatchOptions {
   readonly after: string
   readonly createdAt: number
   /**
-   * P1's floor and the widening search's *starting* context (CONTEXT-WIDENING.md §2 — the floor
+   * P1's floor and the widening search's *starting* context (#42 §2 — the floor
    * is the fast path, widening elects to do better than the floor when the floor itself would
    * make the patch ambiguous on its own admitted input). Defaults to 3. Leave it alone except to
    * exercise the zero-context shape in a test, exactly as `patch.ts`'s own `context` exists for.
    */
   readonly context?: number
   /**
-   * The widening search's work ceiling (CONTEXT-WIDENING.md §3, Phase 18's option folded into
+   * The widening search's work ceiling (#42 §3, Phase 18's option folded into
    * this object). Defaults to `DEFAULT_MAX_WIDEN_WORK`.
    */
   readonly maxWidenWork?: number
@@ -283,7 +283,7 @@ export interface BuildPatchOptions {
 /**
  * Build a Patch template carrying the unified diff from `before` to `after`.
  *
- * Resolves the context via the widening loop first (CONTEXT-WIDENING.md §2), then calls
+ * Resolves the context via the widening loop first (#42 §2), then calls
  * `makePatch` exactly once at the resolved context. P4 (self-verification) is unchanged in
  * shape: after assembling `template.content`, this re-applies it via the same
  * fence-lookup-then-apply path a real consumer uses (`applyPatchContent`, now with the caller's

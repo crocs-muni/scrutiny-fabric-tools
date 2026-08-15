@@ -6,7 +6,7 @@
  * untrusted pubkey — yielding a chain that renders linear and complete when it is neither. TR-7
  * makes trust a presentation-time filter over these results; `admit` applies it, nothing here.
  *
- * The design, including where arrival order could leak and what stops it, is in `docs/RESOLVE.md`.
+ * The design, including where arrival order could leak and what stops it, is in `#36`.
  */
 
 import { type Issue, issue } from './errors.js'
@@ -95,7 +95,7 @@ export type ChainState =
  *
  * `unclassified` is **not** one of §7.3's original four. It exists because a ceiling is not a
  * conflict (the overlay may well apply), not clean, not stale, and not orphaned (the target is
- * perfectly well defined). Reported as SPEC-FEEDBACK F11 when §5.4's resource limit had no
+ * perfectly well defined). Reported as F11 when §5.4's resource limit had no
  * disposition anywhere; **v0.6.1 closed F11 by naming this exact outcome as OV-9**, so the fifth
  * state is now normative rather than an implementation invention.
  */

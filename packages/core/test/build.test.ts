@@ -1,5 +1,5 @@
 /**
- * The Phase 6 gate, items BQ-3/BQ-4/BQ-5 (`docs/QUERY-BUILD.md` §5) plus unit coverage for the
+ * The Phase 6 gate, items BQ-3/BQ-4/BQ-5 (`#39` §5) plus unit coverage for the
  * non-Patch builders.
  */
 
@@ -158,7 +158,7 @@ describe('BQ-4/BQ-5 — buildPatch’s P4 self-check and round trip', () => {
     // ambiguousPatchPair (shared with _a-build-coverage.ts's own P4 emission) is built directly, not
     // sampled. Post-Phase-18 the ambiguity itself no longer reaches P4 — the widening loop resolves
     // context 1 to a unique window by §2.3's length argument. P4 is therefore reached exactly as
-    // CONTEXT-WIDENING.md §6 says it can be: through the maxWidenWork ceiling. A zero budget makes
+    // #42 §6 says it can be: through the maxWidenWork ceiling. A zero budget makes
     // the very first widening trial exhausted, so the genuinely-ambiguous payload falls through to
     // the existing P4 self-check, wording unchanged.
     const { before, after } = ambiguousPatchPair()
@@ -210,7 +210,7 @@ describe('BQ-4/BQ-5 — buildPatch’s P4 self-check and round trip', () => {
   })
 })
 
-describe('Phase 18 — producer-side context widening (CONTEXT-WIDENING.md)', () => {
+describe('Phase 18 — producer-side context widening (#42)', () => {
   it('§5’s worked example resolves at context 4, and buildPatch emits no issue', () => {
     // 17 lines, the same pair the mini-spec traces: two identical `c1/c2/c3/old/c1/c2/c3` windows
     // around the two `old` tokens; only the first is edited.
