@@ -170,6 +170,7 @@ export {
   buildProduct,
   fenceLength,
   fencePatchPayload,
+  type BuildPatchOptions,
   type BuildResult,
   type EndpointRef,
 } from './build.js'

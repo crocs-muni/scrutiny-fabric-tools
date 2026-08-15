@@ -34,7 +34,15 @@ export function ambiguousPatchPair(): { before: string; after: string } {
  *  (CONTEXT-WIDENING.md §6: post-widening, P4 is reachable only through the ceiling). */
 function p4Issues(): readonly Issue[] {
   const { before, after } = ambiguousPatchPair()
-  return buildPatch(ROOT, REPLY, before, after, 1, 3, 0).issues
+  return buildPatch({
+    root: ROOT,
+    reply: REPLY,
+    before,
+    after,
+    createdAt: 1,
+    context: 3,
+    maxWidenWork: 0,
+  }).issues
 }
 
 /** RL-1 — an `i` tag past §5.4's 1024-byte per-tag-value ceiling. */

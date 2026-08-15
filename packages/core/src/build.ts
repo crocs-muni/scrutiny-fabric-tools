@@ -11,7 +11,7 @@ import { type Issue, issue } from './errors.js'
 import { EVENT_TYPE_TAGS, FABRIC_TAG, SCRUTINY_KIND, parseIndexer } from './events.js'
 import type { IndexedEventType, ScrutinyEventType, UnsignedEvent } from './events.js'
 import { type Hunk, diffHunks, lineCount, occurrences, spliceAt, toLines } from './patch-matcher.js'
-import { applyPatchContent, makePatch } from './patch.js'
+import { type ApplyOptions, applyPatchContent, makePatch } from './patch.js'
 import { VERSION_TAG } from './version.js'
 
 /** The result of every builder in this module. `issues` is always present (see the module doc). */
@@ -311,42 +311,67 @@ export function widenContext(
 }
 
 /**
+ * `buildPatch`'s parameters as ONE named-fields object (mandate §10 / `AUDIT-2026-07-31.md` §10
+ * item 3): `root`/`reply` and `before`/`after` are same-typed positional pairs, and swapping
+ * `before`/`after` used to produce a plausible *inverse* patch that still passed the P4
+ * self-check — against the wrong baseline. With named fields the swap is a compile error, not a
+ * runtime surprise.
+ */
+export interface BuildPatchOptions {
+  readonly root: EndpointRef
+  readonly reply: EndpointRef
+  readonly before: string
+  readonly after: string
+  readonly createdAt: number
+  /**
+   * P1's floor and the widening search's *starting* context (CONTEXT-WIDENING.md §2 — the floor
+   * is the fast path, widening elects to do better than the floor when the floor itself would
+   * make the patch ambiguous on its own admitted input). Defaults to 3. Leave it alone except to
+   * exercise the zero-context shape in a test, exactly as `patch.ts`'s own `context` exists for.
+   */
+  readonly context?: number
+  /**
+   * The widening search's work ceiling (CONTEXT-WIDENING.md §3, Phase 18's option folded into
+   * this object). Defaults to `DEFAULT_MAX_WIDEN_WORK`.
+   */
+  readonly maxWidenWork?: number
+  /**
+   * Ceilings for the P4 self-check (the audit's second half: a 70-hunk patch's self-check used
+   * to hit RL-2's default and be misreported as a producer-correctness failure, with no
+   * parameter to fix it). Defaults to `applyPatchContent`'s usual ones.
+   */
+  readonly apply?: ApplyOptions
+}
+
+/**
  * Build a Patch template carrying the unified diff from `before` to `after`.
  *
- * `context` (P1) is the *starting* context: `buildPatch` first runs the widening loop
- * (CONTEXT-WIDENING.md §2 — `context = 3` remains the fast path, widening elects to do better
- * than the floor when 3 would make the patch ambiguous on its own admitted input), then calls
- * `makePatch` exactly once at the resolved context. `maxWidenWork` bounds that search (default
- * `DEFAULT_MAX_WIDEN_WORK`; Phase 19 folds it into the options object).
- *
- * P4 (self-verification): unchanged. After assembling `template.content`, this re-applies it via
- * the same fence-lookup-then-apply path a real consumer uses (`applyPatchContent`) and compares
- * the result against `after`. Exhausted widening needs no branch of its own — a payload that
- * still has an ambiguous hunk fails this check and surfaces through the existing P4 warning,
- * verbatim (CONTEXT-WIDENING.md §4). P4 remains a SHOULD: the template is always returned, since
- * TR-1 forbids treating an A-layer rule as a rejection.
+ * Resolves the context via the widening loop first (CONTEXT-WIDENING.md §2), then calls
+ * `makePatch` exactly once at the resolved context. P4 (self-verification) is unchanged in
+ * shape: after assembling `template.content`, this re-applies it via the same
+ * fence-lookup-then-apply path a real consumer uses (`applyPatchContent`, now with the caller's
+ * `apply` ceilings if given) and compares the result against `after`. Exhausted widening needs
+ * no branch of its own — a payload that still has an ambiguous hunk fails this check and
+ * surfaces through the existing P4 warning, verbatim (§4). P4 remains a SHOULD: the template is
+ * always returned, since TR-1 forbids treating an A-layer rule as a rejection.
  */
-export function buildPatch(
-  root: EndpointRef,
-  reply: EndpointRef,
-  before: string,
-  after: string,
-  createdAt: number,
-  context = 3,
-  maxWidenWork?: number,
-): BuildResult {
+export function buildPatch(options: BuildPatchOptions): BuildResult {
   const { context: resolvedContext } = widenContext(
-    before,
-    after,
-    context,
-    maxWidenWork ?? DEFAULT_MAX_WIDEN_WORK,
+    options.before,
+    options.after,
+    options.context ?? 3,
+    options.maxWidenWork ?? DEFAULT_MAX_WIDEN_WORK,
   )
-  const payload = makePatch(before, after, resolvedContext)
+  const payload = makePatch(options.before, options.after, resolvedContext)
   const content = fencePatchPayload(payload)
   const template: UnsignedEvent = {
     kind: SCRUTINY_KIND,
-    created_at: createdAt,
-    tags: [...baseTags('patch'), endpointTag('root', root), endpointTag('reply', reply)],
+    created_at: options.createdAt,
+    tags: [
+      ...baseTags('patch'),
+      endpointTag('root', options.root),
+      endpointTag('reply', options.reply),
+    ],
     content,
   }
 
@@ -365,9 +390,9 @@ export function buildPatch(
     )
   }
 
-  const check = applyPatchContent(before, content)
+  const check = applyPatchContent(options.before, content, options.apply)
   const settled = check.status === 'applied' || check.status === 'noop'
-  if (!settled || check.content !== after) {
+  if (!settled || check.content !== options.after) {
     own.push(
       issue(
         'P4',

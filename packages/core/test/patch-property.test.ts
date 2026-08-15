@@ -143,7 +143,14 @@ describe('Phase 18 gate — buildPatch’s widening agrees with an independent v
     fc.assert(
       fc.property(repeatyContent, repeatyContent, (a, b) => {
         const res = widenContext(a, b, 3, 1 << 22)
-        const { template, issues } = buildPatch(PROD_ROOT, PROD_REPLY, a, b, 1, 3, 1 << 22)
+        const { template, issues } = buildPatch({
+          root: PROD_ROOT,
+          reply: PROD_REPLY,
+          before: a,
+          after: b,
+          createdAt: 1,
+          maxWidenWork: 1 << 22,
+        })
         const p4s = issues.filter((i) => i.code === 'P4')
         if (res.exhausted) return // the budget-cut fallback (P4 verbatim) is pinned deterministically in build.test.ts
         expect(threadedSayUnique(a, res.hunks)).toBe(true) // independently computed verdict

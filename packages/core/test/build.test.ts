@@ -137,7 +137,13 @@ describe('BQ-4/BQ-5 — buildPatch’s P4 self-check and round trip', () => {
   it('reports no issue and round-trips over an unambiguous pair', () => {
     fc.assert(
       fc.property(distinctPair, ({ a, b }) => {
-        const { template, issues } = buildPatch(ROOT, REPLY, a, b, 1)
+        const { template, issues } = buildPatch({
+          root: ROOT,
+          reply: REPLY,
+          before: a,
+          after: b,
+          createdAt: 1,
+        })
         expect(issues).toEqual([])
         const check = applyPatchContent(a, template.content)
         const reproduced =
@@ -156,7 +162,15 @@ describe('BQ-4/BQ-5 — buildPatch’s P4 self-check and round trip', () => {
     // the very first widening trial exhausted, so the genuinely-ambiguous payload falls through to
     // the existing P4 self-check, wording unchanged.
     const { before, after } = ambiguousPatchPair()
-    const { template, issues } = buildPatch(ROOT, REPLY, before, after, 1, 3, 0)
+    const { template, issues } = buildPatch({
+      root: ROOT,
+      reply: REPLY,
+      before,
+      after,
+      createdAt: 1,
+      context: 3,
+      maxWidenWork: 0,
+    })
     expect(issues).toHaveLength(1)
     expect(issues[0]?.code).toBe('P4')
     expect(issues[0]?.severity).toBe('warning') // TR-1: P4 is A-layer, never `error`
@@ -167,7 +181,13 @@ describe('BQ-4/BQ-5 — buildPatch’s P4 self-check and round trip', () => {
   it('is a no-op, with no P4 issue, whenever before === after', () => {
     fc.assert(
       fc.property(repeatyContent, (content) => {
-        const { issues } = buildPatch(ROOT, REPLY, content, content, 1)
+        const { issues } = buildPatch({
+          root: ROOT,
+          reply: REPLY,
+          before: content,
+          after: content,
+          createdAt: 1,
+        })
         expect(issues).toEqual([])
       }),
       { numRuns: 500 },
@@ -175,7 +195,14 @@ describe('BQ-4/BQ-5 — buildPatch’s P4 self-check and round trip', () => {
   })
 
   it('threads the context parameter through to makePatch (P1)', () => {
-    const { template } = buildPatch(ROOT, REPLY, 'a\nb\nc\nd\ne\n', 'a\nb\nC\nd\ne\n', 1, 0)
+    const { template } = buildPatch({
+      root: ROOT,
+      reply: REPLY,
+      before: 'a\nb\nc\nd\ne\n',
+      after: 'a\nb\nC\nd\ne\n',
+      createdAt: 1,
+      context: 0,
+    })
     expect(template.content).toContain('-c')
     expect(template.content).toContain('+C')
     // Zero context: no unchanged lines carried alongside the hunk.
@@ -215,7 +242,7 @@ describe('Phase 18 — producer-side context widening (CONTEXT-WIDENING.md)', ()
     expect(res.context).toBe(4)
     expect(res.exhausted).toBe(false)
 
-    const { issues } = buildPatch(ROOT, REPLY, before, after, 1)
+    const { issues } = buildPatch({ root: ROOT, reply: REPLY, before, after, createdAt: 1 })
     expect(issues).toEqual([]) // no P4 — the unwidened pipeline would have warned here
   })
 
@@ -232,7 +259,15 @@ describe('Phase 18 — producer-side context widening (CONTEXT-WIDENING.md)', ()
     expect(res.exhausted).toBe(true)
     expect(res.context).toBeLessThan(600)
 
-    const { template, issues } = buildPatch(ROOT, REPLY, before, after, 1, 3, 100)
+    const { template, issues } = buildPatch({
+      root: ROOT,
+      reply: REPLY,
+      before,
+      after,
+      createdAt: 1,
+      context: 3,
+      maxWidenWork: 100,
+    })
     expect(template.content.length).toBeGreaterThan(0) // always returned — P4 is a SHOULD (TR-1)
     const p4 = issues.filter((i) => i.code === 'P4')
     expect(p4).toHaveLength(1)
@@ -262,7 +297,7 @@ describe('Phase 18 — producer-side context widening (CONTEXT-WIDENING.md)', ()
     expect(res.exhausted).toBe(false)
     expect(res.context).toBeGreaterThan(1)
 
-    const { issues } = buildPatch(ROOT, REPLY, before, after, 1)
+    const { issues } = buildPatch({ root: ROOT, reply: REPLY, before, after, createdAt: 1 })
     expect(issues.filter((i) => i.code === 'P4')).toEqual([])
   })
 })
