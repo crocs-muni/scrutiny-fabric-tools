@@ -54,13 +54,14 @@ function compactRanges(ids, order) {
     groups.get(m[1]).push(Number(m[2]))
   }
   const renderGroup = (prefix, nums) => {
+    const sep = prefix.length === 1 ? '' : '-'
     const parts = []
     let run = [nums[0]]
     const flush = () => {
       parts.push(
         run.length >= 3
-          ? `${prefix}-${run[0]}…${run[run.length - 1]}`
-          : run.map((n) => `${prefix}-${n}`).join('/'),
+          ? `${prefix}${sep}${run[0]}…${prefix}${sep}${run[run.length - 1]}`
+          : run.map((n) => `${prefix}${sep}${n}`).join('/'),
       )
       run = []
     }
