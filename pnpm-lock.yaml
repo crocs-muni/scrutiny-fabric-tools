@@ -11,6 +11,11 @@ overrides:
   nanoid: ^3.3.17
   qs: ^6.15.2
 
+patchedDependencies:
+  read-yaml-file@1.1.0:
+    hash: 57d735z3mndozjy45hujpggt4y
+    path: .patches/read-yaml-file@1.1.0.patch
+
 importers:
 
   .:
@@ -3073,7 +3078,7 @@ snapshots:
       '@manypkg/find-root': 1.1.0
       fs-extra: 8.1.0
       globby: 11.1.0
-      read-yaml-file: 1.1.0
+      read-yaml-file: 1.1.0(patch_hash=57d735z3mndozjy45hujpggt4y)
 
   '@microsoft/api-extractor-model@7.33.10(@types/node@22.20.1)':
     dependencies:
@@ -4289,7 +4294,7 @@ snapshots:
 
   queue-microtask@1.2.3: {}
 
-  read-yaml-file@1.1.0:
+  read-yaml-file@1.1.0(patch_hash=57d735z3mndozjy45hujpggt4y):
     dependencies:
       graceful-fs: 4.2.11
       js-yaml: 4.3.1
