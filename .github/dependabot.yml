@@ -6,4 +6,10 @@ updates:
   - package-ecosystem: 'github-actions'
     directory: '/'
     schedule:
-      interval: 'weekly'
+      interval: 'monthly'
+    # One rollup PR per cycle instead of per-action PRs: the surface is 3 SHA-pinned
+    # actions and individual bumps conflict with each other editing the same file.
+    groups:
+      github-actions:
+        patterns:
+          - '*'
