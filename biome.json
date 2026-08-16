@@ -7,7 +7,6 @@
   },
   "files": {
     "ignore": [
-      "dist/**",
       "tools/rules.json",
       "**/*.md",
       "vectors/**",

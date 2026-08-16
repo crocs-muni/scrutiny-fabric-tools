@@ -16,6 +16,7 @@
     "lint": "biome check .",
     "format": "biome check --write .",
     "attw": "pnpm -r attw",
+    "rules:extract": "node tools/extract-rules.mjs",
     "rules:gen": "node tools/gen-rules.mjs",
     "rules:check": "node tools/gen-rules.mjs --check",
     "ownership:gen": "node tools/gen-ownership.mjs",
@@ -30,7 +31,6 @@
     "verify": "pnpm lint && pnpm typecheck && pnpm rules:check && pnpm ownership:check && pnpm knip && pnpm build && pnpm publint && pnpm api-report:check && pnpm attw && pnpm size && pnpm audit && pnpm test"
   },
   "devDependencies": {
-    "@arethetypeswrong/cli": "^0.18.5",
     "@biomejs/biome": "1.9.4",
     "@changesets/cli": "^2.27.11",
     "@microsoft/api-extractor": "^7.58.12",
@@ -49,6 +49,5 @@
       "nanoid": "^3.3.17",
       "qs": "^6.15.2"
     }
-  },
-  "workspaces": ["packages/*"]
+  }
 }
