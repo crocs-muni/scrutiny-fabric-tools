@@ -42,5 +42,4 @@ Thumbs.db
 npm-debug.log*
 pnpm-debug.log*
 
-# changeset files ARE meant to be committed — the CI changeset-presence gate requires them.
-# (Previously `.changeset/*-*.md` was ignored, forcing `git add -f` on every PR.)
+# changeset files must be committed — the CI changeset-presence gate requires them.
