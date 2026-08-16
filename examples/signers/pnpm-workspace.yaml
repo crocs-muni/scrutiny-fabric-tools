@@ -1,0 +1,7 @@
+# Stop pnpm walking up to the monorepo root: this example is deliberately NOT a
+# workspace member (examples/README.md), but a bare `pnpm install` inside a workspace
+# repo otherwise discovers the root pnpm-workspace.yaml, installs THAT ("Scope: all
+# workspace projects"), and leaves this directory with no node_modules — which is
+# exactly how the first verify-examples CI run failed (all modules unresolvable).
+# An empty workspace root here makes the example install against its own lockfile.
+packages: []
