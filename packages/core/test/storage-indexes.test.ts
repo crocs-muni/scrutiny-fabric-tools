@@ -114,7 +114,7 @@ function buildCorpusEvent(s: CorpusSpec, id: string): NostrEvent {
         kind: 1,
         tags: [
           ['t', 'scrutiny-fabric'],
-          ['t', 'scrutiny-v061'],
+          ['t', 'scrutiny-v0.8.0'],
           ['t', EVENT_TYPE_TAGS.product],
           ['i', s.indexer],
         ],
@@ -126,7 +126,7 @@ function buildCorpusEvent(s: CorpusSpec, id: string): NostrEvent {
         kind: 1,
         tags: [
           ['t', 'scrutiny-fabric'],
-          ['t', 'scrutiny-v061'],
+          ['t', 'scrutiny-v0.8.0'],
           ['t', EVENT_TYPE_TAGS.metadata],
           ['i', s.indexer],
         ],
@@ -138,7 +138,7 @@ function buildCorpusEvent(s: CorpusSpec, id: string): NostrEvent {
         kind: 1,
         tags: [
           ['t', 'scrutiny-fabric'],
-          ['t', 'scrutiny-v061'],
+          ['t', 'scrutiny-v0.8.0'],
           ['t', EVENT_TYPE_TAGS.binding],
           ['e', anchorA, '', 'root', PK_A],
           ['e', anchorB, '', 'link', PK_B],
@@ -151,7 +151,7 @@ function buildCorpusEvent(s: CorpusSpec, id: string): NostrEvent {
         kind: 1,
         tags: [
           ['t', 'scrutiny-fabric'],
-          ['t', 'scrutiny-v061'],
+          ['t', 'scrutiny-v0.8.0'],
           ['t', EVENT_TYPE_TAGS.patch],
           ['e', anchorA, '', 'root', s.pk],
           ['e', anchorB, '', 'reply', s.pk],

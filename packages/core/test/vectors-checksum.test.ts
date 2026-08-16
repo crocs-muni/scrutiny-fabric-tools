@@ -19,8 +19,8 @@ import { describe, expect, it } from 'vitest'
  * 46 → 48 cases). `validity.json` was untouched by that landing, so its digest did not move.
  */
 const PINNED_SHA256: Readonly<Record<string, string>> = {
-  'application.json': '546e29f6ee4a898218646fac1ae0342554c1c186bc3e72286aaa5e6b541de0ce',
-  'validity.json': 'bff8eaca6c85e8676c15b63b87f836a59a45d4ea9117b0bce8807eb9d4b43f1e',
+  'application.json': '282269ca13abded438a8d4869c4a607d1fe8256021c048021fff7834be793e7a',
+  'validity.json': '9acc6af188941b413a0f5d2275cb116c75fe82812dc3afccd69ced3725533c35',
 }
 
 describe('vendored vector checksum (D33, Appendix G.1)', () => {
