@@ -205,6 +205,9 @@ export function parseVersionTag(tag: string): ProtocolVersion | undefined {
   const match = VERSION_TAG_PATTERN.exec(tag)
   if (match === null) return undefined
   const [, major, minor, patch] = match
+  // Stryker disable next-line ConditionalExpression: `noUncheckedIndexedAccess` type-narrowing —
+  // VERSION_TAG_PATTERN's three capture groups always yield defined strings on a non-null match,
+  // so this guard is unreachable at runtime but required for TS to see defined types.
   if (major === undefined || minor === undefined || patch === undefined) return undefined
   return { major, minor, patch }
 }
