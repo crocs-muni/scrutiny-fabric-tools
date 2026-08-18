@@ -42,7 +42,4 @@ Thumbs.db
 npm-debug.log*
 pnpm-debug.log*
 
-# changeset markdown files (only commit config + README)
-.changeset/*-*.md
-!.changeset/README.md
-!.changeset/config.json
+# changeset files must be committed — the CI changeset-presence gate requires them.

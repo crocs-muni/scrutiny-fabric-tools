@@ -42,6 +42,7 @@ jobs:
       github.event.changes.base != null
     name: verify (node ${{ matrix.node }}, ${{ matrix.os }})
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
     strategy:
       fail-fast: false
       matrix:
@@ -72,6 +73,7 @@ jobs:
   zizmor:
     name: zizmor (workflow security lint)
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
@@ -87,6 +89,7 @@ jobs:
     name: changeset presence
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
@@ -102,4 +105,45 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
+      # `changeset status --since=main` runs `git merge-base main HEAD` against a *local* ref.
+      # A PR checkout has a detached HEAD plus origin/main, but never creates a local `main`
+      # branch, so the merge-base lookup fails with "Failed to find where HEAD diverged".
+      # materialise the ref locally from the already-fetched remote — no network, no creds
+      # (persist-credentials stays false).
+      - run: git branch -f main origin/main
+
       - run: pnpm changeset:check
+
+  # Examples are deliberately not workspace members (examples/README.md), so the root
+  # install and `pnpm -r` scripts never touch them, and the nested lockfile is never
+  # installed by any other job — their typecheck/test scripts ran nowhere (found in the
+  # post-campaign CI review: PR #15 merged "green" with zero example lines exercised).
+  # `@scrutiny-fabric/core` resolves through the file: link to dist/*, so core is built first.
+  verify-examples:
+    name: verify examples (signers)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4.3.0
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '22'
+          cache: pnpm
+          cache-dependency-path: |
+            pnpm-lock.yaml
+            examples/signers/pnpm-lock.yaml
+
+      - run: pnpm install --frozen-lockfile
+
+      - run: pnpm -C packages/core build
+
+      - run: pnpm -C examples/signers install --frozen-lockfile
+
+      - run: pnpm -C examples/signers typecheck
+
+      - run: pnpm -C examples/signers test

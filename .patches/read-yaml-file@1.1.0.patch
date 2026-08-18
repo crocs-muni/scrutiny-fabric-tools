@@ -1,0 +1,11 @@
+diff --git a/index.js b/index.js
+--- a/index.js
++++ b/index.js
+@@ -5,6 +5,6 @@
+ const stripBom = require('strip-bom')
+ const yaml = require('js-yaml')
+ 
+-const parse = data => yaml.safeLoad(stripBom(data))
++const parse = data => yaml.load(stripBom(data))
+ 
+ const readYamlFile = fp => pify(fs.readFile)(fp, 'utf8').then(data => parse(data))
