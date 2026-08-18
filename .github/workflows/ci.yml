@@ -105,20 +105,12 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
-      # `changeset status --since=main` runs `git merge-base main HEAD` against a *local* ref.
-      # A PR checkout has a detached HEAD plus origin/main, but never creates a local `main`
-      # branch, so the merge-base lookup fails with "Failed to find where HEAD diverged".
-      # materialise the ref locally from the already-fetched remote — no network, no creds
-      # (persist-credentials stays false).
+      # `changeset status --since=main` needs a local `main` ref; PR checkouts only have origin/main.
       - run: git branch -f main origin/main
 
       - run: pnpm changeset:check
 
-  # Examples are deliberately not workspace members (examples/README.md), so the root
-  # install and `pnpm -r` scripts never touch them, and the nested lockfile is never
-  # installed by any other job — their typecheck/test scripts ran nowhere (found in the
-  # post-campaign CI review: PR #15 merged "green" with zero example lines exercised).
-  # `@scrutiny-fabric/core` resolves through the file: link to dist/*, so core is built first.
+  # Examples are not workspace members; core is built first so subpath exports resolve to dist/*.
   verify-examples:
     name: verify examples (signers)
     runs-on: ubuntu-latest
