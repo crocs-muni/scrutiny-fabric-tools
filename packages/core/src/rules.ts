@@ -653,7 +653,7 @@ export const RULES: Readonly<Record<RuleId, Rule>> = Object.freeze({
     section: '5.2',
     layer: 'V',
     inheritsFrom: 'CommonMark §4.5',
-    summary: 'Closing fence ≥ opening-fence length.',
+    summary: 'Closing fence ≥ opening-fence length, when one exists; an unclosed block is a valid code block running to the end of `content`.',
     reserved: false,
   },
   'E4': {
@@ -885,7 +885,7 @@ export const RULES: Readonly<Record<RuleId, Rule>> = Object.freeze({
     section: '5.4',
     layer: 'A',
     inheritsFrom: null,
-    summary: 'Consumers SHOULD enforce configurable ceilings and bound total patch-application work in bytes compared.',
+    summary: 'Consumers SHOULD enforce configurable ceilings and bound total patch-application work in bytes compared, with a per-line floor on the match pattern.',
     reserved: false,
   },
   'RL-3': {

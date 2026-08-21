@@ -3,7 +3,7 @@ name: scrutiny-protocol
 description: Working rules for implementing @scrutiny-fabric/core, the TypeScript reference implementation of the SCRUTINY Fabric protocol. Use whenever editing anything under packages/core, citing a protocol rule ID (TAG-1, BD-3, T1, DEL-5, …), touching tools/rules.json or rules.ts, reading or amending the protocol spec, or planning a phase of the implementation plan. Covers the hard architectural invariants, the traps that killed two previous implementations, and the rule-citation discipline.
 license: MIT
 metadata:
-  spec-version: "0.8.0"
+  spec-version: "0.8.1"
   spec-tag: scrutiny-v080
 ---
 
@@ -16,7 +16,7 @@ Read in this order. Do not skip 2 — it exists to stop you redoing settled work
 1. `docs/DECISIONS-2026-07-27.md` — the architecture decision record. Append-only; if a decision
    looks wrong, add a correction entry rather than quietly doing something else. §6 carries the
    build-order rationale and the docs-doctrine decision (C14).
-2. `~/scrutiny-fabric/docs/protocol-spec.md` — v0.8.0, 142 rules. The only normative source.
+2. `~/scrutiny-fabric/docs/protocol-spec.md` — v0.8.1, 142 rules. The only normative source.
    Appendix F is the flat index.
 3. Spec-feedback findings (F1–F18) are issues on `crocs-muni/scrutiny-fabric` (label
   `spec-feedback`). Cite by F-number; the issue resolves it.

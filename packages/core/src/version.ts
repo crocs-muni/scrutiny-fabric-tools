@@ -4,7 +4,7 @@
  * Kept in its own module so `validate.ts` can read it without importing the root barrel, which
  * would make the module graph cyclic.
  */
-export const SPEC_VERSION = '0.8.0'
+export const SPEC_VERSION = '0.8.1'
 
 /**
  * The version `t` tag this implementation emits (TAG-2, VER-1, amended in spec v0.7.0 — F14).

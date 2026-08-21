@@ -1,7 +1,7 @@
 /**
  * `@scrutiny-fabric/core` — reference implementation of the SCRUTINY Fabric protocol.
  *
- * Target specification: **v0.8.0** (`scrutiny-v0.8.0`), 142 normative rules.
+ * Target specification: **v0.8.1** (`scrutiny-v0.8.1`), 142 normative rules.
  *
  * This root barrel is the primary documented import (D5). Subpath exports exist only where they buy
  * a consumer graph exclusion, never as organisation.
