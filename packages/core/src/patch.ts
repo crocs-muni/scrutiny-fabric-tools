@@ -37,10 +37,8 @@ import type {
   HaltReason,
   HaltRule,
   LimitKind,
-  PatchApplied,
   PatchHalt,
   PatchLimit,
-  PatchNoop,
 } from './patch-types.js'
 import { findPatchPayload } from './validate.js'
 

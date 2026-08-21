@@ -15,7 +15,6 @@ import {
   type NostrEvent,
   dedupeById,
   eTags,
-  eTagsWithMarker,
   replyTarget,
   rootTarget,
   scrutinyEventType,

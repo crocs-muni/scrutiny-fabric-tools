@@ -11,7 +11,6 @@
  */
 
 import type { Issue } from '../src/errors.js'
-import type { RuleId } from '../src/rules.js'
 import { type CoverageTable, allIssues, emitted, notCovered } from './_coverage.js'
 import {
   MINIMAL_PAYLOAD,
