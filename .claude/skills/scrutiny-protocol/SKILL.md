@@ -3,8 +3,8 @@ name: scrutiny-protocol
 description: Working rules for implementing @scrutiny-fabric/core, the TypeScript reference implementation of the SCRUTINY Fabric protocol. Use whenever editing anything under packages/core, citing a protocol rule ID (TAG-1, BD-3, T1, DEL-5, …), touching tools/rules.json or rules.ts, reading or amending the protocol spec, or planning a phase of the implementation plan. Covers the hard architectural invariants, the traps that killed two previous implementations, and the rule-citation discipline.
 license: MIT
 metadata:
-  spec-version: "0.6.1"
-  spec-tag: scrutiny-v061
+  spec-version: "0.8.0"
+  spec-tag: scrutiny-v080
 ---
 
 # Implementing SCRUTINY Fabric
@@ -18,8 +18,8 @@ Read in this order. Do not skip 2 — it exists to stop you redoing settled work
    build-order rationale and the docs-doctrine decision (C14).
 2. `~/scrutiny-fabric/docs/protocol-spec.md` — v0.8.0, 142 rules. The only normative source.
    Appendix F is the flat index.
-3. Spec-feedback findings (F1–F17) are issues on `crocs-muni/scrutiny-fabric` (label
-   `spec-feedback`). Cite by F-number; the issue resolves it.
+3. Spec-feedback findings (F1–F18) are issues on `crocs-muni/scrutiny-fabric` (label
+  `spec-feedback`). Cite by F-number; the issue resolves it.
 
 **`~/scrutiny-fabric` is read-only.** Never edit the spec from this repo. A defect found while
 implementing becomes a new spec-feedback issue on the spec repo (next free F-number) with the
@@ -45,7 +45,8 @@ These are architectural decisions, not preferences. Breaking one is a design cha
 | **The four interfaces are branded with `Symbol.for()`.** | D16. Two copies of core in one dependency tree still interoperate — the structural fix for NDK #312. |
 | **The §9 indexer prefix registry is open data, never a closed enum.** | IR-4 and R13. The dead implementation's closed check rejected `pp`, `vendor`, `scheme`, `cc-cert-id`, `cc-scheme` — all present in real data. |
 | **Never put a version tag into a relay filter.** | The dead engine did, silently dropping every higher-version event and violating VER-4 invisibly. Version handling is post-hoc and permissive. |
-| **Runtime dependencies: `diff` only**, reachable solely through the applier port. | D11. Zero dependencies is the declared goal. |
+| **Every consumed event MUST have both its signature and its `id` verified before processing.** | SIG-1 (v0.8.0). The signature commits to `id` (a hash); a relay can alter `content`/`tags` while keeping `id`+`sig`, and a signature-only check still passes. `id.ts` computes the recompute half; the signature half is the caller-injected `verify` function (D18). Applies to **every** event, including kind 5 deletions — an unverified deletion is indistinguishable from a forged one. |
+| **Conformance vectors are normative (Appendix G).** | D33. Vendored from the spec repo at a pinned SHA-256; `test/vectors-checksum.test.ts` checks the digests, `test/resolve-vectors.test.ts` runs the cases. Every `chain` case MUST hold under **any permutation** of its `events` array (UR-1 confluence), not merely the order given. The corpus is incomplete by design — a rule's absence is not a claim it is untestable. |
 
 ## Rule citation discipline
 
@@ -95,6 +96,14 @@ producer-only rules unfalsifiable on receipt (P1, E4), and meta-rules (TR-1).
   depends only on the *set* of events observed, never on arrival order. Return `pending`, not
   `invalid`. A Binding's endpoint typing may be cached once observed (UR-3); a Patch's authorship
   class may **not**, because it changes when the root arrives.
+- **A root-author patch whose `e reply` parent is unobserved is held, not optimistically included.**
+  UR-4 (v0.8.0, F16). This is the third dangling-reference shape — UR-2 covers an unobserved root,
+  BD-6 covers unobserved Binding endpoints. The reference implementation once had an optimistic
+  `parent === undefined` disjunct in its `linkable` filter that was behaviorally inert at fixpoint but
+  untested — hold-pending was ratified to match every other pending lifecycle (BD-6, DEL-8, UR-2):
+  report `held`, never approximate-*resolved*. Two children of one dangling parent would fire SF-1
+  and freeze canonical bytes behind an error annotation for a fork that may evaporate when the parent
+  arrives. Overlay targeting a held patch is orphaned (OV-3).
 - **`created_at` is publish time, not the time of the fact.** Deployed relays reject events outside a
   bounded window — verified: strfry `rejectEventsOlderThanSeconds = 94608000` (three years),
   `rejectEventsNewerThanSeconds = 900`. Backdating a certificate's issue year means **silent**
