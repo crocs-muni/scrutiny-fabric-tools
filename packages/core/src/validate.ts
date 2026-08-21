@@ -428,7 +428,7 @@ interface FencedBlock {
   readonly info: string
   /** Payload bytes: the lines strictly between the fences, each terminated by LF (E5). */
   readonly payload: string
-  /** False when the block runs to the end of `content` with no closing fence (E3). */
+  /** False when the block runs to the end of `content` with no closing fence. CommonMark §4.5 treats an unclosed block as a valid code block (running to end of document); E3 constrains the closer's *length* when one exists, not its *existence*. `isPayloadBlock` does not gate on `closed` — an unclosed diff block is still a payload. */
   readonly closed: boolean
 }
 
