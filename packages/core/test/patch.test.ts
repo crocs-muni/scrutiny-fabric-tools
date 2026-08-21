@@ -304,7 +304,9 @@ describe('failure channels are normalised into one rejection signal', () => {
     const adversarial = 'prose that mentions\n--- a/content@@ -1,1 +1,1 @@\n-x\n+y\n'
     const advResult = applyPatchPayload('a\n', adversarial)
     expectHalt(advResult, 'malformed-payload')
-    expect(advResult.hunkIndex).toBeNull()
+    if (advResult.status === 'halt') {
+      expect(advResult.hunkIndex).toBeNull()
+    }
   })
 
   it('cites H1 on every halt', () => {
