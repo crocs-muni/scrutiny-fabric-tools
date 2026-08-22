@@ -614,7 +614,7 @@ export type Sha256Hex = (serialized: string) => string;
 export const sig1RejectionIssue: (event: NostrEvent) => Issue;
 
 // @public
-export const SPEC_VERSION = "0.8.0";
+export const SPEC_VERSION = "0.8.1";
 
 // @public
 export const storageSymbol: unique symbol;
@@ -750,7 +750,7 @@ export type Validity = {
 };
 
 // @public
-export const VERSION_TAG = "scrutiny-v0.8.0";
+export const VERSION_TAG = "scrutiny-v0.8.1";
 
 // @public
 export const VERSION_TAG_PATTERN: RegExp;

@@ -500,7 +500,7 @@
     "layer": "A",
     "inheritsFrom": null,
     "summary": "Consumers MUST NOT normalize patch payload bytes before applying.",
-    "text": "Consumers MUST NOT normalize the patch-payload byte sequence (the bytes strictly between fence lines, each terminated by `\\n`) before feeding it to a unified-diff applier.",
+    "text": "Consumers MUST NOT normalize the patch-payload byte sequence (the bytes strictly between the fence lines — or, for an unclosed block, after the opening fence line to the end of `content` — each terminated by `\\n`) before feeding it to a unified-diff applier.",
     "reserved": false
   },
   {
@@ -526,7 +526,7 @@
     "section": "5.2",
     "layer": "V",
     "inheritsFrom": "CommonMark §4.5",
-    "summary": "Closing fence ≥ opening-fence length.",
+    "summary": "Closing fence ≥ opening-fence length, when one exists; an unclosed block is a valid code block running to the end of `content`.",
     "text": "The closing fence MUST consist of at least as many backticks as the opening fence, on a line of its own (CommonMark §4.5 closing-fence rule).",
     "reserved": false
   },
@@ -545,7 +545,7 @@
     "layer": "V",
     "inheritsFrom": "CommonMark §4.5",
     "summary": "Payload = bytes between fence lines, each terminated by `\\n`.",
-    "text": "The payload bytes are the concatenation of all lines strictly between the opening and closing fence lines, each line terminated by `\\n` (LF). The opening and closing fence lines themselves are NOT part of the payload.",
+    "text": "The payload bytes are the concatenation of all lines strictly between the opening and closing fence lines, each line terminated by `\\n` (LF). The opening and closing fence lines themselves are NOT part of the payload. When no closing fence exists (E3), the payload is every line after the opening fence line to the end of `content`.",
     "reserved": false
   },
   {
@@ -787,8 +787,8 @@
     "section": "5.4",
     "layer": "A",
     "inheritsFrom": null,
-    "summary": "Consumers SHOULD enforce configurable ceilings and bound total patch-application work in bytes compared.",
-    "text": "Consumers SHOULD enforce configurable ceilings and SHOULD bound total patch-application work (bytes compared), not only hunk or patch counts.",
+    "summary": "Consumers SHOULD enforce configurable ceilings and bound total patch-application work in bytes compared, with a per-line floor on the match pattern.",
+    "text": "Consumers SHOULD enforce configurable ceilings and SHOULD bound total patch-application work (bytes compared, charged at no less than one unit per line of the hunk's match pattern (T1)), not only hunk or patch counts.",
     "reserved": false
   },
   {
