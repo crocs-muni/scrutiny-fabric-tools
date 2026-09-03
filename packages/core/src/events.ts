@@ -175,9 +175,18 @@ export function scrutinyEventType(event: NostrEvent): ScrutinyEventType | undefi
   return found.length === 1 ? found[0] : undefined
 }
 
-/** Every `t` tag matching the version grammar. More than one violates TAG-2. */
+/** Legacy version tags accepted as their semver meaning (TAG-2). The
+ * fixed-width v0.7.0 retirement assumed no real corpus existed — the
+ * scrutiny-mvp demo relay disproves that (`scrutiny-v059` data in active
+ * dev use). Grandfathered entry; new corpora must use the semver grammar.
+ * Remove when the demo corpus is regenerated or retired. */
+export const LEGACY_VERSION_TAGS: ReadonlyMap<string, ProtocolVersion> = new Map([
+  ['scrutiny-v059', { major: '0', minor: '5', patch: '9' }],
+])
+
+/** Every `t` tag matching the version grammar OR the legacy map. More than one violates TAG-2. */
 export function versionTags(event: NostrEvent): string[] {
-  return tTags(event).filter((t) => VERSION_TAG_PATTERN.test(t))
+  return tTags(event).filter((t) => VERSION_TAG_PATTERN.test(t) || LEGACY_VERSION_TAGS.has(t))
 }
 
 /** The event's version tag, or `undefined` unless it carries exactly one. */
@@ -200,8 +209,10 @@ export interface ProtocolVersion {
   readonly patch: string
 }
 
-/** Parse a version tag, or `undefined` if it does not match the grammar. */
+/** Parse a version tag (legacy aliases included), or `undefined` if it matches neither grammar. */
 export function parseVersionTag(tag: string): ProtocolVersion | undefined {
+  const legacy = LEGACY_VERSION_TAGS.get(tag)
+  if (legacy !== undefined) return legacy
   const match = VERSION_TAG_PATTERN.exec(tag)
   if (match === null) return undefined
   const [, major, minor, patch] = match
