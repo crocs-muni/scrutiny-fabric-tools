@@ -79,6 +79,27 @@ export function bindingsReferencing(eventId: string): EventFilter {
 }
 
 /**
+ * §8.2 traversal leg implied but never written out — the chain's Patches (§7.4 step 1: "fetch all
+ * `scrutiny-patch` events referencing the root via `#e` and `#t`"; spec-feedback F19 asks §8.2 to
+ * spell the filter out). Anchored at a chain root this returns the *whole* chain in one query —
+ * every patch carries `e root` (PT-1) regardless of depth — with each result's role reported by
+ * {@link classifyByRole}. Anchored at a mid-chain patch it returns only that patch's direct
+ * children (`e reply`, PT-2).
+ *
+ * `#t` carries the event-type tag alone, never `scrutiny-fabric` alongside it: NIP-01 ORs values
+ * within one filter key, and every SCRUTINY event bears the fabric tag, so adding it would void
+ * DQ-4's type MUST. No version tag, per `version.ts` — it would drop higher-version patches
+ * invisibly (VER-4).
+ */
+export function patchesReferencing(eventId: string): EventFilter {
+  return {
+    kinds: [SCRUTINY_KIND],
+    '#t': [EVENT_TYPE_TAGS.patch],
+    '#e': [eventId],
+  }
+}
+
+/**
  * §8.2 (DQ-2) — deletions targeting a given event. No `#t` filter: kind 5 events do not carry a
  * `scrutiny-fabric` tag (§3.2), so including one would silently return zero results.
  */

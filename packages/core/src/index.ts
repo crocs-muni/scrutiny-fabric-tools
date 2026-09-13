@@ -174,6 +174,7 @@ export {
   deletionsFor,
   fullScanFilter,
   indexerFilter,
+  patchesReferencing,
   searchFilter,
   type RoleMatch,
 } from './query.js'

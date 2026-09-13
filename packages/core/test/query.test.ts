@@ -14,6 +14,7 @@ import {
   deletionsFor,
   fullScanFilter,
   indexerFilter,
+  patchesReferencing,
   searchFilter,
 } from '../src/query.js'
 import { binding, patch, product } from './_fixtures.js'
@@ -82,6 +83,23 @@ describe('BQ-1 — §8.2 traversal filters match the spec text', () => {
     expect(deletionsFor('ddd444')).toEqual({
       kinds: [5],
       '#e': ['ddd444'],
+    })
+  })
+
+  // §8.2 never writes this leg out (spec-feedback F19); the shape is forced by §7.4 step 1
+  // ("via #e and #t"), DQ-4's event-type MUST, PT-1/PT-2, and NIP-01's per-key AND / per-value OR.
+  // `#t` is the type tag alone: adding "scrutiny-fabric" to the same array would OR it and void
+  // DQ-4's type filter, since every SCRUTINY event carries the fabric tag.
+  it('chain root → Patches (§7.4 step 1, PT-1/PT-2, DQ-4 — implied by §8.2, spelled out in F19)', () => {
+    expect(patchesReferencing('eee555')).toEqual({
+      kinds: [1],
+      '#t': ['scrutiny-patch'],
+      '#e': ['eee555'],
+    })
+    expect(patchesReferencing('fff666')).toEqual({
+      kinds: [1],
+      '#t': ['scrutiny-patch'],
+      '#e': ['fff666'],
     })
   })
 })
