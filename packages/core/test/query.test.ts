@@ -14,6 +14,7 @@ import {
   deletionsFor,
   fullScanFilter,
   indexerFilter,
+  patchesReferencing,
   searchFilter,
 } from '../src/query.js'
 import { binding, patch, product } from './_fixtures.js'
@@ -82,6 +83,19 @@ describe('BQ-1 — §8.2 traversal filters match the spec text', () => {
     expect(deletionsFor('ddd444')).toEqual({
       kinds: [5],
       '#e': ['ddd444'],
+    })
+  })
+
+  it('chain root → Patches (§7.4 step 1, PT-1/PT-2, DQ-4 — implied by §8.2, spelled out in F19)', () => {
+    expect(patchesReferencing('eee555')).toEqual({
+      kinds: [1],
+      '#t': ['scrutiny-patch'],
+      '#e': ['eee555'],
+    })
+    expect(patchesReferencing('fff666')).toEqual({
+      kinds: [1],
+      '#t': ['scrutiny-patch'],
+      '#e': ['fff666'],
     })
   })
 })

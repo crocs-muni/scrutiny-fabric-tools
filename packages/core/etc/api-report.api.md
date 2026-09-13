@@ -439,6 +439,9 @@ export interface PatchApplied {
 }
 
 // @public
+export function patchesReferencing(eventId: string): EventFilter;
+
+// @public
 export interface PatchHalt {
     // (undocumented)
     readonly detail: string;
