@@ -110,6 +110,29 @@ export function deletionsFor(eventId: string): EventFilter {
   }
 }
 
+/**
+ * §8.2 traversal leg implied but never written out — fetching the events a previous leg discovered,
+ * once their ids are known: a Binding's `root`/`link` endpoints, a Patch's root ("Client inspects
+ * `e` tag markers to identify `root` endpoints" — identifying them is pointless without fetching
+ * them; spec-feedback F21 asks §8.2 to spell the filter out). The relay-side mirror of
+ * {@link EventStorage.get}.
+ *
+ * `ids` alone — no `kinds`, no `#t`. DQ-1 mandates the fabric tag on *discovery* filters and carves
+ * out kind 5 as its sole exception, proving the §8 lookup space is not kind-1-only; DQ-4's type
+ * MUST is scoped to `#e` filters. Pinning `kinds: [SCRUTINY_KIND]` here would silently drop a
+ * kind-5 id-address, and adding `#t` would void the same carve-out. The id already pins everything
+ * (SIG-1: id = SHA-256 of the canonical serialization), so every extra key is a footgun, not a
+ * filter. No version tag, per `version.ts` (VER-4).
+ *
+ * Pass-through: no dedup, no validation, empty input returns `{ ids: [] }`. The builder is not a
+ * validator — id format is the caller's to have established when it collected the ids.
+ */
+export function eventsById(ids: readonly string[]): EventFilter {
+  return {
+    ids: [...ids],
+  }
+}
+
 /** One event's role relative to a queried anchor id — {@link classifyByRole}'s per-result output. */
 export interface RoleMatch {
   readonly event: NostrEvent

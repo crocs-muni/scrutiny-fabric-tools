@@ -254,6 +254,9 @@ export type EventFilter = {
 export function eventIdMatches(event: NostrEvent, sha256: Sha256Hex): boolean;
 
 // @public
+export function eventsById(ids: readonly string[]): EventFilter;
+
+// @public
 export interface EventStorage {
     // (undocumented)
     readonly [storageSymbol]: true;

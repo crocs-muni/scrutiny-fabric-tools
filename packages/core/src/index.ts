@@ -172,6 +172,7 @@ export {
   bindingsReferencing,
   classifyByRole,
   deletionsFor,
+  eventsById,
   fullScanFilter,
   indexerFilter,
   patchesReferencing,
