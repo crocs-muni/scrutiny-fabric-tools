@@ -85,6 +85,15 @@ export type ApplyResult = PatchApplied | PatchNoop | PatchHalt | PatchLimit;
 export function applyStoreDelta(state: StoreState, delta: StoreDelta): StoreState;
 
 // @public
+export interface ArtifactRef {
+    readonly alt?: string;
+    readonly mime?: string;
+    readonly sha256?: string;
+    readonly size?: string;
+    readonly url: string;
+}
+
+// @public
 export interface BindingEndpoints {
     // (undocumented)
     readonly linkId: string;
@@ -322,6 +331,12 @@ export type HaltRule = 'T1' | 'C5' | 'H1';
 
 // @public
 export function hasError(issues: readonly Issue[]): boolean;
+
+// @public
+export const IMETA_TAG = "imeta";
+
+// @public
+export function imetaArtifacts(event: NostrEvent): ArtifactRef[];
 
 // @public
 export type IndexedEventType = Extract<ScrutinyEventType, 'product' | 'metadata'>;

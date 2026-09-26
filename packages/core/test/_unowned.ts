@@ -76,15 +76,23 @@ export const UNOWNED: Readonly<Partial<Record<RuleId, string>>> = {
     'and is enforced on both the receipt and producer sides.',
 
   'IM-1':
-    'Deferred with the artifacts package (D7, Phase 9). imeta/Blossom verification needs streaming ' +
-    'IO and a hasher, neither of which core has; see the Phase 8 report for the standing verdict ' +
-    'on whether Phase 9 happens at all.',
-  'IM-2': 'Deferred with the artifacts package (D7, Phase 9) — see IM-1 for the full reason.',
-  'IM-3': 'Deferred with the artifacts package (D7, Phase 9) — see IM-1 for the full reason.',
+    'The parse tier shipped (#79, imetaArtifacts in events.ts), but this rule is still not owned: ' +
+    'streaming the artifact and hashing it needs IO and a hasher, neither of which core has, so ' +
+    'verification stays deferred to the artifacts package (D7, Phase 9). See the Phase 8 report ' +
+    'for the standing verdict on whether Phase 9 happens at all.',
+  'IM-2':
+    'The parse tier shipped (#79) — a declared `size` is now readable as decimal text — but ' +
+    'comparing it against fetched bytes is the same deferred verification work as IM-1 (D7, ' +
+    'Phase 9); see IM-1 for the full reason.',
+  'IM-3':
+    'The parse tier shipped (#79) and takes the first syntactically valid `url` entry; the rule ' +
+    'itself — try mirrors in order until fetched bytes match `x` — is fetch-time work, deferred ' +
+    'with IM-1 (D7, Phase 9). See IM-1 for the full reason.',
   'IM-4':
-    'Deferred with the artifacts package (D7, Phase 9). Note this one is a MUST, not a SHOULD: ' +
-    'whoever displays an artifact owes the warning, so shipping artifact handling without it ' +
-    'would be a conformance failure rather than a missing nicety.',
+    'The parse tier shipped (#79), but this warning is still unowned: core parses and renders ' +
+    'nothing, so the obligation lands on whoever displays an artifact — the imetaArtifacts ' +
+    'JSDoc hands it to the consumer explicitly. Note this one is a MUST, not a SHOULD: shipping ' +
+    'artifact handling without it would be a conformance failure rather than a missing nicety.',
 }
 
 /** The rule ids declared unowned, for the closure gate. */

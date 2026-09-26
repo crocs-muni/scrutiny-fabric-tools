@@ -161,7 +161,9 @@ export const V_COVERAGE: CoverageTable = {
   // --- §4.6 imeta -----------------------------------------------------------
   'IM-5': notCovered(
     'States that imeta attachments need not be referenced in content — an extension of NIP-92 ' +
-      'with no failure mode. The rest of imeta handling ships with artifacts, deferred by D7.',
+      'with no failure mode. The imeta read path shipped (#79, imetaArtifacts in events.ts) and ' +
+      'emits no code for IM-5 because there is none to emit; the verification/display half ' +
+      '(IM-1..IM-4) stays deferred with the artifacts package (D7).',
   ),
 
   // --- §5.2 envelope --------------------------------------------------------

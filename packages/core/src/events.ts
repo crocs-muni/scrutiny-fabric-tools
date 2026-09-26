@@ -137,6 +137,150 @@ export function replyTarget(event: NostrEvent): string | undefined {
 }
 
 /**
+ * NIP-92 media-attachment (`imeta`) tags (§3.1, §4.6). The single named source, exactly as
+ * {@link FABRIC_TAG} is for `scrutiny-fabric`.
+ */
+export const IMETA_TAG = 'imeta'
+
+/**
+ * `new URL` is a WHATWG global in every runtime this package targets, but the shipped build
+ * withholds both DOM and Node globals (`tsconfig.build.json` sets `"types": []` so a stray
+ * `process` or `Buffer` fails the build), so the constructor is declared here with exactly the two
+ * members the url gate reads. The parse result is used for validation only — never emitted, never
+ * normalized into the output.
+ */
+declare const URL: new (url: string) => { readonly protocol: string; readonly hostname: string }
+
+/** NIP-94 `x` field grammar on input: a 64-digit hex SHA-256 digest, either case. */
+const SHA256_HEX_PATTERN = /^[0-9a-f]{64}$/i
+
+/**
+ * NIP-94 `size` field grammar: a decimal digit string. Never converted to a number — leading
+ * zeros and values beyond 2^53 survive losslessly, and conversion is the consumer's choice (the
+ * same digit-string posture VER-1 takes).
+ */
+const SIZE_DECIMAL_PATTERN = /^\d+$/
+
+/**
+ * One NIP-92 payload attachment parsed from a single `imeta` tag (§3.1, §4.6).
+ *
+ * Parsed, not verified: every field is the publisher's *claim*, verbatim from the tag. §4.6's
+ * verification obligations (IM-1's hash check, IM-2's size check) need fetched bytes, so this type
+ * carries no verdict about them — a missing field means "not declared (in usable form)", never
+ * "failed verification".
+ */
+export interface ArtifactRef {
+  /**
+   * The tag's first syntactically valid `url` entry, verbatim as declared — never normalized,
+   * percent-decoded, or case-folded. Guaranteed to parse as `http:`/`https:` with a non-empty
+   * hostname; anything beyond that (dedupe across tags or mirrors, display, fetch) is the
+   * consumer's job — collapsing duplicates is a presentation concern (BD-11).
+   */
+  readonly url: string
+  /**
+   * The first `m` (MIME type) entry, verbatim. Unvalidated NIP-94 vocabulary; absent when the tag
+   * declares no non-empty value.
+   */
+  readonly mime?: string
+  /**
+   * The first `x` entry, lowercased — present only when it is a 64-hex SHA-256 digest
+   * (`/^[0-9a-f]{64}$/i`); any other value is omitted. IM-1's byte-level comparison against the
+   * fetched artifact is the consumer's job.
+   */
+  readonly sha256?: string
+  /**
+   * The first `size` entry as decimal *text* (`/^\d+$/`, otherwise omitted). Never `Number`ed:
+   * leading zeros and values beyond 2^53 survive losslessly, and an IM-2 consumer's numeric
+   * conversion is that consumer's choice (same posture as VER-1's digit strings).
+   */
+  readonly size?: string
+  /**
+   * The first `alt` entry, verbatim, with no length guard in core — any display-length policy is
+   * consumer-side. Absent when the value is empty.
+   */
+  readonly alt?: string
+}
+
+/**
+ * Every `imeta` attachment on the event, in document order — one {@link ArtifactRef} per tag whose
+ * name matches {@link IMETA_TAG} exactly (TAG-4).
+ *
+ * This is the read half of §3.1/§4.6's NIP-92 attachment tier: imeta attachments are OPTIONAL on
+ * Products and Metadata (PR-5, MD-5) and need not be referenced in `content` (IM-5). Because §3.1
+ * makes NIP-92 itself OPTIONAL, NIP-92's "MUST have a `url`, and at least one other field" is not
+ * inherited as a validity rule here: a url-only tag yields a bare ref, and a malformed tag is
+ * skipped rather than rejected — nothing in this module rejects (that is `validate.ts`'s job), and
+ * no SCRUTINY rule makes a bad imeta tag V-invalid.
+ *
+ * Grammar (NIP-92's "each entry is a space-delimited key/value pair"): entries after the tag name
+ * split on the FIRST space only, so values may contain spaces (see `alt`); keys case-fold to
+ * lowercase; values are kept verbatim; empty-string values never claim a key. Within one tag the
+ * first occurrence claims each key, except `url`, whose first *syntactically valid* entry wins —
+ * IM-3's multi-url mirrors: an unusable mirror is skipped at parse time, while §4.6's "accept the
+ * first whose fetched bytes match the declared `x` hash" is fetch-time behaviour this sans-IO
+ * module cannot perform. Entries with no embedded space, or a space at offset 0, are skipped.
+ * Unrecognised keys — including NIP-94's dim/blurhash/thumb/image/summary/ox/magnet/i/fallback/
+ * service — are ignored (TAG-5's tolerant posture).
+ *
+ * A tag contributes NOTHING — never a partial fabrication — unless some `url` entry parses
+ * (`new URL`) with an `http:`/`https:` scheme and a non-empty hostname; protocol-relative,
+ * `data:`, `javascript:`, and other-scheme values all fail that gate.
+ *
+ * Output is one ref per tag, in document order, with no dedupe and no cross-tag normalization —
+ * §4.6 mirrors and BD-11 both make that the consumer's job.
+ *
+ * Non-goals: fetching, hash/size verification, and display. IM-1..IM-4 are NOT discharged here;
+ * a consumer that displays or processes these artifacts owes IM-4's "MUST warn before displaying
+ * or processing unverified artifacts" itself.
+ */
+export function imetaArtifacts(event: NostrEvent): ArtifactRef[] {
+  const out: ArtifactRef[] = []
+  for (const tag of event.tags) {
+    if (tag[0] !== IMETA_TAG) continue
+    let url: string | undefined
+    const claimed = new Map<string, string>()
+    for (let i = 1; i < tag.length; i++) {
+      const entry = tag[i]
+      if (entry === undefined) continue
+      const sp = entry.indexOf(' ')
+      if (sp <= 0) continue
+      const key = entry.slice(0, sp).toLowerCase()
+      const value = entry.slice(sp + 1)
+      if (value === '') continue
+      if (key === 'url') {
+        if (url === undefined && isHttpUrlValue(value)) url = value
+      } else if (!claimed.has(key)) {
+        claimed.set(key, value)
+      }
+    }
+    if (url === undefined) continue
+    const mime = claimed.get('m')
+    const x = claimed.get('x')
+    const size = claimed.get('size')
+    const alt = claimed.get('alt')
+    out.push({
+      url,
+      ...(mime !== undefined ? { mime } : {}),
+      ...(x !== undefined && SHA256_HEX_PATTERN.test(x) ? { sha256: x.toLowerCase() } : {}),
+      ...(size !== undefined && SIZE_DECIMAL_PATTERN.test(size) ? { size } : {}),
+      ...(alt !== undefined ? { alt } : {}),
+    })
+  }
+  return out
+}
+
+/** The url gate: an `http:`/`https:` scheme and a non-empty hostname; nothing more is asserted. */
+function isHttpUrlValue(value: string): boolean {
+  let parsed: { readonly protocol: string; readonly hostname: string }
+  try {
+    parsed = new URL(value)
+  } catch {
+    return false
+  }
+  return (parsed.protocol === 'http:' || parsed.protocol === 'https:') && parsed.hostname !== ''
+}
+
+/**
  * Deduplicate events by id, first occurrence wins.
  *
  * Nostr ids are content hashes, so two events sharing an id are byte-identical (D18) — "first
