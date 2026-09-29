@@ -12,6 +12,7 @@ import {
   bindingsReferencing,
   classifyByRole,
   deletionsFor,
+  eventsById,
   fullScanFilter,
   indexerFilter,
   patchesReferencing,
@@ -97,6 +98,15 @@ describe('BQ-1 — §8.2 traversal filters match the spec text', () => {
       '#t': ['scrutiny-patch'],
       '#e': ['fff666'],
     })
+  })
+
+  it('fetch discovered endpoints by id — kind-agnostic ids-only (implied by §8.2, F21)', () => {
+    expect(eventsById(['aaa111', 'bbb222'])).toEqual({
+      ids: ['aaa111', 'bbb222'],
+    })
+    expect(eventsById(['ccc333'])).toEqual({ ids: ['ccc333'] })
+    expect(eventsById([])).toEqual({ ids: [] })
+    expect(eventsById(['bbb222', 'aaa111'])).toEqual({ ids: ['bbb222', 'aaa111'] })
   })
 })
 
