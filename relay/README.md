@@ -1,0 +1,136 @@
+# scrutiny-fabric-tools/relay
+
+A single-binary [khatru](https://pkg.go.dev/fiatjaf.com/nostr/khatru) relay for the
+scrutiny-fabric pilot. Reads are open (all NIP-01 filters, plus NIP-50 search over a
+bleve index): writes must be NIP-42 authenticated by a pubkey on the pilot allowlist
+and must pass a vocabulary gate — kind 1 notes carrying at least one accepted
+scrutiny `t` tag, or kind 5 deletion requests. Deletion requests follow spec rule
+**DEL-11** ("store, never act"): a kind 5 event is accepted, stored and served like
+any other event, its targets are **never** deleted, and NIP-11 does not advertise
+NIP-9 — the framework `DeleteEvent` hook is deliberately left unwired, so nothing in
+the relay can ever delete an event. Events live in a pure-Go boltdb base store; the
+bleve search index holds only kind-1 content and hydrates its hits from the base
+store.
+
+## Environment
+
+| Variable | Required | Default | Meaning |
+| --- | --- | --- | --- |
+| `SCRUTINY_LISTEN_ADDR` | no | `:3334` | host:port the HTTP server binds to |
+| `SCRUTINY_SERVICE_URL` | **yes** | — | public relay URL used as the NIP-42 challenge `relay` tag, e.g. `wss://relay.example.com` (must survive the reverse proxy) |
+| `SCRUTINY_DATA_DIR` | no | `data` | directory holding `base.bolt` and `search/` |
+| `SCRUTINY_ALLOWED_PUBKEYS` | **yes** | — | comma-separated publisher allowlist, 64-char hex or `npub1...` |
+| `SCRUTINY_ACCEPTED_TAGS` | no | canonical vocabulary + twins | comma-separated `t` tag values accepted on kind 1 events |
+| `SCRUTINY_RELAY_NAME` | no | `scrutiny-fabric relay` | NIP-11 name |
+| `SCRUTINY_RELAY_DESCRIPTION` | no | pilot description | NIP-11 description |
+| `SCRUTINY_RELAY_CONTACT` | no | `<operator-email>` | NIP-11 contact |
+| `SCRUTINY_MAX_QUERY_LIMIT` | no | `500` | max events one filter may return |
+| `SCRUTINY_MAX_EVENT_PAST_AGE` | no | `2h` | Go duration; how old an event's `created_at` may be before it's rejected as too old — widen only temporarily for backfills (writes stay allowlist-gated regardless) |
+
+The default `SCRUTINY_ACCEPTED_TAGS` set is the canonical vocabulary
+(`scrutiny-fabric`, `scrutiny-v0.8.1`, `scrutiny-product`, `scrutiny-metadata`,
+`scrutiny-binding`, `scrutiny-patch`) plus one `-test`/`-pilot`/`-demo` twin per
+canonical value (for example `scrutiny-fabric-test`, `scrutiny-product-pilot`).
+Setting the variable replaces the whole set.
+
+## Quickstart (locally)
+
+```sh
+export SCRUTINY_SERVICE_URL=ws://localhost:3334
+export SCRUTINY_ALLOWED_PUBKEYS=npub1...   # or the 64-char hex pubkey
+go run ./cmd/relay
+```
+
+or build the binary and run it:
+
+```sh
+go build -o relay ./cmd/relay
+./relay
+```
+
+Endpoints:
+
+* `ws://localhost:3334` — the relay itself (NIP-11 via
+  `Accept: application/nostr+json`)
+* `GET /healthz` — `200 ok` when the base store answers, else `503`
+* `GET /metrics` — JSON counters: `events_stored`, `events_rejected`,
+  `queries_with_search`, `uptime_s`
+
+Rebuild the search index from the base store (stop the relay first; boltdb holds an
+exclusive lock):
+
+```sh
+./relay reindex
+```
+
+## Deployment
+
+Docker image + compose stack (relay behind a Caddy TLS sidecar) for the FI MUNI
+Stratus VM: see [deploy/README.md](deploy/README.md). The `SCRUTINY_SERVICE_URL`
+must byte-match the Caddyfile vhost and the CVT DNS record — it is the NIP-42
+challenge anchor.
+
+## Behavior notes
+
+* **Authentication** — every write needs NIP-42. An unauthenticated write is
+  rejected with `auth-required: writes require authentication` and a fresh
+  challenge; an authenticated pubkey outside the allowlist gets
+  `blocked: not an allowed publisher`. Reads are never gated, so
+  `Limitation.auth_required` stays false in NIP-11.
+* **Deletion** — kind 5 is stored and queryable (`{"kinds":[5],"#e":[...]}`), the
+  referenced event keeps being served, and NIP-11 lists NIP-1, 11, 42, 50, 70 —
+  no NIP-9 and no NIP-86 (the management API is never served, see below).
+* **Search** — NIP-50 over kind 1 content. A search string shorter than 2
+  characters (after trimming) returns no events.
+* **Counting** — NIP-45 is not supported: it is not advertised in NIP-11 and
+  `COUNT` requests are answered with a CLOSED message.
+* **Store failures** — if the search index write fails after the base store has
+  accepted an event, the write fails and the drift is logged; run `relay reindex`
+  to rebuild the index.
+* **Management API (NIP-86)** — the endpoint is never served. A request with
+  `Content-Type: application/nostr+json+rpc` is answered with `404` and a
+  one-line comment by the HTTP hardening in front of khatru: khatru's
+  management handler reads and hashes the entire request body before checking
+  its `Authorization` header (`nip86.go:71` vs `79`), so an unauthenticated
+  caller could force an unbounded read — and this relay wires no management
+  methods anyway. NIP-11 consequently does not advertise NIP-86. As
+  belt-and-braces, every non-websocket request body is capped at 64 KiB
+  (websocket traffic is bounded by the 512000-byte frame cap instead).
+* **Client identity / `X-Forwarded-For`** — khatru's per-IP limiters prefer the
+  first global-unicast `X-Forwarded-For` entry over the socket peer, so the
+  relay keeps that header only when the connecting peer is loopback or in a
+  private range: Caddy (the compose sidecar) reaches the relay from the docker
+  network and replaces XFF with the real peer address, and the VM-internal
+  tunnel and local development are private/loopback too. Any other peer — a
+  client that reached the relay directly — has the header dropped and is
+  identified by its socket address, so it cannot forge its per-IP identity.
+* **Filter complexity** — a single filter asking for more than 400 `authors`,
+  500 `ids`, or 500 total `#x` tag values is refused with
+  `CLOSED rejected: filter too complex`, checked before the rate limiters so it
+  consumes no token. The caps sit above the fabric pipelines (id batches of
+  300-400) and lens (narrow tag filters) usage.
+* **Rate limits** — three per-IP token buckets, all **DDoS ceilings, not user
+  throttles** (a NAT'd lab of lens clients plus our own tunnel walks must never
+  hit them):
+  - *connections*: 600 up-front, then 30 per 10s (a new connection over budget
+    gets `429`);
+  - *filters*: 2000 up-front, then 600/min on stored-event queries;
+  - *search* (NIP-50 `search` filters only): 120 up-front, then 30/min — over
+    budget the relay answers `CLOSED rate-limited: search budget exhausted,
+    retry in a minute`. The per-IP search buckets are themselves capped at
+    16384 entries; when that ceiling is reached and a sweep of refilled buckets
+    cannot free space, searches from **new** IPs fail closed (same `CLOSED`
+    message) until draining buckets refill and get swept — existing IPs keep
+    their budget.
+
+  The first two are khatru policies and exempt loopback; the search limiter does
+  **not** exempt loopback, so the relay's own tunnel walks are bounded too. No
+  per-IP limit is applied to writes — that path is allowlist-gated by NIP-42
+  already.
+
+  Multi-filter REQ caveat (pre-existing khatru behavior, F2): the filters of one
+  REQ are processed one by one, and a rejection anywhere — complexity cap or
+  rate limit — closes the whole subscription, but listeners khatru already
+  registered for the earlier filters keep delivering events. Prefer
+  single-filter REQs; re-sending the same subscription id or sending `CLOSE`
+  removes the stale listeners.

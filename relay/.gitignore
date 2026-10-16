@@ -1,0 +1,7 @@
+data/
+*.exe
+/dist/
+
+# FI-internal operations docs — kept in a local-only sibling directory,
+# never committed to the public repo.
+deploy/VM-DEPLOY-RUNBOOK.md

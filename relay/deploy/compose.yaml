@@ -1,0 +1,66 @@
+# deploy/compose.yaml — Stratus (OpenNebula VM) deployment for the scrutiny-fabric relay.
+#
+# Run from this directory:  docker compose up -d --build
+#
+# HOSTNAME SYNC (NIP-42): the hostname in SCRUTINY_SERVICE_URL below and in the
+# deploy/Caddyfile vhost, plus the CVT DNS record, must all be the same string.
+# Full explanation: deploy/README.md §2.
+
+services:
+  relay:
+    build:
+      # Context is the relay module root (one level up from deploy/), matching
+      # the comment in deploy/Dockerfile.
+      context: ..
+      dockerfile: deploy/Dockerfile
+    image: scrutiny-fabric-tools-relay:latest
+    restart: unless-stopped
+    environment:
+      # NIP-42 anchor: replace the <HOSTNAME> label with the CVT-assigned host,
+      # byte-identical to deploy/Caddyfile's vhost and the CVT DNS record
+      # (see HOSTNAME SYNC above and deploy/README.md §2).
+      SCRUTINY_SERVICE_URL: "wss://<HOSTNAME>.fi.muni.cz"
+
+      # REQUIRED. Comma-separated publisher pubkeys, each 64 hex chars or
+      # npub1... At least one is required; writes from anyone else are refused.
+      SCRUTINY_ALLOWED_PUBKEYS: "<FILL-ME>"
+
+      # No other variables are set here: the image already pins
+      # SCRUTINY_LISTEN_ADDR=0.0.0.0:3334 and SCRUTINY_DATA_DIR=/data, and every
+      # other SCRUTINY_* variable falls back to its compiled default. See the
+      # "Environment" table in the relay module README.md.
+    volumes:
+      - relay-data:/data
+    # NO ports: the relay is reachable only by caddy on the internal network.
+    # Caddy is the only TLS terminator and the only thing exposed to the internet.
+
+  caddy:
+    # Replace with a digest pin (caddy:2.10@sha256:...) when this goes to a registry.
+    image: caddy:2.10
+    restart: unless-stopped
+    ports:
+      # Only caddy publishes host ports. Requires 80/443 open to the internet
+      # (requested from CVT) for Let's Encrypt HTTP-01/TLS-ALPN challenges.
+      - "80:80"
+      - "443:443"
+    volumes:
+      # Read-only: the vhost hostname here must match SCRUTINY_SERVICE_URL above.
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data     # Let's Encrypt account + certificates (persist!)
+      - caddy-config:/config
+    depends_on:
+      - relay
+
+networks:
+  default:
+    name: scrutiny-relay
+
+volumes:
+  # Explicitly named so the backup/reindex commands in deploy/README.md are
+  # copy-pasteable regardless of the compose project name.
+  relay-data:
+    name: scrutiny-relay-data
+  caddy-data:
+    name: scrutiny-relay-caddy-data
+  caddy-config:
+    name: scrutiny-relay-caddy-config

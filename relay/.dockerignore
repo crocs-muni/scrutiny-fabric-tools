@@ -1,0 +1,11 @@
+# Build context is the relay module root (see deploy/Dockerfile). Keep the
+# context small: none of the paths below are needed to compile the relay.
+.git/
+data/
+dist/
+*.exe
+README.md
+.vscode/
+.idea/
+*.swp
+*.swo
