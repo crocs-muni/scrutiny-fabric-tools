@@ -14,7 +14,7 @@
  * diff key. It covers logical keys, never event ids, so a relation keeps its identity across
  * re-points (§2 C4) while a class change (direct↔transitive) is an R3 replace, not a patch.
  */
-import { createHash } from 'node:crypto'
+import { sha256 } from '@noble/hashes/sha2.js'
 
 import type {
   CveClass,
@@ -28,6 +28,10 @@ import type {
 } from '../../loaders/seccerts-types.js'
 import { ROCA_CVE } from './roots.js'
 
+function sha256Hex(text: string): string {
+  return Buffer.from(sha256(new TextEncoder().encode(text))).toString('hex')
+}
+
 function fingerprintOf(
   relationId: string,
   cls: CveClass | null,
@@ -36,7 +40,7 @@ function fingerprintOf(
   headline: string,
 ): string {
   const material = `${relationId}|${cls === null ? 'null' : cls}|${rootSourceId}|${linkSourceId}|${headline}`
-  return createHash('sha256').update(material).digest('hex')
+  return sha256Hex(material)
 }
 
 /**
@@ -47,7 +51,7 @@ function fingerprintOf(
  */
 export function crosslinkFingerprintOf(pair: SecCertsCrosslink): string {
   const material = `${crosslinkRelationId(pair)}|${pair.cardKey}|${pair.certDgst}|${pair.evidence.join('|')}`
-  return createHash('sha256').update(material).digest('hex')
+  return sha256Hex(material)
 }
 
 export function crosslinkRelationId(pair: SecCertsCrosslink): string {
@@ -61,7 +65,7 @@ function crosslinkRelations(
 ): DesiredRelation[] {
   const relationId = crosslinkRelationId(pair)
   const certLabel = pair.certId ?? pair.certDgst
-  const roca = cert !== undefined && cert.cves.some((c) => c.cve === ROCA_CVE)
+  const roca = cert?.cves.some((c) => c.cve === ROCA_CVE) ?? false
   const certFound = cert !== undefined
   const headline = `${pair.cardName} (${pair.cardKey}) ↔ ${certLabel}: card↔certificate cross-link (JCAlgTest issue #264).`
   return [
@@ -88,7 +92,9 @@ function crosslinkRelations(
       bullets: [
         'Cross-link method: JCAlgTest issue #264 — card-name full-text search inside sec-certs full text, filtered by CPLC ICType/OperatingSystemID (ground-truth/crosslink-matrix.json).',
         ...(pair.evidence.length === 0
-          ? ['Evidence: none recorded for this pair in the matrix (seeded from leg-1 spine selection).']
+          ? [
+              'Evidence: none recorded for this pair in the matrix (seeded from leg-1 spine selection).',
+            ]
           : pair.evidence.map((e) => `Evidence: ${e}`)),
         pair.score === null ? null : `Matrix score: ${pair.score} (confidence high).`,
         certFound
@@ -167,7 +173,7 @@ function ppMembershipRelations(
 ): DesiredRelation[] {
   const channel =
     r.corpus === 'seccerts/cc'
-      ? 'record-resolved (the certification record\'s own protection-profile evidence)'
+      ? "record-resolved (the certification record's own protection-profile evidence)"
       : 'keyword-alias-resolved (EUCC carries PP references only via keyword extraction — eucc-pp-census §1.4)'
   const out: DesiredRelation[] = []
   for (const ppDgst of r.ppRefsResolved) {

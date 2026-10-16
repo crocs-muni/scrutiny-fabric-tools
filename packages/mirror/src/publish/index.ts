@@ -166,7 +166,10 @@ export async function publishBatch(
   const socketFactory =
     opts.socketFactory ??
     ((url: string, key: string) =>
-      authedSocket(url, key, { log, ...(opts.authRelayUrl !== undefined ? { authRelayUrl: opts.authRelayUrl } : {}) }))
+      authedSocket(url, key, {
+        log,
+        ...(opts.authRelayUrl !== undefined ? { authRelayUrl: opts.authRelayUrl } : {}),
+      }))
 
   const ownedLedger = opts.ledger === undefined
   const ledger = opts.ledger ?? openLedger(opts.ledgerPath ?? DEFAULT_LEDGER_PATH)
@@ -276,7 +279,13 @@ export async function publishBatch(
           log(
             `[${event.id.slice(0, 12)}…] attempt ${attempts} verdict: ok=${String(ack.ok)} msg=${(ack.msg || '∅').slice(0, 80)}`,
           )
-          if (ack.ok || isRelayPermanentRejection(ack.msg) || !isRateLimitMessage(ack.msg) || attempts > maxRetries) break
+          if (
+            ack.ok ||
+            isRelayPermanentRejection(ack.msg) ||
+            !isRateLimitMessage(ack.msg) ||
+            attempts > maxRetries
+          )
+            break
           const delay = Math.min(backoffCapMs, backoffBaseMs * 2 ** (attempts - 1))
           log(
             `[${event.id.slice(0, 12)}…] rate-limited (${ack.msg}); retry ${attempts}/${maxRetries} in ${delay}ms`,

@@ -257,7 +257,9 @@ function repointedRefsLine(content: string, oldLink: string, newLink: string): s
   const match = REFS_RE.exec(content)
   if (match === null) throw new Error("binding content lacks a 'Refs: root … link …' line")
   if (match[2] !== oldLink) {
-    throw new Error(`binding Refs link ${match[2] ?? ''} does not match its e(link) target ${oldLink}`)
+    throw new Error(
+      `binding Refs link ${match[2] ?? ''} does not match its e(link) target ${oldLink}`,
+    )
   }
   return content.replace(REFS_RE, `Refs: root ${match[1] ?? ''} link ${newLink}`)
 }
@@ -378,8 +380,7 @@ export async function planRepinLeg(
         pinString(entry.row.sha256, entry.row.sizeBytes),
         pinString(entry.pin.sha256, entry.pin.sizeBytes),
       ),
-      `Supersedes ${shortId(oldId)}: imeta pin corrected to the bytes the pinned URL serves ` +
-        '(CRLF working-tree defect in the original import).',
+      `Supersedes ${shortId(oldId)}: imeta pin corrected to the bytes the pinned URL serves (CRLF working-tree defect in the original import).`,
     )
     const event = signer.sign({ kind: 1, created_at: now, tags, content })
     newMetadataId.set(oldId, event.id)

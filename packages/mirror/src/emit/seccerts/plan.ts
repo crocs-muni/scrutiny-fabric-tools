@@ -22,6 +22,7 @@ const TYPO_QUOTES = /[«»“”„]/gu
 // canonical nostr-tools escaping) cannot hash such events consistently, so kind-1 writes are
 // permanently invalid ("id is computed incorrectly"). Rule 8's plain-text convention removes
 // them at this boundary (content-only; never in the upstream documents themselves).
+// biome-ignore lint/suspicious/noControlCharactersInRegex: rule 8 strips C0/C1 control bytes at the emit boundary — matching them is the whole point.
 const CTRL_CHARS = /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/gu
 
 function plainQuotes(text: string): string {

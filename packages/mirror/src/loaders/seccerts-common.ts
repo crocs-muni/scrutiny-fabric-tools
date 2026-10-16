@@ -97,7 +97,7 @@ export function unwrapSet(value: unknown): unknown[] {
  * nested count dicts (the live grammar), arrays (recurse elements), string leaves (the value
  * itself), numbers (counts — dropped). Keywords are the vocabulary; counts are not facts.
  */
-export function collectKeywordKeys(value: unknown, out: string[] = []): string[] {
+function collectKeywordKeys(value: unknown, out: string[] = []): string[] {
   if (typeof value === 'string') {
     out.push(value)
     return out
@@ -138,7 +138,7 @@ const JUNK_SLUGS: Record<string, true> = { unknown: true, na: true, 'n-a': true,
  * dotless ı→i; ş/ğ fold via NFKD but stay mapped) → non-alnum runs to '-' → trim.
  * Junk vendor values (empty, `unknown`, `n/a`, `none`, email protected redactions) → null.
  */
-export function vendorSlugSec(raw: unknown): string | null {
+function vendorSlugSec(raw: unknown): string | null {
   if (typeof raw !== 'string') return null
   const trimmed = raw.trim()
   if (trimmed === '') return null

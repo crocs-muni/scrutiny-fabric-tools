@@ -262,7 +262,11 @@ class AuthedRelaySocket implements AuthedSocket {
       const challenge = rest[0]
       if (typeof challenge !== 'string' || this.authSettled) return
       this.authChallenge = challenge
-      const authEvent = buildAuthEvent(this.options.authRelayUrl !== '' ? this.options.authRelayUrl : this.relay, challenge, this.secretKey)
+      const authEvent = buildAuthEvent(
+        this.options.authRelayUrl !== '' ? this.options.authRelayUrl : this.relay,
+        challenge,
+        this.secretKey,
+      )
       this.authEventId = authEvent.id
       this.log(`[auth] challenged, responding (event ${authEvent.id.slice(0, 12)}…)`)
       if (!this.send(['AUTH', authEvent])) this.settleAuth(false, 'socket not open for AUTH')

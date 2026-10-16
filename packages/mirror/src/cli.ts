@@ -292,7 +292,11 @@ async function runBuildSeccerts(flags: Map<string, string>): Promise<number> {
   )) as {
     loadSeccerts(opts: { dataDir: string; groundTruthDir: string }): unknown
   }
-  const emitter = (await importModule('./emit/seccerts.js', './emit/seccerts', 'emit/seccerts')) as {
+  const emitter = (await importModule(
+    './emit/seccerts.js',
+    './emit/seccerts',
+    'emit/seccerts',
+  )) as {
     emitSeccertsBundle(
       bundle: unknown,
       opts: { signer: Signer; ledgerPath: string; leg1NdjsonPath?: string },
@@ -393,8 +397,7 @@ async function runVerifyImeta(flags: Map<string, string>): Promise<number> {
   const relayHost = flags.get('relay-host') ?? 'none'
   if (relayHost !== 'none') {
     throw new Error(
-      `verify:imeta: --relay-host '${relayHost}' is not supported — dump the relay's events ` +
-        'to an NDJSON file and verify that via --in',
+      `verify:imeta: --relay-host '${relayHost}' is not supported — dump the relay's events to an NDJSON file and verify that via --in`,
     )
   }
 

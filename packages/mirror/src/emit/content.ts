@@ -13,7 +13,7 @@
 import type { SignedEvent } from '../types.js'
 
 /** Rule 8(c): the canonical single-line record-card label. */
-export const RECORD_CARD_LABEL = 'Record card (JSON): '
+const RECORD_CARD_LABEL = 'Record card (JSON): '
 
 /** SCRUTINY v0.8.1 event types emitted by leg 1 (patches are not part of v0). */
 export type EventType = 'scrutiny-product' | 'scrutiny-metadata' | 'scrutiny-binding'

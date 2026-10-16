@@ -169,11 +169,7 @@ export function buildPpAliasTable(ppDocs: Record<string, unknown>[]): PpAliasTab
     // collapsed out ('ANSSI-CC-PP 2008/05M01' → 'ANSSI-CC-PP 2008/05M01' is taggable only
     // without the space → 'ANSSI-CC-PP2008/05M01' misleading; drop the space cleanly).
     const tagIds = [
-      ...new Set(
-        ids
-          .map((id) => id.replace(/\s+/gu, ''))
-          .filter((id) => id !== ''),
-      ),
+      ...new Set(ids.map((id) => id.replace(/\s+/gu, '')).filter((id) => id !== '')),
     ].sort((a, b) => b.length - a.length || (a < b ? -1 : a > b ? 1 : 0))
     printedAliases.set(dgst, tagIds)
     for (const id of ids) {

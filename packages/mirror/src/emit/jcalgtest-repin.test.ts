@@ -12,8 +12,8 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
-import { sha256 } from '@noble/hashes/sha2.js'
 import { describe, expect, it } from 'bun:test'
+import { sha256 } from '@noble/hashes/sha2.js'
 
 import { gateEvents } from '../gate/index.js'
 import type { SignedEvent } from '../types.js'
@@ -236,7 +236,9 @@ describe('planRepinLeg — one changed run-Metadata superseded with its Binding'
       ['e', CHANGED_BIND.id, '', 'supersedes'],
     ])
     expect(newBind.content).toContain(`Refs: root ${ROOT_ID} link ${newMd.id}`)
-    expect(newBind.content).toContain(`(sha256 ${SERVED_PIN.sha256}, ${SERVED_PIN.sizeBytes} bytes)`)
+    expect(newBind.content).toContain(
+      `(sha256 ${SERVED_PIN.sha256}, ${SERVED_PIN.sizeBytes} bytes)`,
+    )
     expect(newBind.content).not.toContain(OLD_PIN_STRING)
     expect(newBind.content).toContain(`Supersedes ${CHANGED_BIND.id.slice(0, 8)}: link re-pointed`)
     const bindLines = newBind.content.split('\n')

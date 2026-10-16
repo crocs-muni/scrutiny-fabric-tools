@@ -58,7 +58,11 @@ interface MatrixDoc {
 function cardAnchorKey(card: MatrixCard): string | null {
   if (card.jcard !== null) return `jcard:${card.jcard}`
   const atr = card.atr
-  if (typeof atr === 'string' && /^[0-9a-f]*$/iu.test(atr.trim().toLowerCase()) && atr.length >= 8) {
+  if (
+    typeof atr === 'string' &&
+    /^[0-9a-f]*$/iu.test(atr.trim().toLowerCase()) &&
+    atr.length >= 8
+  ) {
     return `atr:${atr.trim().toLowerCase()}`
   }
   const name = card.card_name

@@ -16,7 +16,7 @@ import type { Database } from 'bun:sqlite'
 
 export const SECCERTS_GEN_VERSION = 'seccerts-v1'
 
-export const SECCERTS_SCHEMA_SQL = `
+const SECCERTS_SCHEMA_SQL = `
 CREATE TABLE IF NOT EXISTS roots (
   corpus       TEXT    NOT NULL,
   source_id    TEXT    NOT NULL,

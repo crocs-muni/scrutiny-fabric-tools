@@ -30,7 +30,7 @@ import type { SignedEvent } from '../types.js'
 import type { GateError } from './verify.js'
 
 /** Rule 8(c): the canonical single-line record-card label. */
-export const RECORD_CARD_LABEL = 'Record card (JSON): '
+const RECORD_CARD_LABEL = 'Record card (JSON): '
 
 export interface LostFact {
   event: string

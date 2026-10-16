@@ -319,7 +319,7 @@ function parsePatch(payload: string): ParsedHunk[] {
  * the header's old line number carried forward by prior-hunk net deltas and clamp into range
  * (T2); hunks sequence in document order across sections (T3). Throws on any mismatch.
  */
-export function applyPatch(content: string, patchText: string): string {
+function applyPatch(content: string, patchText: string): string {
   const payload = extractPatchPayload(patchText)
   if (payload.trim().length === 0) return content // N1/E7: prose-only / empty patch is a no-op
   const hunks = parsePatch(payload)

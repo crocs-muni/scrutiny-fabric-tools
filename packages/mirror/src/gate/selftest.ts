@@ -15,7 +15,7 @@ import { join } from 'node:path'
 import { gateEvents } from './index.js'
 
 const DEFAULT_EXAMPLES = join(
-  process.env.HOME ?? process.env.USERPROFILE ?? '.',
+  process.env['HOME'] ?? process.env['USERPROFILE'] ?? '.',
   'scrutiny-fabric/docs/mirroring/examples',
 )
 const dir = process.argv[2] ?? DEFAULT_EXAMPLES

@@ -17,6 +17,22 @@
     "examples/signers": {
       "entry": ["noble-signer.ts"],
       "project": ["*.ts"]
+    },
+    "packages/mirror": {
+      "entry": [
+        "src/emit/index.ts",
+        "src/gate/index.ts",
+        "src/loaders/jcalgtest.ts",
+        "src/loaders/seccerts.ts",
+        "src/emit/jcalgtest-repin.ts",
+        "src/emit/selftest.ts",
+        "src/gate/selftest.ts",
+        "src/publish/selftest.ts",
+        "src/emit/seccerts/index.ts",
+        "src/emit/seccerts/plan.ts",
+        "src/emit/jcalgtest-repin.test.ts"
+      ],
+      "project": ["src/**/*.ts"]
     }
   }
 }

@@ -1,10 +1,10 @@
 import { loadMaintenance } from './maintenance.js'
 import { buildPpAliasTable, isProseAlias } from './ppAliases.js'
 import { loadCc } from './seccerts-cc.js'
+import { loadCrosslinks } from './seccerts-crosslinks.js'
 import { loadEucc } from './seccerts-eucc.js'
 import { loadFips } from './seccerts-fips.js'
 import { loadPp } from './seccerts-pp.js'
-import { loadCrosslinks } from './seccerts-crosslinks.js'
 /**
  * seccerts.ts — sec-certs bundle assembly (design §2.10 order; update-semantics.md §3/§5).
  *

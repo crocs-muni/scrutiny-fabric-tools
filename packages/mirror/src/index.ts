@@ -21,11 +21,10 @@ export * from './emit/index'
 
 /**
  * Emit internals that consumers (cli self-tests, gate fixtures, tests) use.
- * `RECORD_CARD_LABEL` is exported from `emit/content` only — `gate/selfConsume`
- * defines its own copy of the same constant and is deliberately not star-exported.
+ * `gate/selfConsume` defines its own copy of the record-card label and is
+ * deliberately not star-exported.
  */
 export {
-  RECORD_CARD_LABEL,
   baseTags,
   iTags,
   kTagsFor,

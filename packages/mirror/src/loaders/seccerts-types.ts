@@ -203,7 +203,7 @@ export interface SecCertsMaintenanceRecord {
  * Victims = affected products bound via advisory bindings; assembled IN EMIT from record cves,
  * not by loaders (loaders only attach `cves` to their records).
  */
-export interface SecCertsAdvisoryRecord {
+interface SecCertsAdvisoryRecord {
   corpus: 'seccerts/global'
   /** `cve:CVE-XXXX-YYYY` — logical key. */
   sourceId: string

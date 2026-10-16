@@ -42,7 +42,7 @@ import { ALG_FAMILIES } from './seccerts-types.js'
 export type RawRecord = Record<string, unknown>
 
 /** Diagnostics the bundle aggregates; loaders only increment counters, never read them. */
-export interface CertLoadDiag {
+interface CertLoadDiag {
   /** (record, token) pairs skipped as prose aliases (not id-ish, so no `pp:` tag). */
   prosePpTokens: number
 }
@@ -127,7 +127,7 @@ export function ppKeywordTokens(pdfData: unknown): string[] {
  * `state.<sub>.source_hash` and a link. `sizeBytes` is null — `DocumentState` has no size
  * field in this dataset version (verified live 2026-10-11; the field is read defensively).
  */
-export function upstreamArtifact(
+function upstreamArtifact(
   state: unknown,
   record: RawRecord,
   sub: 'report' | 'st' | 'cert',

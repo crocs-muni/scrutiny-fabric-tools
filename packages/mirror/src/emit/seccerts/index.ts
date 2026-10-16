@@ -14,14 +14,10 @@
 
 import { existsSync, readFileSync } from 'node:fs'
 
-import { sha256Hex } from '../../loaders/seccerts-common.js'
 import { openLedger } from '../../ledger/index.js'
 import { SecCertsLedger } from '../../ledger/seccertsLedger.js'
-import type {
-  DesiredState,
-  EngineResult,
-  SecCertsBundle,
-} from '../../loaders/seccerts-types.js'
+import { sha256Hex } from '../../loaders/seccerts-common.js'
+import type { DesiredState, EngineResult, SecCertsBundle } from '../../loaders/seccerts-types.js'
 import type { Manifest, SignedEvent } from '../../types.js'
 import type { Signer } from '../keys.js'
 import { runEngine } from './engine.js'
@@ -179,9 +175,7 @@ function seedLeg1(
   )
 
   // seed relation rows for the leg-1 cross-link bindings (the 4 demo pairs)
-  const demoByKey = new Map(
-    bundle.crosslinks.map((pair) => [crosslinkRelationId(pair), pair]),
-  )
+  const demoByKey = new Map(bundle.crosslinks.map((pair) => [crosslinkRelationId(pair), pair]))
   let relationsSeeded = 0
   for (const e of events) {
     const isBinding = e.tags.some((t) => t[0] === 't' && t[1] === 'scrutiny-binding')
