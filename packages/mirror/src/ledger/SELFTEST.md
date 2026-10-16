@@ -38,9 +38,9 @@ CREATE TABLE IF NOT EXISTS relays (
 ```
 
 `openLedger(path = 'artifacts/mirror.sqlite')` creates parent directories, enables
-`busy_timeout=5000` + WAL, applies the DDL idempotently, and accepts `:memory:` for tests.
+`busy_timeout=5000` + WAL, and applies the DDL idempotently. It accepts `:memory:` for tests.
 Prepared-statement semantics: `upsertRecords` re-writes a row on the `(corpus, source_id)` key (it
-never duplicates); `markPublish` is last-write-wins on `(event_id, relay)`; `wasPublished` is true
+never duplicates). `markPublish` is last-write-wins on `(event_id, relay)`. `wasPublished` is true
 only for `ok=1` rows.
 
 ## Captured round-trip output (2026-10-04, Bun 1.4.0)
@@ -71,15 +71,15 @@ Demonstrable numbers:
 ## Integration with publish/ (captured in the same run)
 
 The batch test (publish/SELFTEST.md) writes one `publish_log` row per attempted event for the mock
-relay (6 rows after run 1) and the resume run demonstrates the skip semantics:
-`run2: total=6 accepted=0 rejected=1 skipped=5` — exactly the 5 ok-acked event ids were skipped,
-the previously rejected id was retried.
+relay (6 rows after run 1). The resume run demonstrates the skip semantics:
+`run2: total=6 accepted=0 rejected=1 skipped=5`. Exactly the 5 ok-acked event ids were skipped.
+The previously rejected id was retried.
 
 ## Known integration gap (v0)
 
 The `records` table API (`upsertRecords`) is implemented and tested here, but the CLI's
 `build:jcalgtest` does not populate it yet: emit's `EmitResult` exposes `{events, manifest}` without
-a source-file → event-ids mapping, and inferring one from event content would be guesswork. Once
+a source-file → event-ids mapping. Inferring one from event content would be guesswork. Once
 emit (or a build step) exposes that mapping, `cli.ts` can upsert one row per run record
 (`sourceId = RunRecord.file`, `sourceHash = RunRecord.sha256`, `iSet` = distinct `i` values) to get
 design §6.6 build idempotency on top of the already-working publish resume.

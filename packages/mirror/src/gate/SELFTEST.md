@@ -1,7 +1,7 @@
-# gate/SELFTEST.md — importer v0 gate vs the 18 frozen example events
+# gate/SELFTEST.md: importer v0 gate vs the 18 frozen example events
 
 Frozen inputs: `$HOME/scrutiny-fabric/docs/mirroring/examples/*.json`
-(18 signed events; contract: `design.md` §4.1 rules 2a/8, `packages/mirror/README.md`,
+(18 signed events, contract: `design.md` §4.1 rules 2a/8, `packages/mirror/README.md`,
 `src/types.ts`). Run date: 2026-10-05.
 
 ## How to reproduce
@@ -14,7 +14,7 @@ bun run src/gate/selftest.ts <examplesDir>   # explicit example directory
 bun -e "const {gateBatch}=await import('./src/gate/index.js'); console.log(await gateBatch('artifacts/jcalgtest.ndjson'))"
 ```
 
-`selftest.ts` exits `0` iff all 18 events pass shape/id/signature; the remaining
+`selftest.ts` exits `0` iff all 18 events pass shape/id/signature. The remaining
 findings below are the known legacy deviations and do not change that exit code.
 
 ## Exact counts (18 events)
@@ -22,7 +22,7 @@ findings below are the known legacy deviations and do not change that exit code.
 | Check | Result |
 |---|---|
 | shape + NIP-01 id + BIP-340 sig | **18/18 PASS** |
-| gate errors | **12** — `REFS-LINE` 7, `PLACEHOLDER-URL` 4, `TAG-3` 1 |
+| gate errors | **12**: `REFS-LINE` 7, `PLACEHOLDER-URL` 4, `TAG-3` 1 |
 | rule-2a lost facts | **7** |
 | events with zero error codes | 6 (`01`, `02`, `06`, `08`, `11a`, `13`) |
 | events with zero findings (errors + lost facts) | 4 (`01`, `06`, `08`, `13`) |
@@ -51,31 +51,31 @@ Per event (`selftest.ts` output):
 sig/id pass = 18/18
 ```
 
-## Known failures — reproduce, do NOT weaken the gate
+## Known failures: reproduce, do NOT weaken the gate
 
-1. **`REFS-LINE` × 7** — `04`, `05`, `07`, `10`, `11`, `12b`, `12c`.
+1. **`REFS-LINE` × 7**: `04`, `05`, `07`, `10`, `11`, `12b`, `12c`.
    Rule 8(d) (`Refs: root <hex> link <hex>`) postdates this example set: the design
    document states the rule was *measured against these very 18 examples*. The
-   bindings must be regenerated with the Refs line; until then the gate MUST keep
+   bindings must be regenerated with the Refs line. Until then the gate MUST keep
    failing them (fail-closed).
-2. **`TAG-3` × 1** — `14-patch-example.json`.
+2. **`TAG-3` × 1**: `14-patch-example.json`.
    The v0 gate contract admits exactly three event types
-   (`scrutiny-product|scrutiny-metadata|scrutiny-binding`); `scrutiny-patch` is outside
+   (`scrutiny-product|scrutiny-metadata|scrutiny-binding`). `scrutiny-patch` is outside
    v0 gate scope (no patch rules were specified for this gate). Expected until patch
-   gating is specified; the message names the patch case explicitly.
-3. **`PLACEHOLDER-URL` × 4** — `03`, `09`, `12`, `12a`.
-   `03`/`12`/`12a` contain the literal note “placeholder URL — mirror-hosted asset”,
-   and `09`/`12a` carry the hypothetical host `blossom.sec-certs-mirror.example` in
-   `imeta`/links. The contract forbids placeholder **and** example hosts in gate
-   output; a real import cites `raw.githubusercontent.com` / `sec-certs.org`. The
-   scan therefore reports them. Not weakened.
-4. **rule-2a lost facts × 7** — `02` (`rsa`, `ecdsa`, `ecdh`) and `11a`
+   gating is specified. The message names the patch case explicitly.
+3. **`PLACEHOLDER-URL` × 4**: `03`, `09`, `12`, `12a`.
+   `03`/`12`/`12a` contain a literal note that marks the URL as a placeholder for a
+   mirror-hosted asset, and `09`/`12a` carry the hypothetical host
+   `blossom.sec-certs-mirror.example` in `imeta`/links. The contract forbids placeholder
+   and example hosts in gate output. A real import cites `raw.githubusercontent.com` /
+   `sec-certs.org`. The scan therefore reports them. Not weakened.
+4. **rule-2a lost facts × 7**: `02` (`rsa`, `ecdsa`, `ecdh`) and `11a`
    (`ecdsa`, `ecdh`, `aes`, `sha-2`).
    These are `alg:<family>` `i` tags on sec-certs certificate-record Metadata whose
-   prose does not enumerate the families. `design.md` §4.3.2’s own Cert-Metadata
-   template spells “algorithm families evidenced: RSA, ECDSA, ECDH”, so this is a
-   **genuine content gap in the legacy examples, not an exemption**: rule 2a requires
-   the family names in prose. The gate reports them; do not add prose-blind
+   prose does not enumerate the families. `design.md` §4.3.2's own Cert-Metadata
+   template spells "algorithm families evidenced: RSA, ECDSA, ECDH", so this is a
+   genuine content gap in the legacy examples, not an exemption: rule 2a requires
+   the family names in prose. The gate reports them. Do not add prose-blind
    exemptions to make the set green.
 
 ## Legitimate exemptions (facts the gate intentionally does not report as lost)
@@ -90,10 +90,10 @@ sig/id pass = 18/18
 | `jcver-lte` `i` values (e.g. `3.0.5`) | cohort *bucket* vocabulary; the version itself is carried by `jcver:` |
 | booleans / null / non-strings | not facts |
 
-Matching itself is: **casefold substring**, then a **separator-insensitive substring**
-(both sides stripped of non-alphanumerics). The fallback is what lets rule-2a accept
-the *spelled-out* forms the rule asks for — e.g. an ATR written `3b fa 18 00 …`
-satisfies `atr:3bfa1800…`, and `Infineon Technologies AG` satisfies
+Matching is casefold substring, then a separator-insensitive substring (both sides
+stripped of non-alphanumerics). The fallback is what lets rule-2a accept the
+*spelled-out* forms the rule asks for. An ATR written `3b fa 18 00 …` satisfies
+`atr:3bfa1800…`, and `Infineon Technologies AG` satisfies
 `vendor:infineon-technologies-ag`. Nothing else is relaxed.
 
 ## Legacy format deviation (documented, not silently accepted)
@@ -147,15 +147,15 @@ sig/id pass = 18/18
 
 - `bun run src/gate/selftest.ts` → `sig/id pass = 18/18`, exit 0 (above).
 - Synthetic positive/negative paths exercised during development: a binding with a
-  correct `Refs:` line raises no `REFS-LINE`; a mismatched line raises `REFS-TARGET`;
-  a labeled record card with a present scalar yields 0 lost facts and an absent scalar
-  1 lost fact; malformed card JSON yields `SELFCONSUME-CARD`; a malformed NDJSON line
-  yields `NDJSON-PARSE`; a probe with `verdict: "no-auth"` / `supported_nips: [1]`
+  correct `Refs:` line raises no `REFS-LINE`. A mismatched line raises `REFS-TARGET`.
+  A labeled record card with a present scalar yields 0 lost facts and an absent scalar
+  1 lost fact. Malformed card JSON yields `SELFCONSUME-CARD`. A malformed NDJSON line
+  yields `NDJSON-PARSE`. A probe with `verdict: "no-auth"` / `supported_nips: [1]`
   yields `PROBE-VERDICT` + `PROBE-NIPS` and `ok:false`.
 - Typecheck of `src/gate/**` under the repo’s strict flags (strict,
   `noUncheckedIndexedAccess`, `exactOptionalPropertyTypes`, `verbatimModuleSyntax`,
   `erasableSyntaxOnly`): clean. (The package’s own `tsconfig.json` currently fails
   tsc on unrelated infra: `moduleResolution: bundler` with inherited
-  `module: node16`, and missing `@types/bun` — outside this unit.)
-- `biome check packages/mirror/src/gate` (repo biome 1.9.4): clean — no lint or
+  `module: node16`, and missing `@types/bun`. Outside this unit.)
+- `biome check packages/mirror/src/gate` (repo biome 1.9.4): clean, no lint or
   formatting findings.

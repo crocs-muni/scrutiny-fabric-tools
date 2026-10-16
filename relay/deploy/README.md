@@ -1,6 +1,6 @@
 # Deploying the scrutiny-fabric relay on Stratus (FI MUNI OpenNebula)
 
-This directory contains the production deployment for the pilot relay:
+This directory holds the production deployment for the pilot relay:
 
 | File | Role |
 | --- | --- |
@@ -16,7 +16,7 @@ This directory contains the production deployment for the pilot relay:
 Send a **production request to `unix@fi.muni.cz`** and ask for:
 
 1. **A persistent VM** on the Stratus OpenNebula cloud (persistent storage, not a
-   sandbox/ephemeral instance — the relay's bbolt store and bleve index must
+   sandbox/ephemeral instance: the relay's bbolt store and bleve index must
    survive reboots).
 2. **A hostname** (`<HOSTNAME>.fi.muni.cz`) with a DNS record pointing at the VM.
    You must supply this exact hostname in the request, and then use it
@@ -48,19 +48,20 @@ Clone the `scrutiny-fabric-tools` repository onto the VM and `cd` into
 
 ---
 
-## 2. The hostname must match — three places, one string (NIP-42)
+## 2. The hostname must match: three places, one string (NIP-42)
 
-The relay advertises `SCRUTINY_SERVICE_URL` as its **NIP-42 challenge relay tag**
-and verifies client signatures against it. Clients sign the URL they connected
-to. Therefore these three values **MUST carry the same hostname, byte-for-byte**:
+The relay advertises `SCRUTINY_SERVICE_URL` as its **NIP-42 challenge relay tag**,
+and it verifies client signatures against that URL. Clients sign the URL they
+connected to. Therefore these three values **MUST carry the same hostname,
+byte-for-byte**:
 
 1. the vhost in `deploy/Caddyfile` (`<HOSTNAME>.fi.muni.cz`)
 2. `SCRUTINY_SERVICE_URL` in `deploy/compose.yaml` (`wss://<HOSTNAME>.fi.muni.cz`)
 3. the DNS record from the CVT request
 
 A mismatch (wrong label, `http` vs `wss`, trailing slash, `www` prefix) makes
-every **authenticated publish fail** with an auth error while **reads keep
-working** — a quiet, easy-to-miss failure. Change all three together.
+every **authenticated publish fail** with an auth error. **Reads keep working**,
+so the failure is quiet and easy to miss. Change all three together.
 
 ---
 
@@ -69,7 +70,7 @@ working** — a quiet, easy-to-miss failure. Change all three together.
 1. **Edit `compose.yaml`** and fill the placeholders:
    - `SCRUTINY_SERVICE_URL`: `wss://<HOSTNAME>.fi.muni.cz` (must match §2)
    - `SCRUTINY_ALLOWED_PUBKEYS`: comma-separated publisher pubkeys (64 hex chars
-     or `npub1...`). At least one is required; only these may write.
+     or `npub1...`). At least one is required. Only these may write.
 2. **Edit `Caddyfile`** and replace `<HOSTNAME>` with the same host label.
 3. **Start the stack** from `deploy/`:
 
@@ -85,26 +86,25 @@ working** — a quiet, easy-to-miss failure. Change all three together.
    ```
 
 5. **Check from the outside** (needs DNS to be live): a Nostr client pointed at
-   `wss://<HOSTNAME>.fi.muni.cz` should read events, and an allowlisted publisher
+   `wss://<HOSTNAME>.fi.muni.cz` should read events. An allowlisted publisher
    should be able to publish. The operator endpoints must **not** be public:
    `curl -i https://<HOSTNAME>.fi.muni.cz/healthz` should return `404`, not `200`.
    Reach the real `/healthz` and `/metrics` inside the docker network (§7).
 
 ### Configuration environment
 
-All configuration is environment variables read by `internal/config`; only
+All configuration comes from environment variables read by `internal/config`. Only
 `SCRUTINY_SERVICE_URL` and `SCRUTINY_ALLOWED_PUBKEYS` are required. The
 authoritative table of variables, defaults and meanings is the
-[`Environment` section of the relay module README](../README.md#environment)
-— a single source of truth, not duplicated here. `compose.yaml` sets the two
-required variables; everything else comes from the image or the compiled
-defaults.
+[`Environment` section of the relay module README](../README.md#environment): one
+source of truth, not duplicated here. `compose.yaml` sets the two required
+variables. Everything else comes from the image or the compiled defaults.
 
 ---
 
 ## 4. Logs
 
-Both services log to stdout/stderr; Docker captures them.
+Both services log to stdout and stderr. Docker captures them.
 
 ```sh
 docker compose logs -f relay     # relay logs ([scrutiny-relay] ...)
@@ -112,17 +112,17 @@ docker compose logs -f caddy     # Caddy/TLS/ACME logs
 docker compose logs -f           # both
 ```
 
-`docker compose logs` is the only log sink — there are no log files inside the
+`docker compose logs` is the only log sink. There are no log files inside the
 container (the image is distroless and has no writable filesystem).
 
 ---
 
-## 5. Backup — stop, tar, start
+## 5. Backup: stop, tar, start
 
-The relay data (bbolt `base.bolt` + the `search/` bleve index) lives in the
-named volume `scrutiny-relay-data`. **bbolt holds an exclusive file lock while
-the relay runs**, so copying the volume under a live relay can capture a torn
-database. Stop the relay before archiving:
+The relay data (bbolt `base.bolt` + the `search/` bleve index) lives in the named
+volume `scrutiny-relay-data`. **bbolt holds an exclusive file lock while the relay
+runs**, so copying the volume under a live relay can capture a torn database. Stop
+the relay before archiving:
 
 ```sh
 cd deploy
@@ -159,8 +159,8 @@ the relay will fail to open its store.
 
 `relay reindex` wipes the bleve index and replays the bbolt base store into it.
 It **opens the bbolt file exclusively**, so it must run against a **stopped**
-relay — otherwise it fails on the lock (or, worse, corrupts state if the lock is
-bypassed). It only needs `SCRUTINY_DATA_DIR`, which the image already sets.
+relay. Otherwise it fails on the lock, or worse, it corrupts state if the lock is
+bypassed. It only needs `SCRUTINY_DATA_DIR`, which the image already sets.
 
 ```sh
 cd deploy
@@ -182,7 +182,7 @@ docker compose start relay
 `/healthz` and `/metrics` are served by the relay on its own port (`3334`), but
 they are **never exposed to the internet**: the relay publishes no host ports,
 and the public Caddy vhost answers `404` for both paths. They are reachable only
-over the internal `scrutiny-relay` Docker network — deliberately, so the metrics
+over the internal `scrutiny-relay` Docker network. That is deliberate: the metrics
 surface is not internet-facing.
 
 The runtime image is distroless (no shell, no `curl`), so `docker exec` into the
@@ -199,10 +199,10 @@ Alternatively, a throwaway container on the same network:
 docker run --rm --network scrutiny-relay curlimages/curl -s http://relay:3334/healthz
 ```
 
-Only if an operator has a specific need should they add a `ports:` entry for the
-relay in `compose.yaml` (e.g. `127.0.0.1:3334:3334`, loopback-bound). Publishing
-`3334` on `0.0.0.0` is **not recommended**: it exposes the metrics/health surface
-and bypasses Caddy's TLS.
+Add a `ports:` entry for the relay in `compose.yaml` only if you have a specific
+need (e.g. `127.0.0.1:3334:3334`, loopback-bound). Publishing `3334` on `0.0.0.0`
+is **not recommended**: it exposes the metrics/health surface and bypasses Caddy's
+TLS.
 
 ---
 

@@ -8,7 +8,7 @@ bun src/publish/selftest.ts        # all three parts, exits non-zero on first fa
 ```
 
 The script is fully local: it starts an in-code mock relay (`Bun.serve` websocket) and a dead-port
-probe. **No event was published to any real relay.** `wss://nos.lol` was contacted read-only (REQ /
+probe. No event was published to any real relay. `wss://nos.lol` was contacted read-only (REQ /
 NIP-11 fetch only) for the probe-shape example below.
 
 ## What is asserted
@@ -60,18 +60,18 @@ run. Mock relay network messages run1: 8 (6 events + 1 auth-required retry + 1 r
 
 - `challengeOnConnect=false` for the batch test: the relay demands AUTH only on the first
   unauthenticated EVENT (`["AUTH", "mock-challenge-late"]` + `OK false "auth-required: …"`), which
-  exercises `authedSocket`'s post-rejection retry path deterministically; `challengeOnConnect=true`
+  exercises `authedSocket`'s post-rejection retry path deterministically. `challengeOnConnect=true`
   for the probe test exercises the challenge-on-open path.
 - Server validates the AUTH event (kind 22242, `relay` = connected URL, `challenge` = issued value)
-  before acking; a bad AUTH is answered `OK false "invalid: bad AUTH event"`.
+  before acking. A bad AUTH is answered `OK false "invalid: bad AUTH event"`.
 - One event id is answered `OK false "rate-limited: too much for this connection"` on first hit and
-  `OK true ""` afterwards (backoff + retry); another is answered
-  `OK false "invalid: bad signature"` permanently; the rest `OK true "duplicate: already have this
+  `OK true ""` afterwards (backoff + retry). Another is answered
+  `OK false "invalid: bad signature"` permanently. The rest `OK true "duplicate: already have this
   event"` (NIP-20 msg capture).
 
 ## Probe JSON shape examples
 
-### Unreachable relay (probe vs nothing) — `artifacts/probe-2026-10-04T23-38-52-901Z.json`
+### Unreachable relay (probe vs nothing): `artifacts/probe-2026-10-04T23-38-52-901Z.json`
 
 ```json
 {
@@ -92,7 +92,7 @@ run. Mock relay network messages run1: 8 (6 events + 1 auth-required retry + 1 r
 }
 ```
 
-### Live relay, read-only — `wss://nos.lol`, without key (`artifacts/probe-2026-10-04T23-38-53-624Z.json`)
+### Live relay, read-only: `wss://nos.lol`, without key (`artifacts/probe-2026-10-04T23-38-53-624Z.json`)
 
 ```json
 {
@@ -114,13 +114,13 @@ run. Mock relay network messages run1: 8 (6 events + 1 auth-required retry + 1 r
 }
 ```
 
-(Only `notice` text differs between relays; `per_probe[].ms` varies run to run. The
-`kind5-e` = 1 result on nos.lol is some unrelated public kind-5 event whose `e` tag is all zeros —
-recorded verbatim, not interpreted.)
+(Only `notice` text differs between relays. `per_probe[].ms` varies run to run. The
+`kind5-e` = 1 result on nos.lol is some unrelated public kind-5 event whose `e` tag is all zeros.
+Recorded verbatim, not interpreted.)
 
-Re-run with an **ephemeral** key (`bun src/cli.ts probe --relay wss://nos.lol --key <hex>`):
-`verdict: …; auth not requested` — nos.lol advertises no NIP-42 and sends no challenge, so nothing
-was sent; the on-connect challenge path is proven against the mock relay above.
+Re-run with an ephemeral key (`bun src/cli.ts probe --relay wss://nos.lol --key <hex>`):
+`verdict: …; auth not requested`. nos.lol advertises no NIP-42 and sends no challenge, so nothing
+was sent. The on-connect challenge path is proven against the mock relay above.
 
 ## CLI smokes
 
@@ -145,7 +145,7 @@ The publish smoke shows the stage-3 artifact shape:
 `{"relay":"ws://127.0.0.1:1","total":1,"accepted":0,"rejected":1,"skipped":0,"results":[{"id":"24c0…","ok":false,"msg":"connect failed: …","skipped":false,"attempts":1,"ms":12}],"producedAt":"…"}`.
 
 `build:jcalgtest` orchestrates `loaders/jcalgtest` → `emit` → `writeArtifacts`. The loaders/emit
-units were still landing when this file was written; both error paths were exercised:
+units were still landing when this file was written. Both error paths were exercised:
 
 ```
 $ bun src/cli.ts build:jcalgtest
