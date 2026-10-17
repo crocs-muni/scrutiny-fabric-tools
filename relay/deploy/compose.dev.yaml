@@ -1,0 +1,14 @@
+# Stage-A (pre-production) override: internal-pilot mode.
+#
+# Usage: docker compose -f compose.yaml -f compose.dev.yaml up -d relay
+#
+# Used while the VM is still non-production (private NAT IP, no TLS, no CVT DNS
+# record): starts ONLY the relay service with its port published on all host
+# interfaces ( reachable as ws://<vm-ip>:3334 from the FI network ). Caddy is
+# not started at all; SCRUTINY_SERVICE_URL must be the plain ws://<vm-ip>:3334
+# clients dial. In stage B this file is simply omitted from the command line
+# and the same named volumes carry the data over untouched.
+services:
+  relay:
+    ports:
+      - "3334:3334"

@@ -109,6 +109,16 @@ describe('version tags (VER-1, amended in spec v0.7.0 — F14)', () => {
     })
     expect(versionTag(e)).toBeUndefined()
   })
+
+  it('never resolves Object.prototype member names as legacy versions', () => {
+    // A plain Record index walks the prototype chain: `toString` etc. must not
+    // masquerade as the grandfathered scrutiny-v059 entry.
+    expect(parseVersionTag('toString')).toBeUndefined()
+    expect(parseVersionTag('constructor')).toBeUndefined()
+    expect(parseVersionTag('hasOwnProperty')).toBeUndefined()
+    const e = ev({ tags: [['t', 'toString']] })
+    expect(versionTag(e)).toBeUndefined()
+  })
 })
 
 describe('indexer parsing (§9)', () => {

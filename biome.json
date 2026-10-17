@@ -62,6 +62,16 @@
           }
         }
       }
+    },
+    {
+      "include": ["packages/mirror/src/**"],
+      "linter": {
+        "rules": {
+          "complexity": {
+            "useLiteralKeys": "off"
+          }
+        }
+      }
     }
   ]
 }

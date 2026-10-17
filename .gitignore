@@ -43,3 +43,16 @@ npm-debug.log*
 pnpm-debug.log*
 
 # changeset files must be committed — the CI changeset-presence gate requires them.
+
+packages/mirror/artifacts*/
+
+# example port scratch dirs (bulk events.ndjson + node_modules; local only)
+examples/jcalgtest-port/
+examples/sec-certs-port/
+examples/publish-bulk.mjs
+
+# release scratch
+dist-release/
+
+# root-level scratch artifacts
+artifacts/

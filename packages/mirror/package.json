@@ -1,0 +1,28 @@
+{
+  "name": "@scrutiny-fabric/mirror",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Importer v0 — mirrors public security datasets (sec-certs.org, JCAlgTest) into SCRUTINY-Fabric events.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "build:jcalgtest": "bun src/cli.ts build:jcalgtest",
+    "build:seccerts": "bun src/cli.ts build:seccerts",
+    "repin:jcalgtest": "bun src/cli.ts repin:jcalgtest",
+    "verify:imeta": "bun src/cli.ts verify:imeta",
+    "gate": "bun src/cli.ts gate",
+    "probe": "bun src/cli.ts probe",
+    "publish": "bun src/cli.ts publish",
+    "gate:tsc": "tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "@noble/hashes": "^2.0.1",
+    "nostr-tools": "^2.17.0"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.2.0"
+  },
+  "license": "MIT"
+}
