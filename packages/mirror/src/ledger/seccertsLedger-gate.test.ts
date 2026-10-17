@@ -12,7 +12,7 @@ import { Database } from 'bun:sqlite'
 import { describe, expect, it } from 'bun:test'
 
 import { type Ledger, openLedger } from './index.js'
-import { SecCertsLedger } from './seccertsLedger.js'
+import { ABANDONED_MSG, SecCertsLedger } from './seccertsLedger.js'
 
 const RELAY = 'ws://relay.example:7777'
 
@@ -148,6 +148,23 @@ describe('abandonChainPoints', () => {
         .get(id, RELAY)
       expect(row?.ok).toBe(0)
       expect(row?.msg).toContain('abandoned')
+    } finally {
+      ledger.close()
+    }
+  })
+
+  it('the abandonment note is exactly ABANDONED_MSG — the msg publish/ skip-matches', () => {
+    const { seccerts, ledger } = freshLedger()
+    try {
+      const id = 'bc'.repeat(32)
+      seedRoot(seccerts, id)
+      seccerts.abandonChainPoints(RELAY, [id])
+      const row = ledger.db
+        .query<{ msg: string }, [string, string]>(
+          'SELECT msg FROM publish_log WHERE event_id = ? AND relay = ?',
+        )
+        .get(id, RELAY)
+      expect(row?.msg).toBe(ABANDONED_MSG)
     } finally {
       ledger.close()
     }

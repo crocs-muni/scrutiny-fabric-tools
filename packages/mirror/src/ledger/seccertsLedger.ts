@@ -83,6 +83,14 @@ export interface RelationRow {
   updatedAt: number
 }
 
+/**
+ * The `publish_log` msg for operator-abandoned chain points
+ * (`abandonChainPoints`, the build gate's --force-reset). publish/ treats this
+ * exact message as a terminal verdict so a later artifacts file does not
+ * resurrect ids the operator deliberately kept off the relay.
+ */
+export const ABANDONED_MSG = 'abandoned by operator (force-reset)'
+
 interface RootDbRow {
   corpus: string
   source_id: string
@@ -243,14 +251,14 @@ export class SecCertsLedger {
 
   /**
    * Explicit operator escape for the unpublished-chain-point gate: marks the
-   * dangling ids as intentionally abandoned for `relay` (ok=0, msg records the
-   * reset) so the next build is no longer blocked. A re-published abandoned id
-   * simply overwrites the row (last write wins).
+   * dangling ids as intentionally abandoned for `relay` (ok=0 note row, see
+   * ABANDONED_MSG) so the next build is no longer blocked. A re-published
+   * abandoned id simply overwrites the row (last write wins).
    */
   abandonChainPoints(relay: string, ids: readonly string[]): number {
     const stmt = this.db.query(
       `INSERT INTO publish_log (event_id, relay, ok, msg, ts)
-       VALUES (?, ?, 0, 'abandoned by operator (force-reset)', ?)
+       VALUES (?, ?, 0, '${ABANDONED_MSG}', ?)
        ON CONFLICT(event_id, relay) DO UPDATE SET
          ok  = excluded.ok,
          msg = excluded.msg,

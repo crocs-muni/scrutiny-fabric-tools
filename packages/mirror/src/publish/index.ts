@@ -25,6 +25,7 @@ import { dirname, resolve } from 'node:path'
 
 import { DEFAULT_LEDGER_PATH, openLedger } from '../ledger/index'
 import type { Ledger } from '../ledger/index'
+import { ABANDONED_MSG } from '../ledger/seccertsLedger'
 import type { SignedEvent } from '../types'
 import { authedSocket } from './auth'
 import type { AuthedSocket, PublishAck } from './auth'
@@ -192,7 +193,10 @@ export async function publishBatch(
   const okThisRun = new Set<string>()
   // Resume-skip = already-acked rows AND (unless disabled) terminal verdicts for identical
   // bytes (measured: id/size/tag-cap rejects never flip; re-uploading them every relaunch
-  // wastes queue time and recreates the tombstone log endlessly).
+  // wastes queue time and recreates the tombstone log endlessly). Operator abandonments
+  // (the build gate's --force-reset, ledger.abandonChainPoints) count as terminal too:
+  // the operator explicitly decided these ids are not going to this relay, so a later
+  // artifacts file must not resurrect them behind their back.
   const skipTerminalRejected = opts.skipTerminalRejected ?? true
   const skipIds = new Set<string>()
   if (skipPublished) {
@@ -203,6 +207,7 @@ export async function publishBatch(
       .all(relay)) {
       if (
         row.ok === 1 ||
+        row.msg === ABANDONED_MSG ||
         (skipTerminalRejected && isRelayPermanentRejection(String(row.msg ?? '')))
       )
         skipIds.add(row.event_id)
