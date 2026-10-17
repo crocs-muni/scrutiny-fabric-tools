@@ -52,6 +52,14 @@ export interface RelayProbeOptions {
   relay: string
   /** Signing key (hex or nsec1…) — enables the NIP-42 AUTH attempt. Omit to stay anonymous. */
   keyHex?: string
+  /**
+   * Relay URL to carry in the NIP-42 AUTH event's `relay` tag. Default: `relay`
+   * itself. Set this when the challenged identity differs from the dial URL —
+   * the documented tunnel deployment dials a loopback forward of
+   * wss://relay.scrutiny.cloud, and the relay expects the public URL there,
+   * byte-for-byte (deploy/README.md §2).
+   */
+  authRelayUrl?: string
   /** Websocket + NIP-11 budget. Default 8000 ms. */
   timeoutMs?: number
   /** Per-filter collection window. Default 2000 ms. */
@@ -121,10 +129,19 @@ class ProbeSession {
   private authMsg: string | null = null
   private authWaiters: Array<() => void> = []
 
-  constructor(relay: string, key: string | null, timeoutMs: number, log: (line: string) => void) {
+  private readonly authRelayUrl: string
+
+  constructor(
+    relay: string,
+    key: string | null,
+    timeoutMs: number,
+    log: (line: string) => void,
+    authRelayUrl: string,
+  ) {
     this.relay = relay
     this.key = key
     this.log = log
+    this.authRelayUrl = authRelayUrl
     this.ws = new WebSocket(relay)
     this.openPromise = new Promise<boolean>((resolve) => {
       const timer = setTimeout(() => {
@@ -287,7 +304,7 @@ class ProbeSession {
         this.log('[auth] challenged, no key provided — sending nothing')
         return
       }
-      const authEvent = buildAuthEvent(this.relay, challenge, this.key)
+      const authEvent = buildAuthEvent(this.authRelayUrl, challenge, this.key)
       this.authEventId = authEvent.id
       this.log(`[auth] challenged, responding (event ${authEvent.id.slice(0, 12)}…)`)
       this.send(['AUTH', authEvent])
@@ -368,6 +385,7 @@ function buildVerdict(
  */
 export async function relayProbe(opts: RelayProbeOptions): Promise<ProbeResult> {
   const relay = opts.relay
+  const authRelayUrl = opts.authRelayUrl ?? relay
   const key = opts.keyHex ?? null
   const timeoutMs = opts.timeoutMs ?? 8000
   const perProbeMs = opts.perProbeMs ?? 2000
@@ -375,7 +393,7 @@ export async function relayProbe(opts: RelayProbeOptions): Promise<ProbeResult> 
   const log = opts.log ?? (() => {})
 
   const nip11 = await fetchNip11(relay, timeoutMs)
-  const session = new ProbeSession(relay, key, timeoutMs, log)
+  const session = new ProbeSession(relay, key, timeoutMs, log, authRelayUrl)
   const connected = await session.connect()
 
   const perProbe: ProbeEntry[] = []

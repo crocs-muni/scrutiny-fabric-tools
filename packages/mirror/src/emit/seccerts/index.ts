@@ -1,9 +1,7 @@
 /**
  * emit/seccerts/index.ts — leg-2 entrypoint: SecCertsBundle → plan → engine.
  *
- * `planBundle` lives in the parallel slice `./plan.js`; it is imported dynamically with a
- * local structural signature so this module typechecks (and ships) independently of its
- * arrival, and so a future plan signature change surfaces as a runtime error, not a build break.
+ * `planBundle` (./plan.js) computes the desired state from the loaded bundle.
  *
  * The ledger rows the engine emits (`rootRows`/`relationRows`) are applied HERE at build time
  * (update-semantics.md §1: the sqlite ids mirror the NDJSON ids — a crashed publish resumes from

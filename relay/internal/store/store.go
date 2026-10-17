@@ -19,6 +19,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"sync/atomic"
 
 	"fiatjaf.com/nostr"
 	"fiatjaf.com/nostr/eventstore"
@@ -32,8 +33,18 @@ type Dual struct {
 	Base   *boltdb.BoltBackend
 	Search *bleve.BleveBackend
 
+	// drift counts search-index writes that failed after the base store
+	// accepted the event (and duplicate-heal attempts that also failed).
+	// Relay.Build reads Drift() into the /metrics snapshot after each write,
+	// so store drift is observable without reading logs.
+	drift atomic.Int64
+
 	log *log.Logger
 }
+
+// Drift returns the count of search-index writes that failed after the base
+// store accepted the event.
+func (d *Dual) Drift() uint64 { return uint64(d.drift.Load()) }
 
 // Open opens (creating when missing) both stores. The logger must be non-nil.
 func Open(baseDBPath, searchIndexPath string, logger *log.Logger) (*Dual, error) {
@@ -98,19 +109,33 @@ func (d *Dual) Healthy() error {
 // duplicate. The value comparison in khatru is a bare `switch err`, so the
 // sentinel must NOT be wrapped.
 //
+// The duplicate path re-attempts the search-index write first: the classic
+// failure sequence is base accepted + index write failed + client retry, where
+// the retry would otherwise answer OK:true and leave the event permanently
+// missing from NIP-50. Re-indexing the duplicate makes the retry heal the
+// drift; if the index write fails again the drift counter is bumped and the
+// sentinel is returned.
+//
 // If the search-index write fails after the base store accepted the event, the
-// error is propagated (the write fails) and logged: the stores are out of sync
-// at that point and `relay reindex` is the way back.
+// error is propagated (the write fails), logged, and counted: the stores are
+// out of sync at that point and `relay reindex` is the way back. The count
+// surfaces in /metrics so drift is observable without reading logs.
 func (d *Dual) SaveEvent(evt nostr.Event) error {
 	if err := d.Base.SaveEvent(evt); err != nil {
 		if errors.Is(err, eventstore.ErrDupEvent) {
-			// already stored; nothing new for the search index either
+			// already stored; try to heal a possible search-index drift from an
+			// earlier failed write before answering the duplicate as success
+			if idxErr := d.Search.SaveEvent(evt); idxErr != nil {
+				d.drift.Add(1)
+				d.log.Printf("dual-store drift persists: duplicate event %s is missing from the search index and re-indexing failed: %v (run `relay reindex`)", evt.ID.Hex(), idxErr)
+			}
 			return eventstore.ErrDupEvent
 		}
 		return err
 	}
 
 	if err := d.Search.SaveEvent(evt); err != nil {
+		d.drift.Add(1)
 		d.log.Printf("dual-store drift: event %s was stored in the base store but the search index write failed: %v (run `relay reindex`)", evt.ID.Hex(), err)
 		return fmt.Errorf("search index write failed after the base store write (stores are out of sync, run `relay reindex`): %w", err)
 	}

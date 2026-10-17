@@ -20,6 +20,10 @@ type Metrics struct {
 	EventsStored      atomic.Uint64
 	EventsRejected    atomic.Uint64
 	QueriesWithSearch atomic.Uint64
+	// StoreDrift counts search-index writes that failed after the base store
+	// accepted the event. Nonzero means NIP-50 results are incomplete until a
+	// `relay reindex` runs.
+	StoreDrift atomic.Uint64
 
 	started time.Time
 }
@@ -34,6 +38,7 @@ type Snapshot struct {
 	EventsStored      uint64 `json:"events_stored"`
 	EventsRejected    uint64 `json:"events_rejected"`
 	QueriesWithSearch uint64 `json:"queries_with_search"`
+	StoreDrift        uint64 `json:"store_drift"`
 	UptimeSeconds     int64  `json:"uptime_s"`
 }
 
@@ -43,6 +48,7 @@ func (m *Metrics) Snapshot() Snapshot {
 		EventsStored:      m.EventsStored.Load(),
 		EventsRejected:    m.EventsRejected.Load(),
 		QueriesWithSearch: m.QueriesWithSearch.Load(),
+		StoreDrift:        m.StoreDrift.Load(),
 		UptimeSeconds:     int64(time.Since(m.started).Seconds()),
 	}
 }

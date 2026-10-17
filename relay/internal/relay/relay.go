@@ -117,6 +117,10 @@ type Bundle struct {
 	Relay   *khatru.Relay
 	Store   *store.Dual
 	Metrics *metrics.Metrics
+
+	// cfg is kept so Handler() can build the transport guards from the same
+	// parsed configuration the relay was wired from.
+	cfg config.Config
 }
 
 // Close releases the stores. Call it after the HTTP server has stopped.
@@ -131,7 +135,7 @@ func (b *Bundle) Close() {
 // behind the transport hardening (Hardened). The binary and the integration
 // test both mount this, so they exercise the same HTTP surface.
 func (b *Bundle) Handler() http.Handler {
-	return Hardened(b.Relay)
+	return Hardened(b.Relay, b.cfg)
 }
 
 // Build wires the relay. The returned Bundle must be closed when done.
@@ -301,6 +305,7 @@ func Build(cfg config.Config, logger *log.Logger) (*Bundle, error) {
 	// requests are answered by khatru with CLOSED "unsupported".
 	rl.StoreEvent = func(ctx context.Context, evt nostr.Event) error {
 		err := dual.SaveEvent(evt)
+		m.StoreDrift.Store(dual.Drift())
 		switch {
 		case err == nil:
 			m.EventsStored.Add(1)
@@ -322,7 +327,7 @@ func Build(cfg config.Config, logger *log.Logger) (*Bundle, error) {
 	rl.Router().Handle("/healthz", m.HealthzHandler(dual.Healthy))
 	rl.Router().Handle("/metrics", m.Handler())
 
-	return &Bundle{Relay: rl, Store: dual, Metrics: m}, nil
+	return &Bundle{Relay: rl, Store: dual, Metrics: m, cfg: cfg}, nil
 }
 
 // Hardened wraps a relay handler with the transport-level guards khatru does
@@ -350,10 +355,21 @@ func Build(cfg config.Config, logger *log.Logger) (*Bundle, error) {
 //  3. Every non-websocket request body is capped at maxRequestBodyBytes.
 //     Websocket upgrades are exempt: their frames are already capped by
 //     MaxMessageSize, and the upgrade body is not read by anyone.
-func Hardened(next http.Handler) http.Handler {
+func Hardened(next http.Handler, cfg config.Config) http.Handler {
+	trusted := cfg.TrustedProxyChecker()
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if !forwardedForTrusted(r) {
+		if !trusted(r) {
 			r.Header.Del("X-Forwarded-For")
+		}
+
+		// Ops endpoints are operator-only: answering them from a non-loopback
+		// peer would hand every LAN peer (and, behind an any-interface port
+		// publish, the whole VM network) the health/error text and the metrics
+		// surface. Operators reach them through the documented SSH tunnel
+		// (deploy/README.md §7) or a loopback dial inside the VM.
+		if isOpsPath(r.URL.Path) && !isLoopbackPeer(r) {
+			http.NotFound(w, r)
+			return
 		}
 
 		// Mirror khatru's routing condition (khatru/handlers.go:54): only the
@@ -375,23 +391,21 @@ func Hardened(next http.Handler) http.Handler {
 	})
 }
 
-// forwardedForTrusted reports whether r's transport peer may supply a client
-// identity through X-Forwarded-For. Only loopback and private-range peers are
-// trusted: the public ingress is Caddy (compose sidecar), which connects over
-// the docker network and replaces XFF with the real peer address; the
-// VM-internal tunnel and local development are private/loopback too. A peer
-// outside those ranges reached the relay directly, so it gets no say in what
-// identity the per-IP limiters key on.
-func forwardedForTrusted(r *http.Request) bool {
+// isOpsPath reports whether p is one of the operator-only endpoints registered
+// on rl.Router(). Kept in sync with the Build() registrations; an exact-match
+// list (no wildcards) so a suffix cannot smuggle a hit.
+func isOpsPath(p string) bool {
+	return p == "/healthz" || p == "/metrics"
+}
+
+// isLoopbackPeer reports whether the transport peer address is loopback.
+func isLoopbackPeer(r *http.Request) bool {
 	host, _, err := net.SplitHostPort(r.RemoteAddr)
 	if err != nil {
-		host = r.RemoteAddr // tolerate a bare IP; net/http always sends host:port
+		host = r.RemoteAddr
 	}
 	ip := net.ParseIP(host)
-	if ip == nil {
-		return false
-	}
-	return ip.IsPrivate() || ip.IsLoopback()
+	return ip != nil && ip.IsLoopback()
 }
 
 // isNIP86Request reports whether r is a NIP-86 management request. khatru

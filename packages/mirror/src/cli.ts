@@ -8,11 +8,11 @@
  *                                  [--summary artifacts/jcalgtest-repin.summary.json] [--nsec env]
  *   bun src/cli.ts verify:imeta --in FILE.ndjson [--sample N] [--out FILE.json]
  *   bun src/cli.ts gate  --in artifacts/jcalgtest.ndjson
- *   bun src/cli.ts probe --relay wss://relay.example.com [--key env]
+ *   bun src/cli.ts probe --relay wss://relay.example.com [--key env] [--auth-relay-url URL]
  *   bun src/cli.ts publish --relay ws://… [--in artifacts/jcalgtest.ndjson] [--limit N] [--pace 500]
  *
- * Sibling units (loaders/emit/gate) are loaded lazily by dynamic import so this file type-checks and
- * runs while the other units are still landing; missing modules produce a pointed error, not a crash.
+ * Sibling units (loaders/emit/gate) are loaded lazily by dynamic import so the CLI loads only the
+ * unit a given subcommand runs; startup stays fast and a missing module produces a pointed error.
  *
  * Key material resolution (`--nsec`/`--key`): `env` (default) → `NSEC` then `NSEC_FILE`;
  * a flag value that is not key material is treated as an environment variable name.
@@ -34,22 +34,6 @@ import type { GateReport, Manifest, SignedEvent, SourceBundle } from './types'
 
 interface LoaderModule {
   loadJcalgtest(opts: { repoDir: string; groundTruthDir: string }): SourceBundle
-}
-
-interface SeccertsLoaderModule {
-  loadSeccerts(opts: { dataDir: string; groundTruthDir: string }): unknown
-}
-
-interface SeccertsEmitModule {
-  emitSeccerts(
-    bundle: unknown,
-    opts: { signer: Signer; ledgerPath: string; createdAtBase?: number; producedAt?: string },
-  ): {
-    events: SignedEvent[]
-    manifest: Manifest
-    counts: Record<string, number>
-    warnings: string[]
-  }
 }
 
 interface EmitModule {
@@ -115,7 +99,7 @@ const USAGE = `Usage:
   cli.ts repin:jcalgtest [--in FILE.ndjson] [--out FILE.ndjson] [--summary FILE.json] [--nsec env|ENV_VAR|hex|nsec1…]
   cli.ts verify:imeta [--in FILE.ndjson] [--sample N] [--out FILE.json] [--relay-host none]
   cli.ts gate --in FILE.ndjson
-  cli.ts probe --relay ws://… [--key env|ENV_VAR|hex|nsec1…]
+  cli.ts probe --relay ws://… [--key env|ENV_VAR|hex|nsec1…] [--auth-relay-url URL]
   cli.ts publish --relay ws://… [--in FILE.ndjson] [--limit N] [--pace MS] [--ledger PATH]
 `
 
@@ -437,8 +421,15 @@ async function runProbe(flags: Map<string, string>): Promise<number> {
   const relay = requiredFlag(flags, 'relay')
   const keyFlag = flags.get('key')
   const keyMaterial = keyFlag === undefined ? undefined : resolveKeyMaterial(keyFlag)
+  const authRelayFlag = flags.get('auth-relay-url')
   const result = await relayProbe(
-    keyMaterial === undefined ? { relay } : { relay, keyHex: keyMaterial },
+    keyMaterial === undefined
+      ? { relay }
+      : {
+          relay,
+          keyHex: keyMaterial,
+          ...(authRelayFlag === undefined ? {} : { authRelayUrl: authRelayFlag }),
+        },
   )
   const outPath = writeProbeResult(result, flags.get('artifacts') ?? 'artifacts')
   console.log(`probe: ${result.verdict}`)

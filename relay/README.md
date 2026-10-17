@@ -26,6 +26,7 @@ from the base store.
 | `SCRUTINY_RELAY_CONTACT` | no | `<operator-email>` | NIP-11 contact |
 | `SCRUTINY_MAX_QUERY_LIMIT` | no | `500` | max events one filter may return |
 | `SCRUTINY_MAX_EVENT_PAST_AGE` | no | `2h` | Go duration. How old an event's `created_at` may be before the relay rejects it as too old. Widen it only temporarily for backfills (writes stay allowlist-gated regardless) |
+| `SCRUTINY_TRUSTED_PROXY_CIDRS` | no | loopback only | Comma-separated CIDRs (or bare IPs) whose transport peer may set `X-Forwarded-For`. Set it to the reverse proxy's network (`172.16.0.0/12` for the compose docker network); a direct client outside the list gets its XFF deleted, so the per-IP limiters key on its real address. Loopback is always trusted. |
 
 The default `SCRUTINY_ACCEPTED_TAGS` set is the canonical vocabulary
 (`scrutiny-fabric`, `scrutiny-v0.8.1`, `scrutiny-product`, `scrutiny-metadata`,
@@ -54,7 +55,9 @@ Endpoints:
   `Accept: application/nostr+json`)
 * `GET /healthz`: `200 ok` when the base store answers, else `503`
 * `GET /metrics`: JSON counters: `events_stored`, `events_rejected`,
-  `queries_with_search`, `uptime_s`
+  `queries_with_search`, `store_drift`, `uptime_s`. `store_drift` counts
+  search-index writes that failed after the base store accepted the event;
+  nonzero means NIP-50 results are incomplete until a `relay reindex`.
 
 To rebuild the search index from the base store, stop the relay first. boltdb holds
 an exclusive lock:
@@ -98,12 +101,13 @@ is the NIP-42 challenge anchor.
   instead.
 * **Client identity / `X-Forwarded-For`**: khatru's per-IP limiters prefer the
   first global-unicast `X-Forwarded-For` entry over the socket peer. The relay
-  therefore keeps that header only when the connecting peer is loopback or in a
-  private range. Caddy (the compose sidecar) reaches the relay from the docker
-  network and replaces XFF with the real peer address, and the VM-internal tunnel
-  and local development are private/loopback too. Any other peer (a client that
-  reached the relay directly) has the header dropped and is identified by its
-  socket address, so it cannot forge its per-IP identity.
+  therefore keeps that header only when the connecting peer is loopback or in
+  one of the `SCRUTINY_TRUSTED_PROXY_CIDRS` ranges (default: none, so loopback
+  only). Caddy (the compose sidecar) reaches the relay from the docker network
+  and replaces XFF with the real peer address, so production sets the variable
+  to that network. Any other peer (a client that reached the relay directly,
+  including one inside the same private LAN) has the header dropped and is
+  identified by its socket address, so it cannot forge its per-IP identity.
 * **Filter complexity**: the relay refuses a single filter that asks for more
   than 400 `authors`, 500 `ids`, or 500 total `#x` tag values. It answers
   `CLOSED rejected: filter too complex`. The check runs before the rate limiters,

@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
@@ -485,10 +486,12 @@ func TestManagementAPINotServed(t *testing.T) {
 }
 
 // TestHardenedForwardedForTrustRule pins the XFF trust rule: X-Forwarded-For
-// survives only when the transport peer is loopback or in a private range
-// (Caddy's docker network, the VM-internal tunnel, local development); from
-// any other peer the header is deleted so a direct client cannot forge the
-// per-IP identity khatru's limiters derive from it.
+// survives only when the transport peer is loopback or inside
+// SCRUTINY_TRUSTED_PROXY_CIDRS (the reverse proxy's network); from any other
+// peer the header is deleted so a direct client cannot forge the per-IP
+// identity khatru's limiters derive from it. Note what changed from the old
+// blanket rule: a private-range peer is no longer trusted by default, so a
+// client inside the same LAN as the relay cannot forge a limiter identity.
 func TestHardenedForwardedForTrustRule(t *testing.T) {
 	const forged = "198.51.100.23"
 
@@ -499,9 +502,9 @@ func TestHardenedForwardedForTrustRule(t *testing.T) {
 	}{
 		{"loopback ipv4", "127.0.0.1:4040", true},
 		{"loopback ipv6", "[::1]:4040", true},
-		{"private 10/8", "10.1.2.3:4040", true},
-		{"private 172.16/12 (docker)", "172.17.0.1:4040", true},
-		{"private 192.168/16", "192.168.1.9:4040", true},
+		{"private 10/8 without allowlist", "10.1.2.3:4040", false},
+		{"private 172.16/12 without allowlist", "172.17.0.1:4040", false},
+		{"private 192.168/16 without allowlist", "192.168.1.9:4040", false},
 		{"public ipv4", "203.0.113.9:4040", false},
 		{"public ipv6", "[2001:db8::1]:4040", false},
 		{"unparsable peer", "not-an-ip", false},
@@ -517,12 +520,82 @@ func TestHardenedForwardedForTrustRule(t *testing.T) {
 			req := httptest.NewRequest(http.MethodGet, "/", nil)
 			req.RemoteAddr = tc.remoteAddr
 			req.Header.Set("X-Forwarded-For", forged)
-			relay.Hardened(next).ServeHTTP(httptest.NewRecorder(), req)
+			relay.Hardened(next, config.Config{}).ServeHTTP(httptest.NewRecorder(), req)
 
 			if kept := seen == forged; kept != tc.wantKept {
 				t.Fatalf("X-Forwarded-For kept = %v (value %q), want %v", kept, seen, tc.wantKept)
 			}
 		})
+	}
+
+	t.Run("allowlisted CIDR is trusted", func(t *testing.T) {
+		var seen string
+		next := http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
+			seen = r.Header.Get("X-Forwarded-For")
+		})
+		_, cidr, err := net.ParseCIDR("172.17.0.0/16")
+		if err != nil {
+			t.Fatal(err)
+		}
+		cfg := config.Config{TrustedProxyCIDRs: []*net.IPNet{cidr}}
+
+		req := httptest.NewRequest(http.MethodGet, "/", nil)
+		req.RemoteAddr = "172.17.0.1:4040"
+		req.Header.Set("X-Forwarded-For", forged)
+		relay.Hardened(next, cfg).ServeHTTP(httptest.NewRecorder(), req)
+
+		if seen != forged {
+			t.Fatalf("X-Forwarded-For not kept for allowlisted peer: %q", seen)
+		}
+	})
+
+	t.Run("peer outside allowlisted CIDR is not", func(t *testing.T) {
+		var seen string
+		next := http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
+			seen = r.Header.Get("X-Forwarded-For")
+		})
+		_, cidr, _ := net.ParseCIDR("172.17.0.0/16")
+		cfg := config.Config{TrustedProxyCIDRs: []*net.IPNet{cidr}}
+
+		req := httptest.NewRequest(http.MethodGet, "/", nil)
+		req.RemoteAddr = "172.18.0.1:4040"
+		req.Header.Set("X-Forwarded-For", forged)
+		relay.Hardened(next, cfg).ServeHTTP(httptest.NewRecorder(), req)
+
+		if seen == forged {
+			t.Fatalf("X-Forwarded-For kept for peer outside allowlist: %q", seen)
+		}
+	})
+}
+
+// TestHardenedOpsEndpointsLoopbackOnly pins the operator-only rule: /healthz
+// and /metrics answer only to loopback peers. A remote peer gets 404 — the
+// compose.dev stage publishes 3334 on all interfaces, so without this the
+// whole VM network could read the health text and the metrics surface.
+func TestHardenedOpsEndpointsLoopbackOnly(t *testing.T) {
+	for _, path := range []string{"/healthz", "/metrics"} {
+		for _, tc := range []struct {
+			name       string
+			remoteAddr string
+			wantOK     bool
+		}{
+			{"loopback", "127.0.0.1:4040", true},
+			{"private LAN peer", "10.1.2.3:4040", false},
+		} {
+			t.Run(path+" from "+tc.name, func(t *testing.T) {
+				next := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+					w.WriteHeader(http.StatusOK)
+				})
+				req := httptest.NewRequest(http.MethodGet, path, nil)
+				req.RemoteAddr = tc.remoteAddr
+				rec := httptest.NewRecorder()
+				relay.Hardened(next, config.Config{}).ServeHTTP(rec, req)
+				gotOK := rec.Code == http.StatusOK
+				if gotOK != tc.wantOK {
+					t.Fatalf("status = %d, want ok = %v", rec.Code, tc.wantOK)
+				}
+			})
+		}
 	}
 }
 
@@ -535,7 +608,7 @@ func TestHardenedRequestBodyCap(t *testing.T) {
 	})
 
 	req := httptest.NewRequest(http.MethodPost, "/", bytes.NewReader(make([]byte, 128*1024)))
-	relay.Hardened(next).ServeHTTP(httptest.NewRecorder(), req)
+	relay.Hardened(next, config.Config{}).ServeHTTP(httptest.NewRecorder(), req)
 
 	var maxErr *http.MaxBytesError
 	if !errors.As(readErr, &maxErr) {

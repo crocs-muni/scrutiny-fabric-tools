@@ -76,7 +76,7 @@ func NewAuthGate(allowedPubkeys []nostr.PubKey) *AuthGate {
 }
 
 // Check implements Gate.
-func (g *AuthGate) Check(ctx context.Context, _ nostr.Event) (reject bool, msg string) {
+func (g *AuthGate) Check(ctx context.Context, evt nostr.Event) (reject bool, msg string) {
 	authed, ok := khatru.GetAuthed(ctx)
 	if !ok {
 		// The "auth-required: " prefix makes khatru answer with a fresh NIP-42
@@ -88,6 +88,13 @@ func (g *AuthGate) Check(ctx context.Context, _ nostr.Event) (reject bool, msg s
 		// Deliberately "blocked:", not "restricted:": several clients do not
 		// recognize "restricted:" (see NIP-42 status quo).
 		return true, MsgNotAllowed
+	}
+	// The authenticated identity must be the event's author, not just an
+	// allowlisted key: NIP-42 authenticates a connection, so with a multi-key
+	// allowlist one authenticated key could otherwise import events signed by
+	// any key at all.
+	if evt.PubKey != authed {
+		return true, "blocked: event author must be the authenticated pubkey"
 	}
 	return false, ""
 }

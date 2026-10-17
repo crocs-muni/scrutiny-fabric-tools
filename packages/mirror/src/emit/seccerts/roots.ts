@@ -400,10 +400,6 @@ function toeRoot(r: SecCertsCertRecord): DesiredRoot {
     r.maintenance.length === 0
       ? 'Maintenance updates recorded: none in this snapshot.'
       : `Maintenance updates recorded: ${r.maintenance.length} (details on the certification-record event bound to this Product).`
-  const cpeBullet =
-    r.cpeMatches.length === 0
-      ? 'Fuzzy CPE matches: none recorded (sec-certs association-quality field; verified_cpe_matches is empty corpus-wide).'
-      : `Fuzzy CPE matches (sec-certs association-quality — ~89% precision, arXiv:2311.17603; content only, never an indexer): ${r.cpeMatches.join('; ')}.`
 
   const assemble = (cveCap: number, cpeCap: number): string =>
     composeContent({
@@ -612,10 +608,6 @@ function certMetadataRoot(
   const algBullet = `Algorithm families evidenced (family-level indexers): ${
     r.algFamilies.length === 0 ? 'none recorded' : familyList(r.algFamilies)
   }${algUnknownPart}.`
-  const cpeBullet =
-    r.cpeMatches.length === 0
-      ? 'Fuzzy CPE matches: none recorded.'
-      : `Fuzzy CPE matches (sec-certs association-quality — ~89% precision, arXiv:2311.17603; cpe: indexers carry the first ${Math.min(3, r.cpeMatches.length)}): ${r.cpeMatches.join('; ')}.`
 
   const CERT_LADDER: Array<[number, number, number]> = [
     [Number.POSITIVE_INFINITY, Number.POSITIVE_INFINITY, Number.POSITIVE_INFINITY],

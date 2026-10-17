@@ -11,11 +11,16 @@ import (
 )
 
 func testEvent(kind nostr.Kind, tags nostr.Tags) nostr.Event {
+	return testEventFrom(kind, tags, nostr.PubKey{})
+}
+
+func testEventFrom(kind nostr.Kind, tags nostr.Tags, author nostr.PubKey) nostr.Event {
 	return nostr.Event{
 		Kind:      kind,
 		Tags:      tags,
 		Content:   "gate test content",
 		CreatedAt: nostr.Now(),
+		PubKey:    author,
 	}
 }
 
@@ -141,8 +146,21 @@ func TestAuthGate(t *testing.T) {
 
 	t.Run("allowlisted publishers pass", func(t *testing.T) {
 		ctx := khatru.ForceSetAuthed(context.Background(), allowedPK)
-		if reject, msg := g.Check(ctx, testEvent(nostr.KindTextNote, nil)); reject {
+		evt := testEventFrom(nostr.KindTextNote, nil, allowedPK)
+		if reject, msg := g.Check(ctx, evt); reject {
 			t.Fatalf("expected acceptance, got %q", msg)
+		}
+	})
+
+	t.Run("author must be the authenticated pubkey", func(t *testing.T) {
+		ctx := khatru.ForceSetAuthed(context.Background(), allowedPK)
+		evt := testEventFrom(nostr.KindTextNote, nil, otherPK)
+		reject, msg := g.Check(ctx, evt)
+		if !reject {
+			t.Fatal("expected a rejection when the author is not the authed key")
+		}
+		if !strings.HasPrefix(msg, "blocked:") {
+			t.Fatalf("msg %q must keep a blocked: prefix", msg)
 		}
 	})
 }
@@ -163,13 +181,13 @@ func TestSeqFirstRejectWins(t *testing.T) {
 
 	// authenticated: the vocabulary gate speaks
 	ctx := khatru.ForceSetAuthed(context.Background(), allowedPK)
-	reject, msg = seq.Check(ctx, testEvent(nostr.KindTextNote, nil))
+	reject, msg = seq.Check(ctx, testEventFrom(nostr.KindTextNote, nil, allowedPK))
 	if !reject || msg != MsgNoVocabulary {
 		t.Fatalf("authed: reject = %v, msg = %q, want %q", reject, msg, MsgNoVocabulary)
 	}
 
 	// an accepted event passes the whole chain
-	reject, msg = seq.Check(ctx, testEvent(nostr.KindTextNote, nostr.Tags{{"t", "scrutiny-fabric"}}))
+	reject, msg = seq.Check(ctx, testEventFrom(nostr.KindTextNote, nostr.Tags{{"t", "scrutiny-fabric"}}, allowedPK))
 	if reject {
 		t.Fatalf("expected acceptance, got %q", msg)
 	}

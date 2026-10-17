@@ -210,16 +210,6 @@ export class SecCertsLedger {
       .map(rowToRelation)
   }
 
-  /** Live relations touching an endpoint root (by logical subject/object key) — C4 re-point. */
-  liveRelationsFor(subjectId: string, objectKey: string): RelationRow[] {
-    return this.db
-      .query<RelationDbRow, [string, string]>(
-        "SELECT * FROM relations WHERE state = 'live' AND (subject_id = ? OR object_key = ?)",
-      )
-      .all(subjectId, objectKey)
-      .map(rowToRelation)
-  }
-
   upsertRoots(rows: RootUpsertRow[]): number {
     const stmt = this.db.query(
       `INSERT INTO roots (corpus, source_id, role, root_event_id, tip_event_id, tip_content,
@@ -293,14 +283,5 @@ export class SecCertsLedger {
       }
     })(rows)
     return rows.length
-  }
-
-  /** Mark relic rows when a source record disappears (C5: log only — state only, no relay event). */
-  markRetired(corpus: string, sourceId: string): number {
-    return this.db
-      .query(
-        "UPDATE roots SET state = 'retired', updated_at = ? WHERE corpus = ? AND source_id = ? AND state = 'live'",
-      )
-      .run(Date.now(), corpus, sourceId).changes
   }
 }

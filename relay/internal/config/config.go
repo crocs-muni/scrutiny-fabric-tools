@@ -8,6 +8,7 @@ package config
 import (
 	"fmt"
 	"net"
+	"net/http"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -31,6 +32,7 @@ const (
 	EnvRelayContact     = "SCRUTINY_RELAY_CONTACT"
 	EnvMaxQueryLimit    = "SCRUTINY_MAX_QUERY_LIMIT"
 	EnvMaxEventPastAge  = "SCRUTINY_MAX_EVENT_PAST_AGE"
+	EnvTrustedProxyCIDRs = "SCRUTINY_TRUSTED_PROXY_CIDRS"
 )
 
 // Defaults.
@@ -141,6 +143,12 @@ type Config struct {
 	// The write path is independently allowlist-gated, so a temporary widen
 	// only relaxes freshness for allowlisted publishers.
 	MaxEventPastAge time.Duration
+
+	// TrustedProxyCIDRs lists the network ranges whose transport peer may set
+	// X-Forwarded-For. Every other peer has its XFF deleted, so the per-IP
+	// rate limiters always key on the real socket address of untrusted peers.
+	// Empty means only loopback is trusted (direct-exposure deployments).
+	TrustedProxyCIDRs []*net.IPNet
 }
 
 // Load reads the configuration from the process environment.
@@ -220,7 +228,76 @@ func FromEnv(lookup func(string) (string, bool)) (Config, error) {
 		cfg.MaxEventPastAge = d
 	}
 
+	cfg.TrustedProxyCIDRs, err = parseTrustedProxyCIDRs(lookup)
+	if err != nil {
+		return cfg, err
+	}
+
 	return cfg, nil
+}
+
+// parseTrustedProxyCIDRs reads SCRUTINY_TRUSTED_PROXY_CIDRS, a comma-separated
+// list of IP ranges (CIDR or a bare IP, which means its /32 or /128). An unset
+// or empty variable yields nil: only loopback may set X-Forwarded-For.
+func parseTrustedProxyCIDRs(lookup func(string) (string, bool)) ([]*net.IPNet, error) {
+	raw, ok := lookup(EnvTrustedProxyCIDRs)
+	if !ok || strings.TrimSpace(raw) == "" {
+		return nil, nil
+	}
+	var out []*net.IPNet
+	for _, part := range strings.Split(raw, ",") {
+		part = strings.TrimSpace(part)
+		if part == "" {
+			continue
+		}
+		if !strings.Contains(part, "/") {
+			ip := net.ParseIP(part)
+			if ip == nil {
+				return nil, fmt.Errorf("%s: %q is not an IP address or CIDR range", EnvTrustedProxyCIDRs, part)
+			}
+			bits := 32
+			if ip.To4() == nil {
+				bits = 128
+			}
+			part = fmt.Sprintf("%s/%d", ip.String(), bits)
+		}
+		_, cidr, err := net.ParseCIDR(part)
+		if err != nil {
+			return nil, fmt.Errorf("%s: %q is not an IP address or CIDR range", EnvTrustedProxyCIDRs, part)
+		}
+		out = append(out, cidr)
+	}
+	return out, nil
+}
+
+// TrustedProxyChecker returns a function deciding whether the transport peer
+// of a request may supply a client identity through X-Forwarded-For. The
+// allowlist is the parsed TrustedProxyCIDRs; when the list is empty only
+// loopback peers are trusted. A direct client (not behind the configured
+// reverse proxy) gets its XFF deleted, so the per-IP rate limiters key on its
+// real socket address: a private-range peer can no longer forge a limiter
+// identity just by connecting from inside the same network.
+func (c Config) TrustedProxyChecker() func(*http.Request) bool {
+	cidrs := c.TrustedProxyCIDRs
+	return func(r *http.Request) bool {
+		host, _, err := net.SplitHostPort(r.RemoteAddr)
+		if err != nil {
+			host = r.RemoteAddr // tolerate a bare IP; net/http always sends host:port
+		}
+		ip := net.ParseIP(host)
+		if ip == nil {
+			return false
+		}
+		if ip.IsLoopback() {
+			return true
+		}
+		for _, n := range cidrs {
+			if n.Contains(ip) {
+				return true
+			}
+		}
+		return false
+	}
 }
 
 // LookupFromMap adapts a map to the lookup function shape used by FromEnv.
