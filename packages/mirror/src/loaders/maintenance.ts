@@ -1,4 +1,5 @@
 import {
+  compareStrings,
   cveIdsFromVulnerabilityKeywords,
   readDatasetJson,
   sourceHashOf,
@@ -53,7 +54,7 @@ export function loadMaintenance(opts: { dataDir: string }): MaintenanceLoadResul
       name: str(raw['name']),
       reportLink: str(raw['report_link']),
       stLink: str(raw['st_link']),
-      cves: [...cves].sort((a, b) => (a < b ? -1 : a > b ? 1 : 0)),
+      cves: [...cves].sort(compareStrings),
       snapshot,
     }
     const { hash, kind } = sourceHashOf(raw, projection)

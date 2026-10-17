@@ -35,8 +35,7 @@
  * Duplicate `i`-set comparison is exact (emission order is the diff key); imeta likewise.
  */
 
-import { sha256 } from '@noble/hashes/sha2.js'
-
+import { sha256Hex } from '../../hashing.js'
 import type {
   RelationRow,
   RootRow,
@@ -54,6 +53,7 @@ import type { SignedEvent } from '../../types.js'
 import { buildBinding } from '../binding.js'
 import {
   type EventType,
+  FABRIC_VERSION_TAG,
   RECORD_CARD_LABEL,
   assertEventShape,
   assertRule2a,
@@ -61,6 +61,7 @@ import {
   iTags,
   kTagsFor,
 } from '../content.js'
+import { buildDeletion } from '../deletion.js'
 import { type Signer, createClock } from '../keys.js'
 import { createPatch, wrapPatchEventPayload } from './patch.js'
 
@@ -76,7 +77,6 @@ const ROOT_TYPE_BY_ROLE: Readonly<Record<string, EventType>> = {
 
 /** leg-1's `EventType` union predates patches (v0.8.1 shipped roots + bindings only). */
 const PATCH_TYPE = 'scrutiny-patch' as unknown as EventType
-const FABRIC_VERSION_TAG = 'scrutiny-v0.8.1'
 
 /**
  * Ledger roots roles scanned for C5 known-source ids. C5 means "record gone from the dataset"
@@ -103,10 +103,6 @@ function rootGroupRank(root: DesiredRoot): number {
   if (root.role === 'corpus') return 0
   if (root.role === 'snapshot') return 6
   return ROOT_GROUP_RANK[root.corpus] ?? 7
-}
-
-function sha256Hex(text: string): string {
-  return Buffer.from(sha256(new TextEncoder().encode(text))).toString('hex')
 }
 
 /** Bounded prose list for supersede summaries (i-sets cap at 64; keep the line readable). */
@@ -229,25 +225,6 @@ function buildPatchEvent(
     )
   }
   return event
-}
-
-/** Kind-5 deletion (NIP-09, §10): t-tags fabric + version only — not a SCRUTINY type event. */
-function buildDeletion(
-  targetId: string,
-  content: string,
-  createdAt: number,
-  signer: Signer,
-): SignedEvent {
-  return signer.sign({
-    kind: 5,
-    created_at: createdAt,
-    tags: [
-      ['t', 'scrutiny-fabric'],
-      ['t', FABRIC_VERSION_TAG],
-      ['e', targetId],
-    ],
-    content,
-  })
 }
 
 /** One binding event from a planned relation with its endpoints resolved to current roots. */

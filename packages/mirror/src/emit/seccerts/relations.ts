@@ -1,3 +1,4 @@
+import { sha256Hex } from '../../hashing.js'
 /**
  * emit/seccerts/relations.ts — sec-certs binding projection (leg 2): SecCertsBundle → DesiredRelation[].
  *
@@ -14,8 +15,6 @@
  * diff key. It covers logical keys, never event ids, so a relation keeps its identity across
  * re-points (§2 C4) while a class change (direct↔transitive) is an R3 replace, not a patch.
  */
-import { sha256 } from '@noble/hashes/sha2.js'
-
 import type {
   CveClass,
   CveRelation,
@@ -27,10 +26,6 @@ import type {
   SecCertsPpRecord,
 } from '../../loaders/seccerts-types.js'
 import { ROCA_CVE } from './roots.js'
-
-function sha256Hex(text: string): string {
-  return Buffer.from(sha256(new TextEncoder().encode(text))).toString('hex')
-}
 
 function fingerprintOf(
   relationId: string,

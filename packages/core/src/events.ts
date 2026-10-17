@@ -324,13 +324,17 @@ export function scrutinyEventType(event: NostrEvent): ScrutinyEventType | undefi
  * scrutiny-mvp demo relay disproves that (`scrutiny-v059` data in active
  * dev use). Grandfathered entry; new corpora must use the semver grammar.
  * Remove when the demo corpus is regenerated or retired. */
-const LEGACY_VERSION_TAGS: Record<string, ProtocolVersion> = {
+const LEGACY_VERSION_TAGS: Readonly<Record<string, ProtocolVersion>> = {
   'scrutiny-v059': { major: '0', minor: '5', patch: '9' },
 }
 
-/** Every `t` tag matching the version grammar OR the legacy map. More than one violates TAG-2. */
+/** Every `t` tag matching the version grammar OR the legacy map. More than one violates TAG-2.
+ * `Object.hasOwn`, not `in`: a plain `Record` index walks `Object.prototype`, so a tag like
+ * `toString` would resolve as a legacy version it is not. */
 export function versionTags(event: NostrEvent): string[] {
-  return tTags(event).filter((t) => VERSION_TAG_PATTERN.test(t) || t in LEGACY_VERSION_TAGS)
+  return tTags(event).filter(
+    (t) => VERSION_TAG_PATTERN.test(t) || Object.hasOwn(LEGACY_VERSION_TAGS, t),
+  )
 }
 
 /** The event's version tag, or `undefined` unless it carries exactly one. */
@@ -355,7 +359,7 @@ export interface ProtocolVersion {
 
 /** Parse a version tag (legacy aliases included), or `undefined` if it matches neither grammar. */
 export function parseVersionTag(tag: string): ProtocolVersion | undefined {
-  const legacy = LEGACY_VERSION_TAGS[tag]
+  const legacy = Object.hasOwn(LEGACY_VERSION_TAGS, tag) ? LEGACY_VERSION_TAGS[tag] : undefined
   if (legacy !== undefined) return legacy
   const match = VERSION_TAG_PATTERN.exec(tag)
   if (match === null) return undefined

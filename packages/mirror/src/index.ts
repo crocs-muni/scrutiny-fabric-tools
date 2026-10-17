@@ -21,8 +21,8 @@ export * from './emit/index'
 
 /**
  * Emit internals that consumers (cli self-tests, gate fixtures, tests) use.
- * `gate/selfConsume` defines its own copy of the record-card label and is
- * deliberately not star-exported.
+ * `gate/selfConsume` consumes the shared record-card label from the emit layer
+ * and is deliberately not star-exported.
  */
 export {
   baseTags,

@@ -13,6 +13,7 @@
  * boundary so prose and the embedded record-card JSON stay byte-consistent (rule 2a + gate).
  */
 import type { DesiredState, SecCertsBundle } from '../../loaders/seccerts-types.js'
+import { RECORD_CARD_LABEL } from '../content.js'
 import { planRelations } from './relations.js'
 import { MIRROR_IMPORT_STAMP, planRoots } from './roots.js'
 
@@ -46,10 +47,10 @@ function cleanValue(value: unknown): unknown {
 function sanitizeRootContent(content: string): string {
   const out: string[] = []
   for (const line of content.split('\n')) {
-    if (line.startsWith('Record card (JSON): ')) {
-      const raw = line.slice('Record card (JSON): '.length)
+    if (line.startsWith(RECORD_CARD_LABEL)) {
+      const raw = line.slice(RECORD_CARD_LABEL.length)
       try {
-        out.push(`Record card (JSON): ${JSON.stringify(cleanValue(JSON.parse(raw)))}`)
+        out.push(`${RECORD_CARD_LABEL}${JSON.stringify(cleanValue(JSON.parse(raw)))}`)
         continue
       } catch {
         // fall through to plain prose cleaning — a malformed card line is the builders' bug,

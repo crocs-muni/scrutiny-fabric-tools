@@ -12,15 +12,18 @@
  * The sqlite handle is closed before returning (Windows file-lock hygiene).
  */
 
-import { existsSync, readFileSync } from 'node:fs'
+import { existsSync } from 'node:fs'
 
+import { sha256Hex } from '../../hashing.js'
 import { openLedger } from '../../ledger/index.js'
 import { SecCertsLedger } from '../../ledger/seccertsLedger.js'
-import { sha256Hex } from '../../loaders/seccerts-common.js'
 import type { DesiredState, EngineResult, SecCertsBundle } from '../../loaders/seccerts-types.js'
+import { readNdjson } from '../../ndjson.js'
 import type { Manifest, SignedEvent } from '../../types.js'
+import { countByType } from '../content.js'
 import type { Signer } from '../keys.js'
 import { runEngine } from './engine.js'
+import { planBundle } from './plan.js'
 import { crosslinkFingerprintOf, crosslinkRelationId } from './relations.js'
 
 export { writeArtifacts } from '../ndjson.js'
@@ -43,32 +46,6 @@ export interface EmitSeccertsResult {
   events: SignedEvent[]
   manifest: Manifest
   engine: EngineResult
-}
-
-type PlanBundleFn = (bundle: unknown) => DesiredState
-
-/** Manifest event counts; anything without a recognised type tag (kind-5) lands in `other`. */
-const COUNTED_TAGS: Readonly<Record<string, keyof Manifest['counts']>> = {
-  'scrutiny-product': 'products',
-  'scrutiny-metadata': 'metadata',
-  'scrutiny-binding': 'bindings',
-  'scrutiny-patch': 'patches',
-}
-
-function countByType(events: readonly SignedEvent[]): Manifest['counts'] {
-  const counts: Manifest['counts'] = { products: 0, metadata: 0, bindings: 0, patches: 0, other: 0 }
-  for (const event of events) {
-    let counted = false
-    for (const tag of event.tags) {
-      const bucket = tag[0] === 't' ? COUNTED_TAGS[tag[1] ?? ''] : undefined
-      if (bucket === undefined) continue
-      counts[bucket] += 1
-      counted = true
-      break
-    }
-    if (!counted) counts.other += 1
-  }
-  return counts
 }
 
 /** Max corpus snapshot stamp (ISO dates sort lexicographically); '' when the bundle is empty. */
@@ -115,10 +92,7 @@ function seedLeg1(
     }
   }
   const warnings: string[] = []
-  const events: SignedEvent[] = []
-  for (const line of readFileSync(leg1NdjsonPath, 'utf8').split('\n')) {
-    if (line.trim() !== '') events.push(JSON.parse(line) as SignedEvent)
-  }
+  const events = readNdjson(leg1NdjsonPath)
   const cardByEventId = new Map<string, Leg1CardRow>()
   const metaDgstByEventId = new Map<string, string>()
   for (const e of events) {
@@ -218,11 +192,7 @@ export async function emitSeccertsBundle(
   bundle: unknown,
   opts: EmitSeccertsOptions,
 ): Promise<EmitSeccertsResult> {
-  // Static import cannot work yet: `plan.ts` is a parallel slice that does not exist at
-  // typecheck time, and a static `./plan.js` specifier would break `bun run gate:tsc`.
-  const planSpecifier: string = './plan.js'
-  const planModule = (await import(planSpecifier)) as { planBundle: PlanBundleFn }
-  const state = planModule.planBundle(bundle)
+  const state = planBundle(bundle as SecCertsBundle)
 
   const ledger = openLedger(opts.ledgerPath)
   try {

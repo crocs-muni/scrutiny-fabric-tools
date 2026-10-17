@@ -10,10 +10,13 @@
  * stage fails early on the exact facts the gate would later report as lost.
  */
 
-import type { SignedEvent } from '../types.js'
+import type { Manifest, SignedEvent } from '../types.js'
 
 /** Rule 8(c): the canonical single-line record-card label. */
-const RECORD_CARD_LABEL = 'Record card (JSON): '
+export const RECORD_CARD_LABEL = 'Record card (JSON): '
+
+/** The SCRUTINY fabric release tag carried by every v0.8.1 event (TAG-2). */
+export const FABRIC_VERSION_TAG = 'scrutiny-v0.8.1'
 
 /** SCRUTINY v0.8.1 event types emitted by leg 1 (patches are not part of v0). */
 export type EventType = 'scrutiny-product' | 'scrutiny-metadata' | 'scrutiny-binding'
@@ -51,11 +54,11 @@ export function baseTags(type: EventType, facets: readonly string[]): string[][]
   const out: string[][] = [
     ['t', 'scrutiny-fabric'],
     ['t', type],
-    ['t', 'scrutiny-v0.8.1'],
+    ['t', FABRIC_VERSION_TAG],
   ]
   seen.add('scrutiny-fabric')
   seen.add(type)
-  seen.add('scrutiny-v0.8.1')
+  seen.add(FABRIC_VERSION_TAG)
   for (const facet of facets) {
     if (seen.has(facet)) continue
     seen.add(facet)
@@ -97,6 +100,31 @@ export function kTagsFor(iTags_: readonly string[][]): string[][] {
 /** i-tag values (used by the shape assertion). */
 function iValues(tags: readonly string[][]): string[] {
   return tags.filter((t) => t[0] === 'i' && typeof t[1] === 'string').map((t) => t[1] as string)
+}
+
+/** Manifest event-count bucket by `t`-tag value (Anything else — e.g. kind-5 — lands in `other`). */
+const COUNTED_TAGS: Readonly<Record<string, keyof Manifest['counts']>> = {
+  'scrutiny-product': 'products',
+  'scrutiny-metadata': 'metadata',
+  'scrutiny-binding': 'bindings',
+  'scrutiny-patch': 'patches',
+}
+
+/** Bucket events into the frozen `Manifest['counts']` shape by their first counted `t` tag. */
+export function countByType(events: readonly SignedEvent[]): Manifest['counts'] {
+  const counts: Manifest['counts'] = { products: 0, metadata: 0, bindings: 0, patches: 0, other: 0 }
+  for (const event of events) {
+    let counted = false
+    for (const tag of event.tags) {
+      const bucket = tag[0] === 't' ? COUNTED_TAGS[tag[1] ?? ''] : undefined
+      if (bucket === undefined) continue
+      counts[bucket] += 1
+      counted = true
+      break
+    }
+    if (!counted) counts.other += 1
+  }
+  return counts
 }
 
 // ---------------------------------------------------------------------------
@@ -244,8 +272,8 @@ export function assertEventShape(
   )
   if (t.filter((v) => v === 'scrutiny-fabric').length !== 1)
     throw new EmitShapeError(`${label}: expected exactly one scrutiny-fabric tag`)
-  if (t.filter((v) => v === 'scrutiny-v0.8.1').length !== 1)
-    throw new EmitShapeError(`${label}: expected exactly one scrutiny-v0.8.1 tag`)
+  if (t.filter((v) => v === FABRIC_VERSION_TAG).length !== 1)
+    throw new EmitShapeError(`${label}: expected exactly one ${FABRIC_VERSION_TAG} tag`)
   if (types.length !== 1)
     throw new EmitShapeError(`${label}: expected exactly one event-type tag, found ${types.length}`)
   const is = iValues(event.tags)

@@ -13,18 +13,12 @@
 import { readFileSync, statSync } from 'node:fs'
 import { join } from 'node:path'
 
-import { sha256 } from '@noble/hashes/sha2.js'
-
+import { sha256Hex } from '../hashing.js'
 import type { CveRelation, SourceHashKind } from './seccerts-types.js'
 
-/**
- * SHA-256 hex. Hashes via `@noble/hashes` — the package's hash convention (`node:crypto` is
- * biome-restricted across `packages/*\/src/**`, same as `loaders/jcalgtest.ts` and
- * `emit/seccerts/engine.ts`; no new dependency: `@noble/hashes` ships with nostr-tools).
- */
-export function sha256Hex(input: string | Buffer): string {
-  const bytes = typeof input === 'string' ? new TextEncoder().encode(input) : input
-  return Buffer.from(sha256(bytes)).toString('hex')
+/** Deterministic code-unit string order — the one sort key for hash-stable artifact bytes. */
+export function compareStrings(a: string, b: string): number {
+  return a < b ? -1 : a > b ? 1 : 0
 }
 
 /** Dataset file leg + upstream identity for a sec-certs corpus name. */

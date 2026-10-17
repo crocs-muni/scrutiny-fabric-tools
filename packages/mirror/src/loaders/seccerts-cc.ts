@@ -1,6 +1,7 @@
 import { tidyPpToken } from './ppAliases.js'
 import {
   canonicalCertId,
+  compareStrings,
   extractAlgFamilies,
   extractCertCves,
   normalizeDirectRefs,
@@ -206,8 +207,8 @@ function resolvePpRefs(
     if (tidied.length > 0) unresolved.add(tidied)
   }
   return {
-    resolved: [...resolved].sort((a, b) => (a < b ? -1 : a > b ? 1 : 0)),
-    unresolved: [...unresolved].sort((a, b) => (a < b ? -1 : a > b ? 1 : 0)),
+    resolved: [...resolved].sort(compareStrings),
+    unresolved: [...unresolved].sort(compareStrings),
   }
 }
 

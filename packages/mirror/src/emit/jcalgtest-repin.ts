@@ -22,13 +22,15 @@
  * sha256 + size. Node-only and dependency-free (global fetch + the package's @noble/hashes).
  */
 
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { mkdirSync, writeFileSync } from 'node:fs'
 import { dirname } from 'node:path'
 
 import { sha256 } from '@noble/hashes/sha2.js'
 
+import { errorMessage, readNdjson } from '../ndjson.js'
 import type { SignedEvent } from '../types.js'
 import { RECORD_CARD_LABEL } from './content.js'
+import { buildDeletion } from './deletion.js'
 import type { Signer } from './keys.js'
 import { serializeNdjson } from './ndjson.js'
 
@@ -129,10 +131,6 @@ const UPSTREAM_FILE_RE = /upstream file (.+?) \(sha256 /u
 /** Rule 8d line: `Refs: root <64hex> link <64hex>` (gate re-checks the cross-reference). */
 const REFS_RE = /^Refs: root ([0-9a-f]{64}) link ([0-9a-f]{64})$/mu
 
-function errorMessage(err: unknown): string {
-  return err instanceof Error ? err.message : String(err)
-}
-
 function shortId(id: string): string {
   return id.slice(0, 8)
 }
@@ -150,21 +148,6 @@ function imetaFields(tag: readonly string[]): Map<string, string> {
     if (sp > 0) fields.set(part.slice(0, sp), part.slice(sp + 1))
   }
   return fields
-}
-
-/** Read one NDJSON event list; a malformed line is a hard error with its line number. */
-function readNdjson(path: string): SignedEvent[] {
-  const events: SignedEvent[] = []
-  for (const [index, line] of readFileSync(path, 'utf8').split('\n').entries()) {
-    const trimmed = line.trim()
-    if (trimmed === '') continue
-    try {
-      events.push(JSON.parse(trimmed) as SignedEvent)
-    } catch (err) {
-      throw new Error(`${path}:${index + 1}: invalid JSON: ${errorMessage(err)}`)
-    }
-  }
-  return events
 }
 
 /**
@@ -262,25 +245,6 @@ function repointedRefsLine(content: string, oldLink: string, newLink: string): s
     )
   }
   return content.replace(REFS_RE, `Refs: root ${match[1] ?? ''} link ${newLink}`)
-}
-
-/** Kind-5 deletion (NIP-09): fabric + version t-tags only — not a SCRUTINY type event. */
-function buildDeletion(
-  targetId: string,
-  content: string,
-  createdAt: number,
-  signer: Signer,
-): SignedEvent {
-  return signer.sign({
-    kind: 5,
-    created_at: createdAt,
-    tags: [
-      ['t', 'scrutiny-fabric'],
-      ['t', 'scrutiny-v0.8.1'],
-      ['e', targetId],
-    ],
-    content,
-  })
 }
 
 // ---------------------------------------------------------------------------

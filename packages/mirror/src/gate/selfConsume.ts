@@ -26,11 +26,9 @@
  * SELFTEST.md, and are NOT silently accepted as prose).
  */
 
+import { RECORD_CARD_LABEL } from '../emit/content.js'
 import type { SignedEvent } from '../types.js'
 import type { GateError } from './verify.js'
-
-/** Rule 8(c): the canonical single-line record-card label. */
-const RECORD_CARD_LABEL = 'Record card (JSON): '
 
 export interface LostFact {
   event: string

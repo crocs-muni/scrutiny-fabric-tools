@@ -1,3 +1,4 @@
+import { sha256Hex } from '../../hashing.js'
 /**
  * emit/seccerts/roots.ts — sec-certs root projection (leg 2): SecCertsBundle → DesiredRoot[].
  *
@@ -12,8 +13,6 @@
  * every card scalar and every `i` value is spelled out in prose (the gate re-checks with
  * lostFacts; the probe asserts lostFacts-empty for every produced root).
  */
-import { sha256 } from '@noble/hashes/sha2.js'
-
 import type {
   CveRelation,
   DesiredRoot,
@@ -33,10 +32,6 @@ export const ROCA_CVE = 'CVE-2017-15361'
  * stamp into `planRoots`/`planBundle`; the default keeps run 0 byte-deterministic.
  */
 export const MIRROR_IMPORT_STAMP = '2026-10-11'
-
-function sha256Hex(input: string): string {
-  return Buffer.from(sha256(new TextEncoder().encode(input))).toString('hex')
-}
 
 /** Non-empty strings in place; null/undefined/'' dropped (i-set and prose parts). */
 function present(values: ReadonlyArray<string | null | undefined>): string[] {

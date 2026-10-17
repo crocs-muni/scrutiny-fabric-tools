@@ -29,7 +29,7 @@ import {
 } from './advisorySpine.js'
 import { buildCorpusBinding, buildCrosslinkBinding, buildRunBinding } from './binding.js'
 import { buildCardProduct } from './cardProduct.js'
-import { normalizeAtr } from './content.js'
+import { countByType, normalizeAtr } from './content.js'
 import { buildCorpusProduct } from './corpusProduct.js'
 import { type Signer, createClock } from './keys.js'
 import { buildLeaderboard } from './leaderboard.js'
@@ -76,38 +76,6 @@ function cardKeyOf(card: CardIdentity): string {
 
 function isRocaCert(dgst: string): boolean {
   return ROCA_REACHABLE_DGSTS[dgst] === true
-}
-
-function countByType(events: readonly SignedEvent[]): Manifest['counts'] {
-  const counts = { products: 0, metadata: 0, bindings: 0, patches: 0, other: 0 }
-  for (const event of events) {
-    let seen = false
-    for (const tag of event.tags) {
-      if (tag[0] !== 't') continue
-      if (tag[1] === 'scrutiny-product') {
-        counts.products += 1
-        seen = true
-        break
-      }
-      if (tag[1] === 'scrutiny-metadata') {
-        counts.metadata += 1
-        seen = true
-        break
-      }
-      if (tag[1] === 'scrutiny-binding') {
-        counts.bindings += 1
-        seen = true
-        break
-      }
-      if (tag[1] === 'scrutiny-patch') {
-        counts.patches += 1
-        seen = true
-        break
-      }
-    }
-    if (!seen) counts.other += 1
-  }
-  return counts
 }
 
 /** Emit the full leg-1 batch for one import of one corpus. */

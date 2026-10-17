@@ -24,16 +24,13 @@ import { dirname, join } from 'node:path'
 import { finalizeEvent, getPublicKey } from 'nostr-tools/pure'
 import type { EventTemplate } from 'nostr-tools/pure'
 
+import type { Signer } from './emit/keys.js'
 import { openLedger } from './ledger/index'
+import { errorMessage, readNdjson } from './ndjson.js'
 import { toSecretKey } from './publish/auth'
 import { publishBatch } from './publish/index'
 import { relayProbe, writeProbeResult } from './publish/probe'
 import type { GateReport, Manifest, SignedEvent, SourceBundle } from './types'
-
-interface Signer {
-  pubkey: string
-  sign(template: EventTemplate): SignedEvent
-}
 
 interface LoaderModule {
   loadJcalgtest(opts: { repoDir: string; groundTruthDir: string }): SourceBundle
@@ -195,11 +192,7 @@ function resolveKeyMaterial(flagValue: string | undefined): string {
 function makeSigner(material: string): Signer {
   const secretKey = toSecretKey(material)
   const pubkey = getPublicKey(secretKey)
-  return { pubkey, sign: (template: EventTemplate) => finalizeEvent(template, secretKey) }
-}
-
-function errorMessage(err: unknown): string {
-  return err instanceof Error ? err.message : String(err)
+  return { pubkey, sign: (template) => finalizeEvent(template, secretKey) as SignedEvent }
 }
 
 /**
@@ -219,20 +212,6 @@ async function importModule(preferred: string, fallback: string, label: string):
       )
     }
   }
-}
-
-function readNdjson(path: string): SignedEvent[] {
-  const events: SignedEvent[] = []
-  for (const [index, line] of readFileSync(path, 'utf8').split('\n').entries()) {
-    const trimmed = line.trim()
-    if (trimmed === '') continue
-    try {
-      events.push(JSON.parse(trimmed) as SignedEvent)
-    } catch (err) {
-      throw new Error(`${path}:${index + 1}: invalid JSON: ${errorMessage(err)}`)
-    }
-  }
-  return events
 }
 
 /** Corpus name from an NDJSON filename: `artifacts/jcalgtest.ndjson` → `jcalgtest`. */

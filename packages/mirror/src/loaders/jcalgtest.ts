@@ -1,5 +1,6 @@
 import { readFileSync, readdirSync } from 'node:fs'
 import { join } from 'node:path'
+import { sha256Hex } from '../hashing'
 /**
  * JCAlgTest loader — walks a local clone of `crocs-muni/jcalgtest_results` and
  * produces the `SourceBundle` defined in `../types.ts`.
@@ -19,8 +20,6 @@ import { join } from 'node:path'
  * Assumptions recorded in `loaders/SELFTEST.md` (malformed-file handling, ALGSUPPORT
  * `selected` key table, DATADEPEND length preference, exclusion counting).
  */
-import { sha256 } from '@noble/hashes/sha2.js'
-
 import type {
   CardIdentity,
   CrosslinkRecord,
@@ -129,10 +128,6 @@ interface ParsedRun {
 
 function readBytes(path: string): Buffer {
   return readFileSync(path)
-}
-
-function sha256Hex(bytes: Buffer | Uint8Array): string {
-  return Buffer.from(sha256(bytes)).toString('hex')
 }
 
 function tryReadText(path: string): string | null {

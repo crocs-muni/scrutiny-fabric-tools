@@ -2,6 +2,7 @@ import { isProseAlias, tidyPpToken } from './ppAliases.js'
 import type { CertLoadOpts, CertLoadResult } from './seccerts-cc.js'
 import { algFamiliesOf, artifactsOf, asRecord, ppKeywordTokens, stringSet } from './seccerts-cc.js'
 import {
+  compareStrings,
   extractAlgFamilies,
   extractCertCves,
   normalizeDirectRefs,
@@ -86,8 +87,8 @@ export function loadEucc(opts: CertLoadOpts): CertLoadResult {
       stLink: str(raw['st_link']),
       certLink: str(raw['cert_link']),
       manufacturerWeb: str(raw['manufacturer_web']),
-      ppRefsResolved: [...resolved].sort((a, b) => (a < b ? -1 : a > b ? 1 : 0)),
-      ppRefsUnresolved: [...unresolved].sort((a, b) => (a < b ? -1 : a > b ? 1 : 0)),
+      ppRefsResolved: [...resolved].sort(compareStrings),
+      ppRefsUnresolved: [...unresolved].sort(compareStrings),
       directRefs: refs.refs,
       directRefsTruncated: refs.truncated,
       indirectRefs: refs.indirect,
