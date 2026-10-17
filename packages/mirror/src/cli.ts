@@ -18,7 +18,7 @@
  * a flag value that is not key material is treated as an environment variable name.
  * `NSEC_AGE_FILE` is intentionally unsupported in the pilot (README: env nsec for pilot).
  */
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { copyFileSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 
 import { finalizeEvent, getPublicKey } from 'nostr-tools/pure'
@@ -96,6 +96,7 @@ interface RepinModule {
 const USAGE = `Usage:
   cli.ts build:jcalgtest [--repo DIR] [--ground-truth DIR] [--artifacts DIR] [--nsec env|ENV_VAR|hex|nsec1…]
   cli.ts build:seccerts [--data C:/tmp] [--ground-truth DIR] [--artifacts DIR] [--ledger PATH] [--nsec env|ENV_VAR|hex|nsec1…]
+                        [--relay ws://… [--force-reset]]
   cli.ts repin:jcalgtest [--in FILE.ndjson] [--out FILE.ndjson] [--summary FILE.json] [--nsec env|ENV_VAR|hex|nsec1…]
   cli.ts verify:imeta [--in FILE.ndjson] [--sample N] [--out FILE.json] [--relay-host none]
   cli.ts gate --in FILE.ndjson
@@ -247,6 +248,12 @@ async function runBuildSeccerts(flags: Map<string, string>): Promise<number> {
   const artifactsDir = flags.get('artifacts') ?? 'artifacts'
   const ledgerPath = flags.get('ledger') ?? 'artifacts/mirror.sqlite'
   const signer = makeSigner(resolveKeyMaterial(flags.get('nsec')))
+  // Gate wiring: --relay names the publish target; the build then refuses
+  // while the ledger holds chain points that relay never acked (an orphaned
+  // previous batch). --force-reset is the explicit escape: mark the dangling
+  // ids as operator-abandoned and proceed. See README pipeline §build.
+  const relayFlag = flags.get('relay')
+  const forceReset = flags.get('force-reset') !== undefined
 
   const loader = (await importModule(
     './loaders/seccerts.js',
@@ -262,8 +269,14 @@ async function runBuildSeccerts(flags: Map<string, string>): Promise<number> {
   )) as {
     emitSeccertsBundle(
       bundle: unknown,
-      opts: { signer: Signer; ledgerPath: string; leg1NdjsonPath?: string },
-    ): Promise<{ events: SignedEvent[]; manifest: Manifest }>
+      opts: {
+        signer: Signer
+        ledgerPath: string
+        leg1NdjsonPath?: string
+        targetRelay?: string
+        forceReset?: boolean
+      },
+    ): Promise<{ events: SignedEvent[]; manifest: Manifest; warnings: string[] }>
     writeArtifacts: EmitModule['writeArtifacts']
   }
   if (typeof loader.loadSeccerts !== 'function')
@@ -286,15 +299,25 @@ async function runBuildSeccerts(flags: Map<string, string>): Promise<number> {
     signer,
     ledgerPath,
     leg1NdjsonPath: flags.get('leg1') ?? 'artifacts/jcalgtest.ndjson',
+    ...(relayFlag === undefined ? {} : { targetRelay: relayFlag }),
+    ...(forceReset ? { forceReset: true } : {}),
   })) as {
     events: SignedEvent[]
     manifest: Manifest
     warnings: string[]
   }
+  // Retention: every batch lands under its own name (snapshot + producedAt) so a
+  // rebuild never overwrites the bytes of the previous one; seccerts.ndjson stays
+  // as the stable "latest" pointer the publish step reads.
+  const producedAt = result.manifest.producedAt.replace(/[:.]/g, '-')
+  const qualifiedName = `seccerts-${result.manifest.snapshot}-${producedAt}.ndjson`
   const { ndjsonPath } = emitter.writeArtifacts(result, {
     corpus: 'seccerts',
     outDir: artifactsDir,
+    filename: qualifiedName,
   })
+  const latestPath = join(artifactsDir, 'seccerts.ndjson')
+  copyFileSync(ndjsonPath, latestPath)
   if (priorManifest !== null) writeFileSync(sharedManifestPath, priorManifest, 'utf8')
   const seccertsManifest = join(artifactsDir, 'seccerts.manifest.json')
   writeFileSync(seccertsManifest, `${JSON.stringify(result.manifest, null, 2)}\n`, 'utf8')

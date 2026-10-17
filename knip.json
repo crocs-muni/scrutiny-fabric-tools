@@ -30,7 +30,8 @@
         "src/publish/selftest.ts",
         "src/emit/seccerts/index.ts",
         "src/emit/seccerts/plan.ts",
-        "src/emit/jcalgtest-repin.test.ts"
+        "src/emit/jcalgtest-repin.test.ts",
+        "src/ledger/seccertsLedger-gate.test.ts"
       ],
       "project": ["src/**/*.ts"]
     }

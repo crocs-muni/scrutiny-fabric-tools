@@ -16,6 +16,14 @@ stage 2: gate report → artifacts/<corpus>.gate.json   (fail-closed)
 stage 3: artifacts/<corpus>.publish-log.json  (+ ledger sqlite rows)
 ```
 
+Chain integrity: `build:seccerts --relay URL` refuses while any ledger chain
+point (live root tip/origin, live relation event) has no `publish_log` row for
+that relay — building would overwrite the pending batch's artifacts and emit
+patches against parents the relay never saw. Publish first, or re-run with
+`--force-reset` to mark the dangling ids operator-abandoned. Every build also
+writes a retention copy `artifacts/seccerts-<snapshot>-<producedAt>.ndjson`
+alongside the `seccerts.ndjson` "latest" file publish reads.
+
 ## Frozen decisions (grilling session 2026-10-04)
 
 - One publisher key (`npub1…`). Key loading: `NSEC` env / `NSEC_FILE` (hex or nsec) /

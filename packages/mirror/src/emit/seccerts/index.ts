@@ -38,6 +38,20 @@ export interface EmitSeccertsOptions {
    * Pass an absent path in tests to disable seeding.
    */
   leg1NdjsonPath?: string
+  /**
+   * Relay the batch is destined for. When set, the build refuses while any
+   * ledger chain point (live root tip/origin, live relation event) has no
+   * `publish_log` row for this relay: building again would emit patches whose
+   * parents the relay never saw, and the overwritten artifacts file would
+   * orphan the previous batch. Publish the pending batch first, or pass
+   * `forceReset: true` (the CLI's `--force-reset`) to mark the dangling ids as
+   * operator-abandoned and proceed — any existing publish_log row (ack,
+   * rejection, or abandonment) counts as resolved, since the relay already
+   * returned a verdict or the operator decided. Unset keeps the legacy
+   * ungated behavior (tests, replays).
+   */
+  targetRelay?: string
+  forceReset?: boolean
 }
 
 export interface EmitSeccertsResult {
@@ -193,8 +207,27 @@ export async function emitSeccertsBundle(
   const state = planBundle(bundle as SecCertsBundle)
 
   const ledger = openLedger(opts.ledgerPath)
+  let forceResetNote: string | null = null
   try {
     const seccerts = new SecCertsLedger(ledger.db)
+
+    // Chain-integrity gate (before the engine or the ledger move): the stored
+    // tip is what the next diff anchors on, so building over an unpublished
+    // tip would orphan the previous batch and emit parentless patches.
+    if (opts.targetRelay !== undefined) {
+      const unpublished = seccerts.unpublishedChainPointIds(opts.targetRelay)
+      if (unpublished.length > 0) {
+        if (opts.forceReset === true) {
+          const n = seccerts.abandonChainPoints(opts.targetRelay, unpublished)
+          forceResetNote = `force-reset: ${n} dangling chain point(s) marked abandoned`
+        } else {
+          throw new Error(
+            `unpublished chain points for ${opts.targetRelay}: ${unpublished.length} event id(s) in the ledger have no ok=1 publish_log row — the previous batch was signed but never reached the relay, and this build would overwrite artifacts/seccerts.ndjson (orphaning it) and emit patches against parents the relay never saw. Publish the pending batch first (publish --relay ${opts.targetRelay}), or re-run with --force-reset to abandon it explicitly.`,
+          )
+        }
+      }
+    }
+
     const seed = seedLeg1(
       seccerts,
       bundle as SecCertsBundle,
@@ -209,8 +242,10 @@ export async function emitSeccertsBundle(
       `leg-1 seed: ${seed.rootsSeeded} card roots, ${seed.relationsSeeded} cross-link relation rows`,
       ...seed.warnings,
     )
+    if (forceResetNote !== null) engine.warnings.unshift(forceResetNote)
     // Build-time ledger apply (see header): rows mirror the signed batch; relay acks live
-    // separately in publish_log per the README pipeline's stage 3.
+    // separately in publish_log per the README pipeline's stage 3. The gate above guarantees
+    // the tip this batch advances was acked, so "build without publish" can no longer orphan.
     seccerts.upsertRoots(engine.rootRows)
     seccerts.upsertRelations(engine.relationRows)
     const manifest: Manifest = {

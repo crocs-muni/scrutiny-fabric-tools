@@ -210,6 +210,59 @@ export class SecCertsLedger {
       .map(rowToRelation)
   }
 
+  /**
+   * Unpublished chain points: ids the ledger's chain state references that the
+   * given relay has no `publish_log` row for. Covers every live root's tip and
+   * origin event id plus every live relation's event id — the three places a
+   * later build's diffs anchor on. A nonempty result means the previous batch
+   * was signed and recorded here but never reached the relay: building again
+   * would emit patches whose parents do not exist there.
+   *
+   * An EXISTING row for (event_id, relay) — ack ok=1, rejected ok=0, or an
+   * operator abandonment — always resolves the chain point: the relay already
+   * returned a verdict, or the operator explicitly decided the id is not going
+   * there. Only silence blocks the build.
+   */
+  unpublishedChainPointIds(relay: string): string[] {
+    const rows = this.db
+      .query<{ id: string }, [string]>(
+        `SELECT DISTINCT id FROM (
+           SELECT tip_event_id AS id FROM roots WHERE state = 'live'
+           UNION
+           SELECT root_event_id AS id FROM roots WHERE state = 'live'
+           UNION
+           SELECT event_id AS id FROM relations WHERE state = 'live'
+         )
+         WHERE id NOT IN (
+           SELECT event_id FROM publish_log WHERE relay = ?1
+         )`,
+      )
+      .all(relay)
+    return rows.map((r) => r.id)
+  }
+
+  /**
+   * Explicit operator escape for the unpublished-chain-point gate: marks the
+   * dangling ids as intentionally abandoned for `relay` (ok=0, msg records the
+   * reset) so the next build is no longer blocked. A re-published abandoned id
+   * simply overwrites the row (last write wins).
+   */
+  abandonChainPoints(relay: string, ids: readonly string[]): number {
+    const stmt = this.db.query(
+      `INSERT INTO publish_log (event_id, relay, ok, msg, ts)
+       VALUES (?, ?, 0, 'abandoned by operator (force-reset)', ?)
+       ON CONFLICT(event_id, relay) DO UPDATE SET
+         ok  = excluded.ok,
+         msg = excluded.msg,
+         ts  = excluded.ts`,
+    )
+    const now = Date.now()
+    this.db.transaction((items: readonly string[]) => {
+      for (const id of items) stmt.run(id, relay, now)
+    })(ids)
+    return ids.length
+  }
+
   upsertRoots(rows: RootUpsertRow[]): number {
     const stmt = this.db.query(
       `INSERT INTO roots (corpus, source_id, role, root_event_id, tip_event_id, tip_content,
