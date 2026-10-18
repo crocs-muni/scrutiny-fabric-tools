@@ -5,6 +5,7 @@
 //	relay            run the relay (configuration from the SCRUTINY_* environment)
 //	relay reindex    wipe the bleve search index and replay the base store into it
 //	relay import     store an NDJSON event corpus offline, bypassing the write gate
+//	relay count      print how many events the base store holds, per kind
 //
 // The environment is documented in the repository README.
 package main
@@ -18,15 +19,18 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"sort"
 	"syscall"
 	"time"
+
+	"fiatjaf.com/nostr"
 
 	"github.com/crocs-muni/scrutiny-fabric-tools/relay/internal/config"
 	"github.com/crocs-muni/scrutiny-fabric-tools/relay/internal/relay"
 	"github.com/crocs-muni/scrutiny-fabric-tools/relay/internal/store"
 )
 
-const usageTemplate = "usage: %s [reindex | import -in FILE.ndjson [-verify=false]]\n"
+const usageTemplate = "usage: %s [reindex | count | import -in FILE.ndjson [-verify=false]]\n"
 
 func main() {
 	logger := log.New(os.Stderr, "[scrutiny-relay] ", log.LstdFlags)
@@ -42,6 +46,12 @@ func main() {
 		case "import":
 			if err := runImport(logger, args[1:]); err != nil {
 				logger.Printf("import failed: %v", err)
+				os.Exit(1)
+			}
+			return
+		case "count":
+			if err := runCount(logger); err != nil {
+				logger.Printf("count failed: %v", err)
 				os.Exit(1)
 			}
 			return
@@ -154,5 +164,31 @@ func runImport(logger *log.Logger, args []string) error {
 		return fmt.Errorf("stopped after %d events read (%d stored, %d duplicates): %w", summary.Read, summary.Imported, summary.Duplicates, err)
 	}
 	logger.Printf("import complete: read %d events, stored %d, duplicates %d", summary.Read, summary.Imported, summary.Duplicates)
+	return nil
+}
+
+// runCount prints how many events the base store holds, per kind. Like import
+// and reindex it needs only SCRUTINY_DATA_DIR, and it refuses to run while a
+// relay owns the store (the boltdb open times out).
+func runCount(logger *log.Logger) error {
+	paths, err := config.PathsFromEnv(os.LookupEnv)
+	if err != nil {
+		return fmt.Errorf("configuration: %w", err)
+	}
+
+	total, perKind, err := store.Count(paths.BaseDBPath, logger)
+	if err != nil {
+		return err
+	}
+
+	kinds := make([]int, 0, len(perKind))
+	for kind := range perKind {
+		kinds = append(kinds, int(kind))
+	}
+	sort.Ints(kinds)
+	for _, kind := range kinds {
+		fmt.Printf("kind %d: %d\n", kind, perKind[nostr.Kind(kind)])
+	}
+	fmt.Printf("events: %d\n", total)
 	return nil
 }

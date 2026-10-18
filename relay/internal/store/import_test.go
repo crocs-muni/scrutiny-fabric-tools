@@ -47,6 +47,7 @@ func signNote(t *testing.T, sk nostr.SecretKey, content string) nostr.Event {
 	return evt
 }
 
+
 func storePaths(t *testing.T) (string, string) {
 	t.Helper()
 	dir := t.TempDir()
