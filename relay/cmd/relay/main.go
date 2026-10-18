@@ -4,6 +4,7 @@
 //
 //	relay            run the relay (configuration from the SCRUTINY_* environment)
 //	relay reindex    wipe the bleve search index and replay the base store into it
+//	relay import     store an NDJSON event corpus offline, bypassing the write gate
 //
 // The environment is documented in the repository README.
 package main
@@ -11,6 +12,7 @@ package main
 import (
 	"context"
 	"errors"
+	"flag"
 	"fmt"
 	"log"
 	"net/http"
@@ -24,6 +26,8 @@ import (
 	"github.com/crocs-muni/scrutiny-fabric-tools/relay/internal/store"
 )
 
+const usageTemplate = "usage: %s [reindex | import -in FILE.ndjson [-verify=false]]\n"
+
 func main() {
 	logger := log.New(os.Stderr, "[scrutiny-relay] ", log.LstdFlags)
 
@@ -35,11 +39,18 @@ func main() {
 				os.Exit(1)
 			}
 			return
+		case "import":
+			if err := runImport(logger, args[1:]); err != nil {
+				logger.Printf("import failed: %v", err)
+				os.Exit(1)
+			}
+			return
 		case "help", "-h", "--help":
-			fmt.Fprintf(os.Stderr, "usage: %s [reindex]\n", os.Args[0])
+			fmt.Fprintf(os.Stderr, usageTemplate, os.Args[0])
 			return
 		default:
-			fmt.Fprintf(os.Stderr, "unknown subcommand %q\nusage: %s [reindex]\n", args[0], os.Args[0])
+			fmt.Fprintf(os.Stderr, "unknown subcommand %q\n", args[0])
+			fmt.Fprintf(os.Stderr, usageTemplate, os.Args[0])
 			os.Exit(2)
 		}
 	}
@@ -115,5 +126,33 @@ func runReindex(logger *log.Logger) error {
 		return err
 	}
 	logger.Printf("reindex complete: replayed %d events from the base store", replayed)
+	return nil
+}
+
+// runImport needs only the SCRUTINY_DATA_DIR environment, like reindex: the
+// event corpus is the authority, so the service URL and the publisher
+// allowlist play no part in it.
+func runImport(logger *log.Logger, args []string) error {
+	flags := flag.NewFlagSet("import", flag.ContinueOnError)
+	in := flags.String("in", "", "NDJSON file of signed events to store (required)")
+	verify := flags.Bool("verify", true, "verify each event id and signature before storing it")
+	if err := flags.Parse(args); err != nil {
+		return err
+	}
+	if *in == "" {
+		return errors.New("import: -in <file.ndjson> is required")
+	}
+
+	paths, err := config.PathsFromEnv(os.LookupEnv)
+	if err != nil {
+		return fmt.Errorf("configuration: %w", err)
+	}
+
+	logger.Printf("importing: %s -> base store %s, search index %s (verify=%t)", *in, paths.BaseDBPath, paths.SearchIndexPath, *verify)
+	summary, err := store.ImportNDJSON(*in, paths.BaseDBPath, paths.SearchIndexPath, *verify, logger)
+	if err != nil {
+		return fmt.Errorf("stopped after %d events read (%d stored, %d duplicates): %w", summary.Read, summary.Imported, summary.Duplicates, err)
+	}
+	logger.Printf("import complete: read %d events, stored %d, duplicates %d", summary.Read, summary.Imported, summary.Duplicates)
 	return nil
 }
