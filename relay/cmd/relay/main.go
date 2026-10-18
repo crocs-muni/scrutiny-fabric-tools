@@ -6,6 +6,7 @@
 //	relay reindex    wipe the bleve search index and replay the base store into it
 //	relay import     store an NDJSON event corpus offline, bypassing the write gate
 //	relay count      print how many events the base store holds, per kind
+//	relay diff       write the events this store has and another one lacks
 //
 // The environment is documented in the repository README.
 package main
@@ -30,7 +31,7 @@ import (
 	"github.com/crocs-muni/scrutiny-fabric-tools/relay/internal/store"
 )
 
-const usageTemplate = "usage: %s [reindex | count | import -in FILE.ndjson [-verify=false]]\n"
+const usageTemplate = "usage: %s [reindex | count | diff -other BASE.bolt [-out FILE.ndjson] | import -in FILE.ndjson [-verify=false]]\n"
 
 func main() {
 	logger := log.New(os.Stderr, "[scrutiny-relay] ", log.LstdFlags)
@@ -52,6 +53,12 @@ func main() {
 		case "count":
 			if err := runCount(logger); err != nil {
 				logger.Printf("count failed: %v", err)
+				os.Exit(1)
+			}
+			return
+		case "diff":
+			if err := runDiff(logger, args[1:]); err != nil {
+				logger.Printf("diff failed: %v", err)
 				os.Exit(1)
 			}
 			return
@@ -190,5 +197,32 @@ func runCount(logger *log.Logger) error {
 		fmt.Printf("kind %d: %d\n", kind, perKind[nostr.Kind(kind)])
 	}
 	fmt.Printf("events: %d\n", total)
+	return nil
+}
+
+// runDiff writes the events this store holds that -other lacks, as NDJSON that
+// `relay import` can consume. Needs only SCRUTINY_DATA_DIR plus the other
+// store's base.bolt path; both stores must be closed in any relay process.
+func runDiff(logger *log.Logger, args []string) error {
+	flags := flag.NewFlagSet("diff", flag.ContinueOnError)
+	other := flags.String("other", "", "base.bolt of the store to compare against (required)")
+	out := flags.String("out", "diff.ndjson", "NDJSON file that receives the missing events")
+	if err := flags.Parse(args); err != nil {
+		return err
+	}
+	if *other == "" {
+		return errors.New("diff: -other <path/to/base.bolt> is required")
+	}
+
+	paths, err := config.PathsFromEnv(os.LookupEnv)
+	if err != nil {
+		return fmt.Errorf("configuration: %w", err)
+	}
+
+	missing, compared, err := store.Diff(paths.BaseDBPath, *other, *out)
+	if err != nil {
+		return fmt.Errorf("stopped after %d missing of %d compared: %w", missing, compared, err)
+	}
+	logger.Printf("diff: %d of %d events in %s are missing from %s -> %s", missing, compared, paths.BaseDBPath, *other, *out)
 	return nil
 }
