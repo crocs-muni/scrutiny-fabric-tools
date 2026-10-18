@@ -83,6 +83,12 @@ takes an exclusive lock on its file, so a running instance makes the open fail.
 | --- | --- |
 | `relay reindex` | wipes the bleve search index and replays the base store into it |
 | `relay import -in FILE.ndjson [-verify=false]` | stores a corpus of signed events straight into both stores |
+| `relay count` | prints how many events the base store holds, per kind |
+
+`relay count` is the read-side counterpart, used to verify a store after an import or a
+volume restore (`/metrics` cannot: `events_stored` counts accepts since process start).
+A missing `base.bolt` is an error, never `events: 0` — an empty result means a wrong
+path or the wrong volume, so treat `0` as a mount mistake until proven otherwise.
 
 `relay import` is the offline disaster-recovery path. It bypasses **every** write
 policy — NIP-42, the allowlist, the vocabulary gate and the freshness window —

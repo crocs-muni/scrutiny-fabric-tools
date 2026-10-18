@@ -1,16 +1,11 @@
 package store
 
 import (
-	"errors"
-	"log"
+	"fmt"
+	"os"
 
 	"fiatjaf.com/nostr"
 )
-
-// countScanCap bounds a full-store scan. It is an iteration cap, not a filter
-// limit: no COUNT hook is wired into the relay (NIP-45 is deliberately not
-// advertised), so counting means walking the store.
-const countScanCap = 1 << 30
 
 // Count walks the base store and reports how many events it holds, in total
 // and per kind.
@@ -18,10 +13,18 @@ const countScanCap = 1 << 30
 // It exists for operator verification: after an `import` or a volume restore,
 // "the store holds exactly the corpus we expect" is the claim to check, and
 // /metrics cannot answer it (events_stored counts accepts since process start).
-// The relay must not be running — boltdb takes an exclusive lock on the file.
-func Count(baseDBPath string, logger *log.Logger) (total int, perKind map[nostr.Kind]int, err error) {
-	if logger == nil {
-		return 0, nil, errors.New("store: a logger is required")
+//
+// A missing base.bolt is an error, not an empty store: openBase would happily
+// create one, and a mistyped SCRUTINY_DATA_DIR or the wrong volume must not
+// report `events: 0` and look like a healthy answer.
+//
+// The walk reuses scanAll, the same paging reindex uses (with its created_at
+// tie-group guard), and de-duplicates across page overlaps, so the number it
+// prints is the number of unique events the store can serve. The relay must not
+// be running — boltdb takes an exclusive lock on the file.
+func Count(baseDBPath string) (total int, perKind map[nostr.Kind]int, err error) {
+	if _, statErr := os.Stat(baseDBPath); statErr != nil {
+		return 0, nil, fmt.Errorf("no base store to count at %s: %w", baseDBPath, statErr)
 	}
 
 	base, err := openBase(baseDBPath)
@@ -31,9 +34,20 @@ func Count(baseDBPath string, logger *log.Logger) (total int, perKind map[nostr.
 	defer base.Close()
 
 	perKind = make(map[nostr.Kind]int)
-	for evt := range base.QueryEvents(nostr.Filter{}, countScanCap) {
+	seen := make(map[nostr.ID]struct{})
+	err = scanAll(base, func(evt nostr.Event) error {
+		if _, dup := seen[evt.ID]; dup {
+			// only possible when a page boundary sat inside a created_at
+			// tie group (see scanAll)
+			return nil
+		}
+		seen[evt.ID] = struct{}{}
 		total++
 		perKind[evt.Kind]++
+		return nil
+	})
+	if err != nil {
+		return total, perKind, err
 	}
 	return total, perKind, nil
 }

@@ -3,6 +3,7 @@ package store
 import (
 	"io"
 	"log"
+	"path/filepath"
 	"testing"
 
 	"fiatjaf.com/nostr"
@@ -37,7 +38,7 @@ func TestCountReportsTotalsAndKinds(t *testing.T) {
 		t.Fatalf("importing: %v", err)
 	}
 
-	total, perKind, err := Count(baseDB, logger)
+	total, perKind, err := Count(baseDB)
 	if err != nil {
 		t.Fatalf("counting: %v", err)
 	}
@@ -49,8 +50,8 @@ func TestCountReportsTotalsAndKinds(t *testing.T) {
 	}
 }
 
-func TestCountRequiresALogger(t *testing.T) {
-	if _, _, err := Count("x", nil); err == nil {
-		t.Fatal("count accepted a nil logger")
+func TestCountRejectsMissingStore(t *testing.T) {
+	if _, _, err := Count(filepath.Join(t.TempDir(), "missing.bolt")); err == nil {
+		t.Fatal("count accepted a store path that does not exist")
 	}
 }

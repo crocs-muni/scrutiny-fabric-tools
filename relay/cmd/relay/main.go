@@ -176,7 +176,7 @@ func runCount(logger *log.Logger) error {
 		return fmt.Errorf("configuration: %w", err)
 	}
 
-	total, perKind, err := store.Count(paths.BaseDBPath, logger)
+	total, perKind, err := store.Count(paths.BaseDBPath)
 	if err != nil {
 		return err
 	}
