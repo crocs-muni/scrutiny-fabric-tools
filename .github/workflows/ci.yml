@@ -84,10 +84,16 @@ jobs:
   # Changesets record intent at PR time, not reconstructable from the diff after the fact — hence
   # its own job, gated to pull requests only (comparing `--since=main` on a push to main is a
   # trivial no-op). `fetch-depth: 0` because `changeset status` needs the full history to diff
-  # against `main`, unlike `verify`'s shallow checkout.
+  # against `main`, unlike `verify`'s shallow checkout. Merging a PR fires `pull_request.edited`
+  # on the merged PR, and that re-run checks out a worktree sitting on main, where
+  # `git branch -f main` aborts with "used by worktree" — hence the same post-merge guard as
+  # `verify`: skip edited re-runs unless the base branch itself moved.
   changesets:
     name: changeset presence
-    if: github.event_name == 'pull_request'
+    if: >-
+      github.event_name == 'pull_request' &&
+      (github.event.action != 'edited' ||
+       github.event.changes.base != null)
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
