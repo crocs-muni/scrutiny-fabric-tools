@@ -101,6 +101,17 @@ jobs:
           go-version-file: relay/go.mod
           cache-dependency-path: relay/go.sum
 
+      # Build + test belong here: this is the only job with a Go toolchain, and until now
+      # nothing in CI compiled the relay at all — the subcommands passed their tests only
+      # because a developer happened to run them locally.
+      - name: Build
+        working-directory: relay
+        run: go build ./...
+
+      - name: Test
+        working-directory: relay
+        run: go test ./...
+
       - name: Scan
         working-directory: relay
         run: |
