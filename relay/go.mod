@@ -2,6 +2,12 @@ module github.com/crocs-muni/scrutiny-fabric-tools/relay
 
 go 1.26.0
 
+// Stdlib CVE floor: `go 1.26.0` alone lets any 1.26.x build, including ones carrying the
+// crypto/tls / net/http advisories fixed in go1.26.5..go1.26.10. The toolchain directive
+// makes GOTOOLCHAIN=auto (the default) select exactly this patch level, so the mitigated
+// stdlib travels with the commit rather than with whoever happens to build it.
+toolchain go1.26.10
+
 require (
 	fiatjaf.com/nostr v0.0.0-20260928115942-58e4c715304e
 	github.com/coder/websocket v1.8.13
