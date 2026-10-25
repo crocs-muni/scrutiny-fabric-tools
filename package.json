@@ -41,12 +41,11 @@
     "typescript": "^5.8"
   },
   "pnpm": {
-    "//pnpm": "Security floors on transitive dev-dependency chains. qs >=6.16.0 (via @stryker-mutator/core -> typed-rest-client) carries GHSA-q8mj-m7cp-5q26, GHSA-x5fp-wj9c-mxmx, and GHSA-4mjr-xmp4-gh2g. brace-expansion >=5.0.12 and source-map-js >=1.2.2 close remaining moderate advisories reachable from the dev toolchain. vite is pinned exactly at 6.4.5: vitest 4.1.x resolves its vite edge to a 6.4.3 snapshot that a range override cannot lift under pnpm 9, and 6.4.3 carries the launch-editor/fs.allow advisories. zod >=4.6.6 (via @stryker-mutator/core -> mutation-server-protocol) closes its memory-exhaustion advisory; fast-uri >=3.1.9 (via @microsoft/api-extractor -> ajv) closes four low/moderate URI-parsing advisories. The js-yaml / nanoid / esbuild pins of earlier history are gone: changesets 3 replaced the js-yaml chain and no remaining chain resolves vulnerable versions. All are dev-only, never shipped: @scrutiny-fabric/core has diff as its sole runtime dependency.",
+    "//pnpm": "Security floors on transitive dev-dependency chains. qs >=6.16.0 (via @stryker-mutator/core -> typed-rest-client) carries GHSA-q8mj-m7cp-5q26, GHSA-x5fp-wj9c-mxmx, and GHSA-4mjr-xmp4-gh2g. brace-expansion >=5.0.12 and source-map-js >=1.2.2 close remaining moderate advisories reachable from the dev toolchain. zod >=4.6.6 (via @stryker-mutator/core -> mutation-server-protocol) closes its memory-exhaustion advisory; fast-uri >=3.1.9 (via @microsoft/api-extractor -> ajv) closes four low/moderate URI-parsing advisories. The vite pin of earlier history is gone: vitest 5 declares a proper ^6.4.0 || ^7 || ^8 range where pnpm resolves a patched version on its own, with no lockfile-snapshot trap. All are dev-only, never shipped: @scrutiny-fabric/core has diff as its sole runtime dependency.",
     "overrides": {
       "brace-expansion": ">=5.0.12",
       "source-map-js": ">=1.2.2",
       "qs": ">=6.16.0",
-      "vite": "6.4.5",
       "zod": ">=4.6.6",
       "fast-uri": ">=3.1.9"
     },
