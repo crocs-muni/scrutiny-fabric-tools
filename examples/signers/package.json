@@ -3,8 +3,8 @@
   "private": true,
   "type": "module",
   "dependencies": {
-    "@noble/curves": "^1.9.2",
-    "@noble/hashes": "^1.8.0"
+    "@noble/curves": "^2.0.1",
+    "@noble/hashes": "^2.0.1"
   },
   "devDependencies": {
     "@types/node": "^22",
