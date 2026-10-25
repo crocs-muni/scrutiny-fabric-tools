@@ -45,13 +45,27 @@ type ImportSummary struct {
 // store no relay process has open (boltdb takes an exclusive lock).
 //
 // The base store is written with fsync disabled and one Sync at the end, so a
-// crash mid-import can lose or corrupt the tail; the operation is idempotent
-// (duplicates are counted, not errors), so the answer is to run it again. The
-// search index is not batched by the backend and still commits one document
-// per event, which puts the practical floor near 20 ms per event.
+// crash mid-import can lose or corrupt the tail; for the base store the operation
+// is idempotent (duplicates are counted, not errors), so the answer is to run it
+// again. The search index has no such guarantee — a duplicate whose index-heal
+// write keeps failing is still counted as a duplicate, and only reindex reconciles
+// the index afterwards. The search index is not batched by the backend and still
+// commits one document per event, which puts the practical floor near 20 ms per
+// event.
 //
 // verify re-hashes each event's id and checks its BIP-340 signature before the
-// write; leave it on for archives that may have been truncated or edited.
+// write; leave it on for archives that may have been edited after export. It
+// cannot rescue a truncated file: a torn final line fails JSON parsing and
+// aborts the import regardless of verify.
+//
+// verify=false is a deliberate, narrow exception to D14.3/D20 (DECISIONS-2026-07-27:
+// "dedup only after verification", "the store must key on the recomputed id"), which
+// govern the network ingest path. With verification off, events are stored and
+// deduplicated under their *declared* id, so a forged-id entry lands in the store.
+// That is acceptable here — and only here — because this is an offline operator
+// command on a store the operator already has filesystem control over (equal to
+// reindex's trust model), never a network endpoint. The flag defaults to true and
+// keeps its explicit name so misuse stays visible in review, per D19's standard.
 func ImportNDJSON(path, baseDBPath, searchIndexPath string, verify bool, logger *log.Logger) (ImportSummary, error) {
 	if logger == nil {
 		return ImportSummary{}, errors.New("store: a logger is required")
