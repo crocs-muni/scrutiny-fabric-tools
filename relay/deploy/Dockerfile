@@ -11,8 +11,8 @@
 # relative to the relay/ module root and require this context.
 
 # ---------- build stage ----------
-# Replace with a digest pin (golang:1.25-bookworm@sha256:...) when this goes to a registry.
-FROM golang:1.25-bookworm AS build
+# Replace with a digest pin (golang:1.26-bookworm@sha256:...) when this goes to a registry.
+FROM golang:1.26-bookworm AS build
 WORKDIR /src
 
 # Layer-cache the module download: this layer only invalidates when go.mod or
