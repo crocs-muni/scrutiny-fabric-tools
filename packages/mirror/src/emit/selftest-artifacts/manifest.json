@@ -1,0 +1,16 @@
+{
+  "corpus": "jcalgtest",
+  "snapshot": "2026-10-04",
+  "producedAt": "2026-10-05T00:00:00.000Z",
+  "counts": {
+    "products": 11,
+    "metadata": 10,
+    "bindings": 18,
+    "patches": 0,
+    "other": 0
+  },
+  "ledgerPreview": 39,
+  "files": {
+    "ndjson": "src/emit/selftest-artifacts/jcalgtest.ndjson"
+  }
+}

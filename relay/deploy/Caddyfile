@@ -1,0 +1,34 @@
+# deploy/Caddyfile — TLS terminator and reverse proxy for the scrutiny-fabric relay.
+#
+# HOSTNAME SYNC (NIP-42): the hostname in the site address below MUST be
+# byte-for-byte identical to SCRUTINY_SERVICE_URL in deploy/compose.yaml and to
+# the CVT DNS record. See deploy/README.md §2 for why a mismatch silently breaks
+# every authenticated publish.
+#
+# Caddy obtains a Let's Encrypt certificate automatically and proxies the Nostr
+# WebSocket upgrade transparently, so ports 80 and 443 must be reachable from the
+# internet — request that scope from CVT.
+
+<HOSTNAME>.fi.muni.cz {
+	# /healthz and /metrics are operator-only. This vhost is public, so answer
+	# 404 for the exact paths and never expose them through the proxy; operators
+	# reach the real endpoints over the internal docker network (deploy/README.md §7).
+	handle /healthz {
+		respond 404
+	}
+	handle /metrics {
+		respond 404
+	}
+
+	# Everything else — the Nostr WebSocket endpoint and NIP-11 at "/".
+	handle {
+		reverse_proxy relay:3334 {
+			# REPLACE, not append, the client-supplied X-Forwarded-For.
+			# request.remote.host is the real peer Caddy accepted. khatru's
+			# GetIPFromRequest trusts the first global-unicast XFF entry, so
+			# leaving Caddy's default (append) would let any client prepend a
+			# forged IP and bypass the per-IP rate limiters entirely.
+			header_up X-Forwarded-For {http.request.remote.host}
+		}
+	}
+}
