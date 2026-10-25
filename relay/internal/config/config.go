@@ -22,16 +22,16 @@ import (
 
 // Environment variable names.
 const (
-	EnvListenAddr       = "SCRUTINY_LISTEN_ADDR"
-	EnvServiceURL       = "SCRUTINY_SERVICE_URL"
-	EnvDataDir          = "SCRUTINY_DATA_DIR"
-	EnvAllowedPubkeys   = "SCRUTINY_ALLOWED_PUBKEYS"
-	EnvAcceptedTags     = "SCRUTINY_ACCEPTED_TAGS"
-	EnvRelayName        = "SCRUTINY_RELAY_NAME"
-	EnvRelayDescription = "SCRUTINY_RELAY_DESCRIPTION"
-	EnvRelayContact     = "SCRUTINY_RELAY_CONTACT"
-	EnvMaxQueryLimit    = "SCRUTINY_MAX_QUERY_LIMIT"
-	EnvMaxEventPastAge  = "SCRUTINY_MAX_EVENT_PAST_AGE"
+	EnvListenAddr        = "SCRUTINY_LISTEN_ADDR"
+	EnvServiceURL        = "SCRUTINY_SERVICE_URL"
+	EnvDataDir           = "SCRUTINY_DATA_DIR"
+	EnvAllowedPubkeys    = "SCRUTINY_ALLOWED_PUBKEYS"
+	EnvAcceptedTags      = "SCRUTINY_ACCEPTED_TAGS"
+	EnvRelayName         = "SCRUTINY_RELAY_NAME"
+	EnvRelayDescription  = "SCRUTINY_RELAY_DESCRIPTION"
+	EnvRelayContact      = "SCRUTINY_RELAY_CONTACT"
+	EnvMaxQueryLimit     = "SCRUTINY_MAX_QUERY_LIMIT"
+	EnvMaxEventPastAge   = "SCRUTINY_MAX_EVENT_PAST_AGE"
 	EnvTrustedProxyCIDRs = "SCRUTINY_TRUSTED_PROXY_CIDRS"
 )
 
