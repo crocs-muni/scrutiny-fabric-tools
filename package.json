@@ -49,6 +49,8 @@
       "zod": ">=4.6.6",
       "fast-uri": ">=3.1.9"
     },
+    "//builds": "Install-script allowlist, the infection vector of the Oct 2026 npm worm campaigns (tensorlake preinstall, MALFEX postinstall): a new transitive dep with lifecycle scripts is silently skipped rather than executed. esbuild fetches its platform binary via install; @biomejs/biome ships platform binaries the same way. pnpm 9 syntax.",
+    "onlyBuiltDependencies": ["@biomejs/biome", "esbuild"],
     "auditConfig": {
       "ignoreGhsas": ["GHSA-hp3w-g68c-fv3c"]
     }

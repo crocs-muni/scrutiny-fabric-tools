@@ -81,6 +81,31 @@ jobs:
 
       - run: pipx run zizmor .github/workflows/
 
+  # Go vulnerability scan of the relay module. A separate job, not a `pnpm verify` step: it
+  # scans the Go module, not package code. This is the only check that sees Go *standard
+  # library* CVEs — dependabot and pnpm audit watch dependency manifests, not the toolchain,
+  # which is exactly how 12 stdlib findings (crypto/tls, net/http, ...) sat undetected until
+  # caught manually in Oct 2026. govulncheck runs @latest on purpose: a current
+  # vulnerability database is the whole point of the job, and it holds no repo secrets.
+  govulncheck:
+    name: govulncheck (relay)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: relay/go.mod
+          cache-dependency-path: relay/go.sum
+
+      - name: Scan
+        working-directory: relay
+        run: |
+          go run golang.org/x/vuln/cmd/govulncheck@latest ./...
+
   # Changesets record intent at PR time, not reconstructable from the diff after the fact — hence
   # its own job, gated to pull requests only (comparing `--since=main` on a push to main is a
   # trivial no-op). `fetch-depth: 0` because `changeset status` needs the full history to diff
