@@ -17,9 +17,9 @@
  * one on first run if none is provided, but production usage should inject a securely stored key.
  */
 
-import { schnorr } from '@noble/curves/secp256k1'
-import { sha256 } from '@noble/hashes/sha256'
-import { bytesToHex, hexToBytes, utf8ToBytes } from '@noble/hashes/utils'
+import { schnorr } from '@noble/curves/secp256k1.js'
+import { sha256 } from '@noble/hashes/sha2.js'
+import { bytesToHex, hexToBytes, utf8ToBytes } from '@noble/hashes/utils.js'
 import type { NostrEvent, UnsignedEvent } from '@scrutiny-fabric/core/events.js'
 import { serializeForId } from '@scrutiny-fabric/core/id.js'
 
@@ -45,7 +45,7 @@ export function createSigner(secretKey?: string | Uint8Array): {
 
   if (secretKey === undefined) {
     // Generate a fresh random secret key (ephemeral — not for production use)
-    skBytes = schnorr.utils.randomPrivateKey()
+    skBytes = schnorr.utils.randomSecretKey()
   } else if (typeof secretKey === 'string') {
     skBytes = hexToBytes(secretKey)
   } else {
@@ -144,5 +144,5 @@ export function secretKeyToHex(skBytes: Uint8Array): string {
  * **Warning:** Ephemeral key only. For production, use a secure key storage mechanism instead.
  */
 export function generateSecretKey(): Uint8Array {
-  return schnorr.utils.randomPrivateKey()
+  return schnorr.utils.randomSecretKey()
 }

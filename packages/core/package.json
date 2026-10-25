@@ -84,7 +84,7 @@
     "fast-check": "^4.9.0",
     "nostr-tools": "2.24.1",
     "typescript": "^5.8",
-    "vitest": "^4.1.11"
+    "vitest": "^4.1.12"
   },
   "dependencies": {
     "diff": "^9"

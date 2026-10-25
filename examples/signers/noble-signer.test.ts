@@ -7,9 +7,9 @@
 
 import { strict as assert } from 'node:assert'
 import { before, describe, it } from 'node:test'
-import { schnorr } from '@noble/curves/secp256k1'
-import { sha256 } from '@noble/hashes/sha256'
-import { bytesToHex, hexToBytes, utf8ToBytes } from '@noble/hashes/utils'
+import { schnorr } from '@noble/curves/secp256k1.js'
+import { sha256 } from '@noble/hashes/sha2.js'
+import { bytesToHex, hexToBytes, utf8ToBytes } from '@noble/hashes/utils.js'
 import type { NostrEvent, UnsignedEvent } from '@scrutiny-fabric/core/events.js'
 import { serializeForId } from '@scrutiny-fabric/core/id.js'
 import { createSigner, generateSecretKey, secretKeyToHex, verifyEvent } from './noble-signer.ts'
