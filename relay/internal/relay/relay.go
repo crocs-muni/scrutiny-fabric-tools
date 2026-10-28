@@ -327,15 +327,16 @@ func Build(cfg config.Config, logger *log.Logger) (*Bundle, error) {
 	rl.Router().Handle("/healthz", m.HealthzHandler(dual.Healthy))
 	rl.Router().Handle("/metrics", m.Handler())
 
-	// The human-facing landing page at "/": plain HTML, no styling. It does
-	// not shadow anything — khatru routes websocket upgrades and NIP-11
-	// Accepts before its router (khatru/handlers.go:53-68), so the route is
-	// only reached by plain GET requests. The handler reads rl.Info the same
-	// way HandleNIP11 does (a copy, then OverwriteRelayInformation) so the
-	// page's NIP list matches what clients see.
-	rl.Router().Handle("/", NewLandingHandler(cfg, func() nip11.RelayInformationDocument {
+	// The human-facing landing page, exactly at "/": plain HTML, no styling.
+	// The Go 1.22 "/{$}" pattern matches only the root — anything else keeps
+	// khatru's 404 — and khatru routes websocket upgrades and NIP-11 Accepts
+	// before its router (khatru/handlers.go:53-68), so the handler sees only
+	// plain HTTP requests. It reads rl.Info the same way HandleNIP11 does (a
+	// copy, then OverwriteRelayInformation) so the page's NIP list matches
+	// what clients see.
+	rl.Router().Handle("/{$}", NewLandingHandler(cfg, func(r *http.Request) nip11.RelayInformationDocument {
 		info := *rl.Info
-		return rl.OverwriteRelayInformation(context.Background(), nil, info)
+		return rl.OverwriteRelayInformation(r.Context(), r, info)
 	}))
 
 	return &Bundle{Relay: rl, Store: dual, Metrics: m, cfg: cfg}, nil

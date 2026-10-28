@@ -53,6 +53,9 @@ Endpoints:
 
 * `ws://localhost:3334`: the relay itself (NIP-11 via
   `Accept: application/nostr+json`)
+* `GET /`: the human-facing landing page — hand-written, unstyled HTML with a
+  short intro, the recommended client (SCRUTINY Lens) and a facts list. Exact
+  root match only; every other unmatched path stays `404`.
 * `GET /healthz`: `200 ok` when the base store answers, else `503`
 * `GET /metrics`: JSON counters: `events_stored`, `events_rejected`,
   `queries_with_search`, `store_drift`, `uptime_s`. `store_drift` counts
