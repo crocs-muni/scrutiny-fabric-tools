@@ -30,7 +30,7 @@ var landingTemplate = template.Must(template.New("landing").Parse(`<!DOCTYPE htm
 This is the nostr <a href="https://github.com/crocs-muni/scrutiny-fabric">SCRUTINY</a> relay,
 part of <a href="https://scrutiny.cloud/">scrutiny.cloud</a>.
 We recommend using the
-<a href="https://crocs-muni.github.io/scrutiny-lens/">SCRUTINY Lens</a> client,
+<a href="https://lens.scrutiny.cloud/">SCRUTINY Lens</a> client,
 the reference reader for SCRUTINY Fabric data.
 </p>
 
