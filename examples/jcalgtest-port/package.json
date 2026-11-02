@@ -1,0 +1,15 @@
+{
+  "name": "scrutiny-fabric-example-jcalgtest-port",
+  "private": true,
+  "type": "module",
+  "version": "0.0.0",
+  "description": "One-shot bootstrap: port the JCAlgTest corpus (jcalgtest_results + site PNGs) into SCRUTINY Fabric events and broadcast them.",
+  "scripts": {
+    "run": "node --experimental-strip-types port.mjs"
+  },
+  "dependencies": {
+    "@noble/curves": "^1.9.2",
+    "@noble/hashes": "^1.8.0",
+    "@scrutiny-fabric/core": "file:../../packages/core"
+  }
+}

@@ -1,0 +1,2746 @@
+{
+  "commit": "0f031da713ea0a4e5883288794039c856bb6e5f1",
+  "createdBase": 1784700000,
+  "models": {
+    "A22CR (FIPS 140-2 Level 3 version)": {
+      "atrs": [
+        "3b9f958131fe9f00664653051000ff71df0000000000ec"
+      ],
+      "unitCount": 1,
+      "runs": [
+        {
+          "rel": "javacard/Profiles/results/Feitian_JavaCOS_A22CR_ICFabDate_2023_368_ALGSUPPORT__3b_9f_95_81_31_fe_9f_00_66_46_53_05_10_00_ff_71_df_00_00_00_00_00_ec_(provided_by_sophie-s1).csv",
+          "kind": "support",
+          "createdAt": 1784700001
+        }
+      ]
+    },
+    "ACS ACOSJ (Combi)": {
+      "atrs": [
+        "3b69000241434f534a76313031"
+      ],
+      "unitCount": 1,
+      "runs": [
+        {
+          "rel": "javacard/Profiles/results/ACS_ACOSJ_(Combi)_ALGSUPPORT__3b_69_00_02_41_43_4f_53_4a_76_31_30_31_(provided_by_Alexandre_Bouvier).csv",
+          "kind": "support",
+          "createdAt": 1784700002
+        }
+      ]
+    },
+    "ACS ACOSJ 40K": {
+      "atrs": [
+        "3b69000241434f534a76313031"
+      ],
+      "unitCount": 2,
+      "runs": [
+        {
+          "rel": "javacard/Profiles/aid/ACS_ACOSJ_40K_AIDSUPPORT_3B69000241434F534A76313031.csv",
+          "kind": "aid",
+          "createdAt": 1784700003
+        },
+        {
+          "rel": "javacard/Profiles/results/ACS_ACOSJ_40K_ALGSUPPORT__3b_69_00_02_41_43_4f_53_4a_76_31_30_31_(provided_by_PetrS).csv",
+          "kind": "support",
+          "createdAt": 1784700004
+        }
+      ]
+    },
+    "ACS ACOSJ-G 40K v1.0.1 Contact": {
+      "atrs": [],
+      "unitCount": 1,
+      "runs": [
+        {
+          "rel": "javacard/Profiles/results/ACS_ACOSJ-G_40K_v1.0.1_Contact_ALGSUPPORT__3b_69_00_02_41_43_4f_53_4a_76_31_30_31_(provided_by_Ed_Everett).csv",
+          "kind": "support",
+          "createdAt": 1784700005
+        }
+      ]
+    },
+    "ACS ACOSJ-G 95K v2.0.7 Combi": {
+      "atrs": [],
+      "unitCount": 1,
+      "runs": [
+        {
+          "rel": "javacard/Profiles/results/ACS_ACOSJ-G_95K_v2.0.7_Combi_ALGSUPPORT__3b_69_00_02_41_43_4f_53_4a_76_32_30_37_(provided_by_Ed_Everett).csv",
+          "kind": "support",
+          "createdAt": 1784700006
+        }
+      ]
+    },
+    "Athena IDProtect": {
+      "atrs": [
+        "3bd518ff8191fe1fc38073c8211309"
+      ],
+      "unitCount": 4,
+      "runs": [
+        {
+          "rel": "javacard/Profiles/aid/Athena_IDProtect_AIDSUPPORT_3BD518FF8191FE1FC38073C8211309.csv",
+          "kind": "aid",
+          "createdAt": 1784700007
+        },
+        {
+          "rel": "javacard/Profiles/performance/fixed/Athena_IDProtect____PERFORMANCE_SYMMETRIC_ASYMMETRIC_DATAFIXED_3b_d5_18_ff_81_91_fe_1f_c3_80_73_c8_21_13_09_(provided_by_PetrS).csv",
+          "kind": "perf-fixed",
+          "createdAt": 1784700008
+        },
+        {
+          "rel": "javacard/Profiles/performance/variable/Athena_IDProtect____PERFORMANCE_SYMMETRIC_ASYMMETRIC_DATADEPEND_1634893797886__3b_d5_18_ff_81_91_fe_1f_c3_80_73_c8_21_13_09.csv",
+          "kind": "perf-variable",
+          "createdAt": 1784700009
+        },
+        {
+          "rel": "javacard/Profiles/results/Athena_IDProtect_ICFabDate_2015_ALGSUPPORT__3b_d5_18_ff_81_91_fe_1f_c3_80_73_c8_21_13_09_(provided_by_PetrS).csv",
+          "kind": "support",
+          "createdAt": 1784700010
+        }
+      ]
+    },
+    "Athena IDprotect": {
+      "atrs": [
+        "3bd518ff8091fe1fc38073c8211308"
+      ],
+      "unitCount": 1,
+      "runs": [
+        {
+          "rel": "javacard/Profiles/results/Athena_IDprotect_3B D5 18 FF 80 91 FE 1F C3 80 73 C8 21 13 08_(provided_by_Cosmo).csv",
+          "kind": "support",
+          "createdAt": 1784700011
+        }
+      ]
+    },
+    "Axalto Cyberflex PalmeraV5": {
+      "atrs": [],
+      "unitCount": 1,
+      "runs": [
+        {
+          "rel": "javacard/Profiles/results/Axalto_Cyberflex_PalmeraV5_3B E6 00 00 81 21 45 32 4B 01 01 01 01 7A_(provided_by_PetrS).csv",
+          "kind": "support",
+          "createdAt": 1784700012
+        }
+      ]
+    },
+    "COSMO FLY v5.8": {
+      "atrs": [
+        "3b8b80010031c0640844030400900044"
+      ],
+      "unitCount": 1,
+      "runs": [
+        {
+          "rel": "javacard/Profiles/results/Idemia_COSMO_FLY_v5.8_ICFabDate_2016_253_ALGSUPPORT__3b_8b_80_01_00_31_c0_64_08_44_03_04_00_90_00_44_(provided_by_Kevin_Osborn).csv",
+          "kind": "support",
+          "createdAt": 1784700013
+        }
+      ]
+    },
+    "CSOB VISA debit": {
+      "atrs": [
+        "3b670000b74040419b9000"
+      ],
+      "unitCount": 1,
+      "runs": [
+        {
+          "rel": "cplc/CSOB VISA debit.txt",
+          "kind": "cplc",
+          "createdAt": 1784700014
+        }
+      ]
+    },
+    "Cardlogix NXP JCOP 4 Java Card 3.0.5 Classic J3R180": {
+      "atrs": [
+        "3bfa180000910131fe454a33523138302d323535f5"
+      ],
+      "unitCount": 1,
+      "runs": [
+        {
+          "rel": "javacard/Profiles/results/NXP_J3R180_ALGSUPPORT__3b_fa_18_00_00_91_01_31_fe_45_4a_33_52_31_38_30_2d_32_35_35_f5_(linux.1993).csv",
+          "kind": "support",
+          "createdAt": 1784700016
+        }
+      ]
+    },
+    "Chinese J3R452": {
+      "atrs": [
+        "3bf81300008131fe454a434f5076323431b7"
+      ],
+      "unitCount": 1,
+      "runs": [
+        {
+          "rel": "javacard/Profiles/results/NXP_JCOP4_J3R452_ALGSUPPORT__3b_f8_13_00_00_81_31_fe_45_4a_43_4f_50_76_32_34_31_b7_(provided_by_Vasilios).csv",
+          "kind": "support",
+          "createdAt": 1784700017
+        }
+      ]
+    },
+    "CodeWav NFC Sticker": {
+      "atrs": [
+        "3b8b8001506f6c617269732021011141"
+      ],
+      "unitCount": 1,
+      "runs": [
+        {
+          "rel": "javacard/Profiles/results/CodeWav_NFC_Sticker_ALGSUPPORT__3b_8b_80_01_50_6f_6c_61_72_69_73_20_21_01_11_41_(provided_by_Thoth).csv",
+          "kind": "support",
+          "createdAt": 1784700018
+        }
+      ]
+    },
+    "Comprion Test eUICC Consumer Device 37.1": {
+      "atrs": [
+        "3b9f96803fc7828031e073f62157574a4d020b60010069"
+      ],
+      "unitCount": 1,
+      "runs": [
+        {
+          "rel": "javacard/Profiles/results/Comprion_Test_eUICC_Consumer_Device_37.1_ALGSUPPORT__3b_9f_96_80_3f_c7_82_80_31_e0_73_f6_21_57_57_4a_4d_02_0b_60_01_00_69.csv",
+          "kind": "support",
+          "createdAt": 1784700019
+        }
+      ]
+    },
+    "Credentsys Lite": {
+      "atrs": [
+        "3bdf95ff8091fe1fc38025a0000000685319000173c8211329"
+      ],
+      "unitCount": 2,
+      "runs": [
+        {
+          "rel": "javacard/Profiles/performance/variable/CardLogix_Credentsys_lite____PERFORMANCE_SYMMETRIC_ASYMMETRIC_DATADEPEND_1548912414128__3b_df_95_ff_80_91_fe_1f_c3_80_25_a0_00_00_00_68_53_19_00_01_73_c8_21_13_29.csv",
+          "kind": "perf-variable",
+          "createdAt": 1784700015
+        },
+        {
+          "rel": "javacard/Profiles/results/Credentsys_Lite_ALGSUPPORT__3b_df_95_ff_80_91_fe_1f_c3_80_25_a0_00_00_00_68_53_19_00_01_73_c8_21_13_29_(provided_by_Kate_Gray).csv",
+          "kind": "support",
+          "createdAt": 1784700020
+        }
+      ]
+    },
+    "Cyberflex Palmera V3": {
+      "atrs": [
+        "3b6500004404010803"
+      ],
+      "unitCount": 1,
+      "runs": [
+        {
+          "rel": "javacard/Profiles/results/only_cplc/Cyberflex_Palmera_V3_ALGSUPPORT__3b_65_00_00_44_04_01_08_03_(provided_by_PetrS).csv",
+          "kind": "support",
+          "createdAt": 1784700021
+        }
+      ]
+    },
+    "Cyberflex Palmera V4": {
+      "atrs": [
+        "3b650000d000370080"
+      ],
+      "unitCount": 1,
+      "runs": [
+        {
+          "rel": "javacard/Profiles/results/only_cplc/Cyberflex_Palmera_V4_ALGSUPPORT__3b_65_00_00_d0_00_37_00_80_(provided_by_PetrS).csv",
+          "kind": "support",
+          "createdAt": 1784700022
+        }
+      ]
+    },
+    "FT-K9-NXP-J3E081": {
+      "atrs": [
+        "3bf91300008131fe454a434f503234325233a2"
+      ],
+      "unitCount": 1,
+      "runs": [
+        {
+          "rel": "javacard/Profiles/results/Feitian_K9_NXPJ3E081_ALGSUPPORT__3b_f9_13_00_00_81_31_fe_45_4a_43_4f_50_32_34_32_52_33_a2_(provided_by_Thotheolh_Tay).csv",
+          "kind": "support",
+          "createdAt": 1784700023
+        }
+      ]
+    },
+    "FeiTian Ltd JavaCard Token V1.0 0": {
+      "atrs": [
+        "3bfc180000813180459067464a010168060000000004"
+      ],
+      "unitCount": 1,
+      "runs": [
+        {
+          "rel": "javacard/Profiles/results/FeiTian_Ltd_JavaCard_Token_V1.0_0_ALGSUPPORT__3b_fc_18_00_00_81_31_80_45_90_67_46_4a_01_01_68_06_00_00_00_00_04_(provided_by_Thoth_Tay).csv.csv",
+          "kind": "support",
+          "createdAt": 1784700024
+        }
+      ]
+    },
+    "Feitian JavaCOS A22": {
+      "atrs": [
+        "3bfc180000813180459067464a00680804000000000e"
+      ],
+      "unitCount": 4,
+      "runs": [
+        {
+          "rel": "javacard/Profiles/aid/Feitian_A22_AIDSUPPORT_3BFC180000813180459067464A00680804000000000E.csv",
+          "kind": "aid",
+          "createdAt": 1784700025
+        },
+        {
+          "rel": "javacard/Profiles/performance/fixed/JavaCOS_A22____PERFORMANCE_SYMMETRIC_ASYMMETRIC_DATAFIXED_1450510153313__3b_fc_18_00_00_81_31_80_45_90_67_46_4a_00_68_08_04_00_00_00_00_0e.csv",
+          "kind": "perf-fixed",
+          "createdAt": 1784700116
+        },
+        {
+          "rel": "javacard/Profiles/performance/variable/JavaCOS_A22____PERFORMANCE_SYMMETRIC_ASYMMETRIC_DATADEPEND_1450544411432__3b_fc_18_00_00_81_31_80_45_90_67_46_4a_00_68_08_04_00_00_00_00_0e.csv",
+          "kind": "perf-variable",
+          "createdAt": 1784700117
+        },
+        {
+          "rel": "javacard/Profiles/results/Feitian_JavaCOS_A22_ICFabDate_2015_3b_fc_18_00_00_81_31_80_45_90_67_46_4a_00_68_08_04_00_00_00_00_0e_(provided_by_Ivo_Kubjas_and_PetrS).csv",
+          "kind": "support",
+          "createdAt": 1784700118
+        }
+      ]
+    },
+    "Feitian JavaCOS A22CR": {
+      "atrs": [
+        "3b8c80019067464a0100250400000000d6",
+        "3b9c9580811f039067464a01003504f272fe00a1",
+        "3b9c9580811f039067464a01005404f272fe00c0"
+      ],
+      "unitCount": 5,
+      "runs": [
+        {
+          "rel": "javacard/Profiles/aid/Feitian_A22CR_AIDSUPPORT_3B9C9580811F039067464A01003504F272FE00A1.csv",
+          "kind": "aid",
+          "createdAt": 1784700026
+        },
+        {
+          "rel": "javacard/Profiles/results/Feitian_JavaCOS_A22CR_ICFabDate_2016_084_3b_8c_80_01_90_67_46_4a_01_00_25_04_00_00_00_00_d6_(provided_by_Josh_Harvey).csv",
+          "kind": "support",
+          "createdAt": 1784700039
+        },
+        {
+          "rel": "javacard/Profiles/results/Feitian_JavaCOS_A22CR_ICFabDate_2016_257_ALGSUPPORT__3b_9c_95_80_81_1f_03_90_67_46_4a_01_00_35_04_f2_72_fe_00_a1_(provided_by_PetrS).csv",
+          "kind": "support",
+          "createdAt": 1784700040
+        },
+        {
+          "rel": "javacard/Profiles/performance/fixed/JavaCOS_A22_CR____PERFORMANCE_SYMMETRIC_ASYMMETRIC_DATAFIXED_1634747004602__3b_9c_95_80_81_1f_03_90_67_46_4a_01_00_54_04_f2_72_fe_00_c0.csv",
+          "kind": "perf-fixed",
+          "createdAt": 1784700113
+        },
+        {
+          "rel": "javacard/Profiles/performance/variable/JavaCOS_A22_CR____PERFORMANCE_SYMMETRIC_ASYMMETRIC_DATADEPEND_1634972548184__3b_9c_95_80_81_1f_03_90_67_46_4a_01_00_54_04_f2_72_fe_00_c0.csv",
+          "kind": "perf-variable",
+          "createdAt": 1784700114
+        }
+      ]
+    },
+    "Feitian A40": {
+      "atrs": [
+        "3b9f958131fe9f00664653051000ff71df0000000000ec"
+      ],
+      "unitCount": 1,
+      "runs": [
+        {
+          "rel": "javacard/Profiles/results/Feitian_A40_ICFabDate_2018_ALGSUPPORT__3b_9f_95_81_31_fe_9f_00_66_46_53_05_10_00_ff_71_df_00_00_00_00_00_ec__(provided_by_Radboud_University).csv",
+          "kind": "support",
+          "createdAt": 1784700027
+        }
+      ]
+    },
+    "Feitian A40CR": {
+      "atrs": [
+        "3b9c9580811f039067464a01004106f2727e0057"
+      ],
+      "unitCount": 2,
+      "runs": [
+        {
+          "rel": "javacard/Profiles/aid/Feitian_A40CR_AIDSUPPORT_3B9C9580811F039067464A01004106F2727E0057.csv",
+          "kind": "aid",
+          "createdAt": 1784700028
+        },
+        {
+          "rel": "javacard/Profiles/results/Feitian_A40CR_ICFabDate_2018_ALGSUPPORT__3b_9c_95_80_81_1f_03_90_67_46_4a_01_00_41_06_f2_72_7e_00_57.csv",
+          "kind": "support",
+          "createdAt": 1784700029
+        }
+      ]
+    },
+    "Feitian C21C": {
+      "atrs": [
+        "3bfc180000813180459067464a006a0424c0727e00ec"
+      ],
+      "unitCount": 1,
+      "runs": [
+        {
+          "rel": "javacard/Profiles/aid/Feitian_C21C_AIDSUPPORT_3BFC180000813180459067464A006A0424C0727E00EC.csv",
+          "kind": "aid",
+          "createdAt": 1784700030
+        }
+      ]
+    },
+    "Feitian Fingerprint card": {
+      "atrs": [
+        "3b61000080"
+      ],
+      "unitCount": 2,
+      "runs": [
+        {
+          "rel": "javacard/Profiles/aid/Feitian_Fingerprint_card_AIDSUPPORT_3B61000080.csv",
+          "kind": "aid",
+          "createdAt": 1784700031
+        },
+        {
+          "rel": "javacard/Profiles/results/Feitian_Fingerprint_card_ALGSUPPORT__3b_61_00_00_80_(provided_by_PetrS).csv",
+          "kind": "support",
+          "createdAt": 1784700032
+        }
+      ]
+    },
+    "Feitian H19CR Edition 20230713": {
+      "atrs": [
+        "3b119580"
+      ],
+      "unitCount": 2,
+      "runs": [
+        {
+          "rel": "javacard/Profiles/performance/fixed/Feitian_H19CR_Edition_20230713____PERFORMANCE_SYMMETRIC_ASYMMETRIC_DATAFIXED_1689753095199__3b_11_95_80_(provided_by_ThothTrust).csv",
+          "kind": "perf-fixed",
+          "createdAt": 1784700033
+        },
+        {
+          "rel": "javacard/Profiles/results/Feitian_H19CR_Edition_20230713_ALGSUPPORT__3b_11_95_80_(provided_by_ThothTrust).csv",
+          "kind": "support",
+          "createdAt": 1784700034
+        }
+      ]
+    },
+    "Feitian Java Card D11CR": {
+      "atrs": [
+        "3b6a0000094431314352020025c3"
+      ],
+      "unitCount": 1,
+      "runs": [
+        {
+          "rel": "javacard/Profiles/results/Feitian_Java_Card_D11CR_ALGSUPPORT__3b_6a_00_00_09_44_31_31_43_52_02_00_25_c3_(provided_by_PetrS).csv",
+          "kind": "support",
+          "createdAt": 1784700035
+        }
+      ]
+    },
+    "Feitian Java Token": {
+      "atrs": [
+        "3bfc180000813180459067464a01642f70c172fee0fd"
+      ],
+      "unitCount": 1,
+      "runs": [
+        {
+          "rel": "javacard/Profiles/results/Feitian_eJava_Token_ALGSUPPORT__3b_fc_18_00_00_81_31_80_45_90_67_46_4a_01_64_2f_70_c1_72_fe_e0_fd_(provided_by_Razvan_Dragomirescu).csv",
+          "kind": "support",
+          "createdAt": 1784700036
+        }
+      ]
+    },
+    "Feitian JavaCOS 3.0.4 e2": {
+      "atrs": [
+        "3bfc180000813180459067464a00641606000000001e"
+      ],
+      "unitCount": 1,
+      "runs": [
+        {
+          "rel": "javacard/Profiles/performance/fixed/Feitian_JavaCOS_3.0.4____PERFORMANCE_SYMMETRIC_ASYMMETRIC_DATAFIXED_1557852970194__3b_fc_18_00_00_81_31_80_45_90_67_46_4a_00_64_16_06_00_00_00_00_1e.csv",
+          "kind": "perf-fixed",
+          "createdAt": 1784700037
+        }
+      ]
+    },
+    "Feitian JavaCOS A22CR-ECC-SHA-2": {
+      "atrs": [
+        "3bfc180000813180459067464a01001004f272fe0001"
+      ],
+      "unitCount": 2,
+      "runs": [
+        {
+          "rel": "javacard/Profiles/results/Feitian_JavaCOS_A22CR-ECC-SHA-2_ICFabDate_2015_3b_fc_18_00_00_81_31_80_45_90_67_46_4a_01_00_10_04_f2_72_fe_00_01_(provided_by_Kenneth_Benson).csv",
+          "kind": "support",
+          "createdAt": 1784700041
+        },
+        {
+          "rel": "javacard/Profiles/performance/fixed/JavaCOS_A22_CR-ECC-SHA-2____PERFORMANCE_SYMMETRIC_ASYMMETRIC_DATAFIXED_1454739694171__3b_fc_18_00_00_81_31_80_45_90_67_46_4a_01_00_10_04_f2_72_fe_00_01.csv",
+          "kind": "perf-fixed",
+          "createdAt": 1784700115
+        }
+      ]
+    },
+    "Feitian JavaCOS A40": {
+      "atrs": [
+        "3bfc180000813180459067464a01002005000000004e"
+      ],
+      "unitCount": 4,
+      "runs": [
+        {
+          "rel": "javacard/Profiles/aid/Feitian_A40_AIDSUPPORT_3BFC180000813180459067464A01002005000000004E.csv",
+          "kind": "aid",
+          "createdAt": 1784700042
+        },
+        {
+          "rel": "javacard/Profiles/performance/fixed/JavaCOS_A40____PERFORMANCE_SYMMETRIC_ASYMMETRIC_DATAFIXED_1634672059935__3b_fc_18_00_00_81_31_80_45_90_67_46_4a_01_00_20_05_00_00_00_00_4e.csv",
+          "kind": "perf-fixed",
+          "createdAt": 1784700119
+        },
+        {
+          "rel": "javacard/Profiles/performance/variable/JavaCOS_A40____PERFORMANCE_SYMMETRIC_ASYMMETRIC_DATADEPEND_1634843116367__3b_fc_18_00_00_81_31_80_45_90_67_46_4a_01_00_20_05_00_00_00_00_4e.csv",
+          "kind": "perf-variable",
+          "createdAt": 1784700120
+        },
+        {
+          "rel": "javacard/Profiles/results/Feitian_JavaCOS_A40_ICFabDate_2016_201_ALGSUPPORT__3b_fc_18_00_00_81_31_80_45_90_67_46_4a_01_00_20_05_00_00_00_00_4e_(provided_by_PetrS_and_Keneth_Benson).csv",
+          "kind": "support",
+          "createdAt": 1784700124
+        }
+      ]
+    },
+    "Feitian JavaSD": {
+      "atrs": [
+        "3b9f958131fe9f00664653051000ff71df0000000000ec"
+      ],
+      "unitCount": 3,
+      "runs": [
+        {
+          "rel": "javacard/Profiles/performance/fixed/Feitian_JavaSD____PERFORMANCE_SYMMETRIC_ASYMMETRIC_DATAFIXED_1615372227833__3b_9f_95_81_31_fe_9f_00_66_46_53_05_10_00_ff_71_df_00_00_00_00_00_ec.csv",
+          "kind": "perf-fixed",
+          "createdAt": 1784700043
+        },
+        {
+          "rel": "javacard/Profiles/performance/variable/Feitian_JavaSD____PERFORMANCE_SYMMETRIC_ASYMMETRIC_DATADEPEND_1615380872493__3b_9f_95_81_31_fe_9f_00_66_46_53_05_10_00_ff_71_df_00_00_00_00_00_ec.csv",
+          "kind": "perf-variable",
+          "createdAt": 1784700044
+        },
+        {
+          "rel": "javacard/Profiles/results/Feitian_JavaSD_ALGSUPPORT__3b_9f_95_81_31_fe_9f_00_66_46_53_05_10_00_ff_71_df_00_00_00_00_00_ec_(provided_by_Thoth).csv",
+          "kind": "support",
+          "createdAt": 1784700045
+        }
+      ]
+    },
+    "Feitian S01C Edition 20230713": {
+      "atrs": [
+        "3b1095"
+      ],
+      "unitCount": 2,
+      "runs": [
+        {
+          "rel": "javacard/Profiles/performance/fixed/Feitian_S01C_Edition_20230713____PERFORMANCE_SYMMETRIC_ASYMMETRIC_DATAFIXED_1689751086819__3b_10_95_(provided_by_ThothTrust).csv",
+          "kind": "perf-fixed",
+          "createdAt": 1784700046
+        },
+        {
+          "rel": "javacard/Profiles/results/Feitian_S01C_Edition_20230713_ALGSUPPORT__3b_10_95_(provided_by_ThothTrust).csv",
+          "kind": "support",
+          "createdAt": 1784700047
+        }
+      ]
+    },
+    "Feitian-FTJCOS": {
+      "atrs": [
+        "3bfc180000813180459067464a0100870600000000ea"
+      ],
+      "unitCount": 1,
+      "runs": [
+        {
+          "rel": "javacard/Profiles/results/Feitian-FTJCOS_ICFabDate_2018_ALGSUPPORT__3b_fc_18_00_00_81_31_80_45_90_67_46_4a_01_00_87_06_00_00_00_00_ea_(provided_by_Toporin).csv",
+          "kind": "support",
+          "createdAt": 1784700048
+        }
+      ]
+    },
+    "Fidesmo card": {
+      "atrs": [
+        "3bfe9100ff918171fe400041380011f7b146494445534d4f310f"
+      ],
+      "unitCount": 1,
+      "runs": [
+        {
+          "rel": "javacard/Profiles/results/only_cplc/Fidesmo_card_JCOP 2.4.2 R2_ALGSUPPORT__3b_fe_91_00_ff_91_81_71_fe_40_00_41_38_00_11_f7_b1_46_49_44_45_53_4d_4f_31_0f.csv",
+          "kind": "support",
+          "createdAt": 1784700049
+        }
+      ]
+    },
+    "G+D SmartCafe Expert 4.x V2": {
+      "atrs": [
+        "3bf81800008031fe450073c8401300900092"
+      ],
+      "unitCount": 4,
+      "runs": [
+        {
+          "rel": "javacard/Profiles/performance/variable/G+D_Smart_Cafe_Expert_4.x_V2____PERFORMANCE_SYMMETRIC_DATADEPEND_1437659849707__3b_f8_18_00_00_80_31_fe_45_00_73_c8_40_13_00_90_00_92.csv",
+          "kind": "perf-variable",
+          "createdAt": 1784700050
+        },
+        {
+          "rel": "javacard/Profiles/results/G+D_Smart_Cafe_Expert_4.x_V2_ICFabDate_2007_079_ALGSUPPORT__3b_f8_18_00_00_80_31_fe_45_00_73_c8_40_13_00_90_00_92_(provided_by_PetrS).csv",
+          "kind": "support",
+          "createdAt": 1784700051
+        },
+        {
+          "rel": "javacard/Profiles/performance/fixed/G+D_Smartcafe_Expert_4.x_V2____PERFORMANCE_SYMMETRIC_ASYMMETRIC_DATAFIXED_1437603672913__3b_f8_18_00_00_80_31_fe_45_00_73_c8_40_13_00_90_00_92.csv",
+          "kind": "perf-fixed",
+          "createdAt": 1784700064
+        },
+        {
+          "rel": "javacard/Profiles/aid/GD_SmartCafe_4.x_AIDSUPPORT_3BF81800008031FE450073C8401300900092.csv",
+          "kind": "aid",
+          "createdAt": 1784700066
+        }
+      ]
+    },
+    "G+D SmartCafe 6.0 80K": {
+      "atrs": [
+        "3bfe1800008031fe4553434536302d43443038312d6e46a9"
+      ],
+      "unitCount": 4,
+      "runs": [
+        {
+          "rel": "javacard/Profiles/results/G+D_Smartcafe_6.0_80K_ICFabDate_2015_024_ALGSUPPORT__3b_fe_18_00_00_80_31_fe_45_53_43_45_36_30_2d_43_44_30_38_31_2d_6e_46_a9_(provided_by_PetrS).csv",
+          "kind": "support",
+          "createdAt": 1784700052
+        },
+        {
+          "rel": "javacard/Profiles/performance/fixed/G+D_Smartcafe_6.0_80K____PERFORMANCE_SYMMETRIC_ASYMMETRIC_DATAFIXED_1450475287585__3b_fe_18_00_00_80_31_fe_45_53_43_45_36_30_2d_43_44_30_38_31_2d_6e_46_a9.csv",
+          "kind": "perf-fixed",
+          "createdAt": 1784700061
+        },
+        {
+          "rel": "javacard/Profiles/performance/variable/G+D_Smartcafe_6.0_80K____PERFORMANCE_SYMMETRIC_ASYMMETRIC_DATADEPEND_1450626136744__3b_fe_18_00_00_80_31_fe_45_53_43_45_36_30_2d_43_44_30_38_31_2d_6e_46_a9.csv",
+          "kind": "perf-variable",
+          "createdAt": 1784700062
+        },
+        {
+          "rel": "javacard/Profiles/aid/GD_SmartCafe_6.0_AIDSUPPORT_3BFE1800008031FE4553434536302D43443038312D6E46A9.csv",
+          "kind": "aid",
+          "createdAt": 1784700067
+        }
+      ]
+    },
+    "G+D SmartCafe Expert 3.2 72K": {
+      "atrs": [
+        "3bf71800008031fe45736674652d6e66c4"
+      ],
+      "unitCount": 4,
+      "runs": [
+        {
+          "rel": "javacard/Profiles/performance/fixed/G+D_Smartcafe_3.2_72K____PERFORMANCE_SYMMETRIC_ASYMMETRIC_DATAFIXED_1450554015459__3b_f7_18_00_00_80_31_fe_45_73_66_74_65_2d_6e_66_c4.csv",
+          "kind": "perf-fixed",
+          "createdAt": 1784700059
+        },
+        {
+          "rel": "javacard/Profiles/performance/variable/G+D_Smartcafe_3.2_72K____PERFORMANCE_SYMMETRIC_ASYMMETRIC_DATADEPEND_1450603470624__3b_f7_18_00_00_80_31_fe_45_73_66_74_65_2d_6e_66_c4.csv",
+          "kind": "perf-variable",
+          "createdAt": 1784700060
+        },
+        {
+          "rel": "javacard/Profiles/results/G+D_Smartcafe_Expert_3.2_72K_ICFabDate_2003_126_3b_f7_18_00_00_80_31_fe_45_73_66_74_65_2d_6e_66_c4_(provided_by_Cosmo_and_PetrS).csv",
+          "kind": "support",
+          "createdAt": 1784700063
+        },
+        {
+          "rel": "javacard/Profiles/aid/GD_SmartCafe_Expert_3.2_72K_AIDSUPPORT_3BF71800008031FE45736674652D6E66C4.csv",
+          "kind": "aid",
+          "createdAt": 1784700068
+        }
+      ]
+    },
+    "G+D SmartCafe 7.0 215K USB Token S": {
+      "atrs": [
+        "3bf99600008131fe4553434537200e00202028"
+      ],
+      "unitCount": 4,
+      "runs": [
+        {
+          "rel": "javacard/Profiles/aid/G+D_SmartCafe_7.0_215K_USB_Token_S_AIDSUPPORT_3BF99600008131FE4553434537200E00202028.csv",
+          "kind": "aid",
+          "createdAt": 1784700053
+        },
+        {
+          "rel": "javacard/Profiles/performance/fixed/G+D_SmartCafe_7.0_215K_USB_Token_S____PERFORMANCE_SYMMETRIC_ASYMMETRIC_DATAFIXED_1634746335185__3b_f9_96_00_00_81_31_fe_45_53_43_45_37_20_0e_00_20_20_28.csv",
+          "kind": "perf-fixed",
+          "createdAt": 1784700054
+        },
+        {
+          "rel": "javacard/Profiles/performance/variable/G+D_SmartCafe_7.0_215K_USB_Token_S____PERFORMANCE_SYMMETRIC_ASYMMETRIC_DATADEPEND_1634843169900__3b_f9_96_00_00_81_31_fe_45_53_43_45_37_20_0e_00_20_20_28.csv",
+          "kind": "perf-variable",
+          "createdAt": 1784700055
+        },
+        {
+          "rel": "javacard/Profiles/results/G+D_SmartCafe_7.0_215K_USB_Token_S_ALGSUPPORT__3b_f9_96_00_00_81_31_fe_45_53_43_45_37_20_0e_00_20_20_28_(provided_by_PetrS).csv",
+          "kind": "support",
+          "createdAt": 1784700056
+        }
+      ]
+    },
+    "G+D SmartCafe Expert 144k Dual": {
+      "atrs": [
+        "3bfd1800008031fe45736674652063643134342d6e66d8"
+      ],
+      "unitCount": 1,
+      "runs": [
+        {
+          "rel": "javacard/Profiles/results/G+D_SmartCafe_Expert_144k_Dual_3b fd 18 00 00 80 31 fe 45 73 66 74 65 20 63 64 31 34 34 2d 6e 66 d8_(provided_by_Diego_NdK).csv",
+          "kind": "support",
+          "createdAt": 1784700057
+        }
+      ]
+    },
+    "G+D SmartCafe Expert 64": {
+      "atrs": [
+        "3bfd1800ff80b1fe451f078073002113574a54486131480050"
+      ],
+      "unitCount": 1,
+      "runs": [
+        {
+          "rel": "javacard/Profiles/results/only_cplc/G+D_SmartCafe_Expert_64_ALGSUPPORT__3b_fd_18_00_ff_80_b1_fe_45_1f_07_80_73_00_21_13_57_4a_54_48_61_31_48_00_50_(provided_by_PetrS).csv",
+          "kind": "support",
+          "createdAt": 1784700058
+        }
+      ]
+    },
+    "G+D StarSign Crypto USB token S": {
+      "atrs": [
+        "3bf09600008131fe456d"
+      ],
+      "unitCount": 1,
+      "runs": [
+        {
+          "rel": "javacard/Profiles/results/G+D_StarSign_Crypto_USB_token_S_ALGSUPPORT__3b_f0_96_00_00_81_31_fe_45_6d__(provided_by_Luka_Logar).csv",
+          "kind": "support",
+          "createdAt": 1784700065
+        }
+      ]
+    },
+    "GD Smartcafe Expert 7": {
+      "atrs": [
+        "3bf99600008031fe4553434537200000202027"
+      ],
+      "unitCount": 1,
+      "runs": [
+        {
+          "rel": "javacard/Profiles/results/G+D_Smartcafe_7.0_ALGSUPPORT__3b_f9_96_00_00_80_31_fe_45_53_43_45_37_20_00_00_20_20_27__(provided_by_Radboud_University).csv",
+          "kind": "support",
+          "createdAt": 1784700069
+        }
+      ]
+    },
+    "Gemalto Czechia offcial eID": {
+      "atrs": [
+        "3b7e9400008025d20310010056000000020200"
+      ],
+      "unitCount": 1,
+      "runs": [
+        {
+          "rel": "javacard/Profiles/results/only_cplc/Gemalto_Czechia_eID_ALGSUPPORT__3B_7E_94_00_00_80_25_D2_03_10_01_00_56_00_00_00_02_02_00.csv",
+          "kind": "support",
+          "createdAt": 1784700070
+        }
+      ]
+    },
+    "Gemalto IDCore 10": {
+      "atrs": [
+        "3b7d96000080318065b08311d0a983009000"
+      ],
+      "unitCount": 1,
+      "runs": [
+        {
+          "rel": "javacard/Profiles/results/Gemalto IDCore 10_3b 7d 96 00 00 80 31 80 65 b0 83 11 d0 a9 83 00 90 00_(provided by Martin Paljak).csv",
+          "kind": "support",
+          "createdAt": 1784700071
+        }
+      ]
+    },
+    "Gemalto IDCore 3010 CC": {
+      "atrs": [
+        "3b7d96000080318065b0850200cf83019000"
+      ],
+      "unitCount": 1,
+      "runs": [
+        {
+          "rel": "javacard/Profiles/results/Gemalto IDCore 3010 CC_3b 7d 96 00 00 80 31 80 65 b0 85 02 00 cf 83 01 90 00_(provided by Martin Paljak).csv",
+          "kind": "support",
+          "createdAt": 1784700072
+        }
+      ]
+    },
+    "Gemalto TOP IM GXP4": {
+      "atrs": [
+        "3b7d94000080318065b08311d0a983009000"
+      ],
+      "unitCount": 1,
+      "runs": [
+        {
+          "rel": "javacard/Profiles/results/Gemalto_TOP_IM_GXP4_3b 7d 94 00 00 80 31 80 65 b0 83 11 d0 a9 83 00 90 00 _(provided_by_PetrS).csv",
+          "kind": "support",
+          "createdAt": 1784700073
+        }
+      ]
+    },
+    "Gemplus GXP R4 72K": {
+      "atrs": [
+        "3b7d94000080318065b08311c0a983009000"
+      ],
+      "unitCount": 3,
+      "runs": [
+        {
+          "rel": "javacard/Profiles/performance/fixed/Gemplus_GXP_R4_72K____PERFORMANCE_SYMMETRIC_ASYMMETRIC_DATAFIXED_1437819549633__3b_7d_94_00_00_80_31_80_65_b0_83_11_c0_a9_83_00_90_00.csv",
+          "kind": "perf-fixed",
+          "createdAt": 1784700074
+        },
+        {
+          "rel": "javacard/Profiles/performance/variable/Gemplus_GXP_R4_72K____PERFORMANCE_SYMMETRIC_ASYMMETRIC_DATADEPEND_1437776976364__3b_7d_94_00_00_80_31_80_65_b0_83_11_c0_a9_83_00_90_00.csv",
+          "kind": "perf-variable",
+          "createdAt": 1784700075
+        },
+        {
+          "rel": "javacard/Profiles/results/Gemplus_GXP_R4_72K_ICFabDate_2007_291_ALGSUPPORT__3b_7d_94_00_00_80_31_80_65_b0_83_11_c0_a9_83_00_90_00_(provided_by_PetrS).csv",
+          "kind": "support",
+          "createdAt": 1784700076
+        }
+      ]
+    },
+    "Gemplus GXPLiteGeneric": {
+      "atrs": [],
+      "unitCount": 1,
+      "runs": [
+        {
+          "rel": "javacard/Profiles/results/Gemplus_GXPLiteGeneric_3B 7D 94 00 00 80 31 80 65 B0 83 01 02 90 83 00 90 00_(provided_by_PetrS).csv",
+          "kind": "support",
+          "createdAt": 1784700077
+        }
+      ]
+    },
+    "Gemplus GXPPro-R3.2 E64 (TOP IM GX3)": {
+      "atrs": [
+        "3b7e9400008025a00000002856801021000108"
+      ],
+      "unitCount": 1,
+      "runs": [
+        {
+          "rel": "javacard/Profiles/results/Gemplus_GXPE64PK_TOP_IM_GX3_3B 7E 94 00 00 80 25 A0 00 00 00 28 56 80 10 21 00 01 08_(provided_by_PetrS).csv",
+          "kind": "support",
+          "createdAt": 1784700078
+        }
+      ]
+    },
+    "Gemplus GXPR3": {
+      "atrs": [],
+      "unitCount": 1,
+      "runs": [
+        {
+          "rel": "javacard/Profiles/results/Gemplus_GXPR3_3B 7B 94 00 00 80 65 B0 83 01 01 74 83 00 90 00_(provided_by_PetrS).csv",
+          "kind": "support",
+          "createdAt": 1784700079
+        }
+      ]
+    },
+    "Gemplus GXPR3r32 TOP IS GX3": {
+      "atrs": [],
+      "unitCount": 1,
+      "runs": [
+        {
+          "rel": "javacard/Profiles/results/Gemplus_GXPR3r32_TOP_IS_GX3_3B 7D 94 00 00 80 31 80 65 B0 83 01 02 90 83 00 90 00_(provided_by_PetrS).csv",
+          "kind": "support",
+          "createdAt": 1784700080
+        }
+      ]
+    },
+    "Gemplus GemXpresso 211PK": {
+      "atrs": [
+        "3f6d000080318065b00501025e830090003f6d000080318065b00501025e83009000"
+      ],
+      "unitCount": 1,
+      "runs": [
+        {
+          "rel": "javacard/Profiles/results/only_cplc/Gemplus_GemXpresso_211PK_ALGSUPPORT__3f_6d_00_00_80_31_80_65_b0_05_01_02_5e_83_00_90_003f_6d_00_00_80_31_80_65_b0_05_01_02_5e_83_00_90_00.csv",
+          "kind": "support",
+          "createdAt": 1784700081
+        }
+      ]
+    },
+    "Gemplus unknown jc2.1.2": {
+      "atrs": [
+        "3b7d94000080318065b0831111ac83009000"
+      ],
+      "unitCount": 1,
+      "runs": [
+        {
+          "rel": "javacard/Profiles/results/Gemalto_TwinGCX4_72k_ICFabDate_2006_005_ALGSUPPORT__3b_7d_94_00_00_80_31_80_65_b0_83_11_11_ac_83_00_90_00_(provided_by_PetrS).csv",
+          "kind": "support",
+          "createdAt": 1784700082
+        }
+      ]
+    },
+    "IndusInd bank.txt": {
+      "atrs": [],
+      "unitCount": 1,
+      "runs": [
+        {
+          "rel": "cplc/IndusInd bank.txt",
+          "kind": "cplc",
+          "createdAt": 1784700083
+        }
+      ]
+    },
+    "Infineon CJTOP 80K INF SLJ 52GLA080AL M8.4": {
+      "atrs": [
+        "3bf69100ff918171fe40004128000177b1e9",
+        "3bfe1800008031fe45803180664090a5102e1083019000f2"
+      ],
+      "unitCount": 4,
+      "runs": [
+        {
+          "rel": "javacard/Profiles/aid/Infineon_CJTOP_80K_INF_SLJ_52GLA080AL_M8.4_AIDSUPPORT_3BFE1800008031FE45803180664090A5102E1083019000F2.csv",
+          "kind": "aid",
+          "createdAt": 1784700084
+        },
+        {
+          "rel": "javacard/Profiles/performance/fixed/Infineon_CJTOP_80K_INF_SLJ_52GLA080AL_M8.4____PERFORMANCE_SYMMETRIC_ASYMMETRIC_DATAFIXED_1634725042516__3b_f6_91_00_ff_91_81_71_fe_40_00_41_28_00_01_77_b1_e9.csv",
+          "kind": "perf-fixed",
+          "createdAt": 1784700085
+        },
+        {
+          "rel": "javacard/Profiles/performance/variable/Infineon_CJTOP_80K_INF_SLJ_52GLA080AL_M8.4____PERFORMANCE_SYMMETRIC_ASYMMETRIC_DATADEPEND_1634918800987__3b_fe_18_00_00_80_31_fe_45_80_31_80_66_40_90_a5_10_2e_10_83_01_90_00_f2.csv",
+          "kind": "perf-variable",
+          "createdAt": 1784700086
+        },
+        {
+          "rel": "javacard/Profiles/results/Infineon_CJTOP_80K_INF_SLJ_52GLA080AL_M8.4_ICFabDate_2012_001_ALGSUPPORT__3b_fe_18_00_00_80_31_fe_45_80_31_80_66_40_90_a5_10_2e_10_83_01_90_00_f2_(provided_by_PetrS).csv",
+          "kind": "support",
+          "createdAt": 1784700087
+        }
+      ]
+    },
+    "Infineon JTOPV2 16K": {
+      "atrs": [
+        "3b6d000080318065409086015183079000"
+      ],
+      "unitCount": 1,
+      "runs": [
+        {
+          "rel": "javacard/Profiles/results/Infineon_JTOPV2_16K_3B 6D 00 00 80 31 80 65 40 90 86 01 51 83 07 90 00_(provided_by_PetrS).csv",
+          "kind": "support",
+          "createdAt": 1784700088
+        }
+      ]
+    },
+    "Infineon SECORA ID S (SCP02 with RSA2k JC305 GP230, NOT FOR SALE - PROTOTYPE ONLY)": {
+      "atrs": [
+        "3bb89700c00831fe45ffff1357305023006a"
+      ],
+      "unitCount": 1,
+      "runs": [
+        {
+          "rel": "javacard/Profiles/results/Infineon_SECORA_ID_S_(SCP02_with_RSA2k_JC305_GP230_NOT_FOR_SALE_-_PROTOTYPE_ONLY)_ALGSUPPORT__3b_b8_97_00_c0_08_31_fe_45_ff_ff_13_57_30_50_23_00_6a_(provided_by_Thoth).csv",
+          "kind": "support",
+          "createdAt": 1784700089
+        }
+      ]
+    },
+    "Infineon SECORA ID X Batch 16072021 SALES": {
+      "atrs": [
+        "3b888001000000117781c3002d"
+      ],
+      "unitCount": 2,
+      "runs": [
+        {
+          "rel": "javacard/Profiles/performance/fixed/Infineon_SECORA_ID_X_Batch_16072021_SALES____PERFORMANCE_SYMMETRIC_ASYMMETRIC_DATAFIXED_1627630268599__3b_88_80_01_00_00_00_11_77_81_c3_00_2d_(provided_by_Thoth).csv",
+          "kind": "perf-fixed",
+          "createdAt": 1784700090
+        },
+        {
+          "rel": "javacard/Profiles/results/Infineon_SECORA_ID_X_Batch_16072021_SALES_ALGSUPPORT__3b_88_80_01_00_00_00_11_77_81_c3_00_2d_(provided_by_Thoth).csv",
+          "kind": "support",
+          "createdAt": 1784700091
+        }
+      ]
+    },
+    "Infineon SECORA ID X": {
+      "atrs": [
+        "3bb89700c00831fe45ffff13583050230065"
+      ],
+      "unitCount": 1,
+      "runs": [
+        {
+          "rel": "javacard/Profiles/results/Infineon_SECORA_ID_X_ALGSUPPORT__3b_b8_97_00_c0_08_31_fe_45_ff_ff_13_58_30_50_23_00_65_(provided_by_Thoth).csv",
+          "kind": "support",
+          "createdAt": 1784700092
+        }
+      ]
+    },
+    "Infineon SLE78 Universal JCard": {
+      "atrs": [
+        "3bfd9600008131fe45534c4a353247444c313238435257"
+      ],
+      "unitCount": 2,
+      "runs": [
+        {
+          "rel": "javacard/Profiles/aid/Infineon_SLE78_Universal_JCard_AIDSUPPORT_3BFD9600008131FE45534C4A353247444C313238435257.csv",
+          "kind": "aid",
+          "createdAt": 1784700093
+        },
+        {
+          "rel": "javacard/Profiles/results/Infineon_SLE78_Universal_JCard_ALGSUPPORT__3b_fd_96_00_00_81_31_fe_45_53_4c_4a_35_32_47_44_4c_31_32_38_43_52_57_(provided_by_Till_Maas_RedTeamPentesting_and_PetrS).csv",
+          "kind": "support",
+          "createdAt": 1784700094
+        }
+      ]
+    },
+    "Infineon SPA1-1 ThothTrust Edition": {
+      "atrs": [
+        "3b898001665257453250524f4d1c"
+      ],
+      "unitCount": 2,
+      "runs": [
+        {
+          "rel": "javacard/Profiles/performance/fixed/Infineon_SPA1-1_ThothTrust_Edition____PERFORMANCE_SYMMETRIC_ASYMMETRIC_DATAFIXED_1627981320526__3b_89_80_01_66_52_57_45_32_50_52_4f_4d_1c.csv",
+          "kind": "perf-fixed",
+          "createdAt": 1784700095
+        },
+        {
+          "rel": "javacard/Profiles/results/Infineon_SPA1-1_ThothTrust_Edition_ALGSUPPORT__3b_89_80_01_66_52_57_45_32_50_52_4f_4d_1c_(provided_by_Thoth).csv",
+          "kind": "support",
+          "createdAt": 1784700096
+        }
+      ]
+    },
+    "Infineon jTOP ID SLJ 52GCA150CL": {
+      "atrs": [
+        "3bfe1800008031fe45803180664090a5102e1083079000f4"
+      ],
+      "unitCount": 1,
+      "runs": [
+        {
+          "rel": "javacard/Profiles/results/Infineon_jTOP_ID_SLJ_52GCA150CL_ICFabDate_2015_ALGSUPPORT__3b_fe_18_00_00_80_31_fe_45_80_31_80_66_40_90_a5_10_2e_10_83_07_90_00_f4__(provided_by_Luka_Logar).csv",
+          "kind": "support",
+          "createdAt": 1784700097
+        }
+      ]
+    },
+    "Infineon-SLJ52GCA150": {
+      "atrs": [
+        "3bfe1800008031fe45803180664090a5102e1083019000f2"
+      ],
+      "unitCount": 1,
+      "runs": [
+        {
+          "rel": "javacard/Profiles/results/Infineon_SLJ52GCA150_ICFabDate_2015_ALGSUPPORT__3b_fe_18_00_00_80_31_fe_45_80_31_80_66_40_90_a5_10_2e_10_83_01_90_00_f2_(provided_by_Toporin).csv",
+          "kind": "support",
+          "createdAt": 1784700098
+        }
+      ]
+    },
+    "J100": {
+      "atrs": [
+        "3b1b96506f6c6172697320210111"
+      ],
+      "unitCount": 1,
+      "runs": [
+        {
+          "rel": "javacard/Profiles/results/J100_ALGSUPPORT__3b_1b_96_50_6f_6c_61_72_69_73_20_21_01_11_(provided_by_Thoth).csv",
+          "kind": "support",
+          "createdAt": 1784700099
+        }
+      ]
+    },
+    "NXP J3H081 EMV": {
+      "atrs": [
+        "3bf81800008131fe450073c8400000900080",
+        "3bfa1800008131fe4550564a434f5033454d5694"
+      ],
+      "unitCount": 4,
+      "runs": [
+        {
+          "rel": "javacard/Profiles/results/NXP_JCOP3_J3H081_EMV_ICFabDate_2016_355_ALGSUPPORT__3b_f8_18_00_00_81_31_fe_45_00_73_c8_40_00_00_90_00_80_(provided_by_Adam_Zhang_and_Richard_Mitev).csv",
+          "kind": "support",
+          "createdAt": 1784700102
+        },
+        {
+          "rel": "javacard/Profiles/performance/fixed/NXP_J3H081_EMV____PERFORMANCE_SYMMETRIC_ASYMMETRIC_DATAFIXED_1529520022456__3b_f8_18_00_00_81_31_fe_45_00_73_c8_40_00_00_90_00_80.csv",
+          "kind": "perf-fixed",
+          "createdAt": 1784700103
+        },
+        {
+          "rel": "javacard/Profiles/performance/variable/NXP_J3H081_EMV____PERFORMANCE_SYMMETRIC_ASYMMETRIC_DATADEPEND_1529522864913__3b_f8_18_00_00_81_31_fe_45_00_73_c8_40_00_00_90_00_80.csv",
+          "kind": "perf-variable",
+          "createdAt": 1784700104
+        },
+        {
+          "rel": "javacard/Profiles/results/NXP_JCOP3_J3H081_EMV_ICFabDate_2018_ALGSUPPORT__3b_fa_18_00_00_81_31_fe_45_50_56_4a_43_4f_50_33_45_4d_56_94_(provided_by_Rowland_Watkins_and_PetrS).csv",
+          "kind": "support",
+          "createdAt": 1784700198
+        }
+      ]
+    },
+    "J3R200": {
+      "atrs": [
+        "3be000008131fe45eb",
+        "3bfc9600008131fe455432433134504a3432309000fd"
+      ],
+      "unitCount": 4,
+      "runs": [
+        {
+          "rel": "javacard/Profiles/results/NXP_JCOP4_J3R200_ALGSUPPORT__3b_e0_00_00_81_31_fe_45_eb_(provided_by_arf20).csv",
+          "kind": "support",
+          "createdAt": 1784700107
+        },
+        {
+          "rel": "javacard/Profiles/performance/fixed/NXP_JCOP_J3R200_EMV_noECC___PERFORMANCE_SYMMETRIC_ASYMMETRIC_DATAFIXED_1751988592612__3b_fc_96_00_00_81_31_fe_45_54_32_43_31_34_50_4a_34_32_30_90_00_fd_(provided_by_ameneko).csv",
+          "kind": "perf-fixed",
+          "createdAt": 1784700186
+        },
+        {
+          "rel": "javacard/Profiles/results/NXP_JCOP4_J3R180/NXP_JCOP_J3R200_ALGSUPPORT__3b_e0_00_00_81_31_fe_45_eb_(provided_by_Nouman_Qaiser).csv",
+          "kind": "support",
+          "createdAt": 1784700187
+        },
+        {
+          "rel": "javacard/Profiles/results/NXP_JCOP4_J3R200_noECC_ALGSUPPORT__3b_fc_96_00_00_81_31_fe_45_54_32_43_31_34_50_4a_34_32_30_90_00_fd_(provided_by_ameneko).csv",
+          "kind": "support",
+          "createdAt": 1784700188
+        }
+      ]
+    },
+    "JC10M24R": {
+      "atrs": [
+        "3b80800101"
+      ],
+      "unitCount": 1,
+      "runs": [
+        {
+          "rel": "javacard/Profiles/results/JavaCardOS_JC10M24R_ALGSUPPORT__3b_80_80_01_01_(provided_by_JavaCardOS).csv",
+          "kind": "support",
+          "createdAt": 1784700108
+        }
+      ]
+    },
+    "JC30M40CR": {
+      "atrs": [
+        "3b80800101"
+      ],
+      "unitCount": 1,
+      "runs": [
+        {
+          "rel": "javacard/Profiles/results/JavaCardOS_Infineon_JC30M48CR_ALGSUPPORT__3b_80_80_01_01_(provided_by_JavaCardOS_and_Thotheolh_Tay).csv",
+          "kind": "support",
+          "createdAt": 1784700109
+        }
+      ]
+    },
+    "JC30M48CR": {
+      "atrs": [
+        "3b90958011fe6a"
+      ],
+      "unitCount": 2,
+      "runs": [
+        {
+          "rel": "javacard/Profiles/performance/fixed/JC30M48CR____PERFORMANCE_SYMMETRIC_ASYMMETRIC_DATAFIXED_1480556265718__3b_90_95_80_11_fe_6a_(provided_by_Thotheolh_Tay).csv",
+          "kind": "perf-fixed",
+          "createdAt": 1784700110
+        },
+        {
+          "rel": "javacard/Profiles/aid/JavavCardOS_JC30M48CR_AIDSUPPORT_3B90958011FE6A.csv",
+          "kind": "aid",
+          "createdAt": 1784700125
+        }
+      ]
+    },
+    "JCOP J3A040": {
+      "atrs": [
+        "3b8880014a434f50763234315e"
+      ],
+      "unitCount": 1,
+      "runs": [
+        {
+          "rel": "javacard/Profiles/results/NXP_JCOP_J3A040_ICFabDate_2010_071_ALGSUPPORT__3b_88_80_01_4a_43_4f_50_76_32_34_31_5e_(provided_by_Lukas_Malina).csv",
+          "kind": "support",
+          "createdAt": 1784700111
+        }
+      ]
+    },
+    "Feitian JavaCOS A20": {
+      "atrs": [
+        "3bfe9100ff918171fe40004120008180719067464a00680804c1"
+      ],
+      "unitCount": 2,
+      "runs": [
+        {
+          "rel": "javacard/Profiles/performance/variable/Feitian_JavaCOS_A20____PERFORMANCE_SYMMETRIC_ASYMMETRIC_DATADEPEND_1634972509027__3b_fc_18_00_00_81_31_80_45_90_67_46_4a_00_68_08_04_00_00_00_00_0e.csv",
+          "kind": "perf-variable",
+          "createdAt": 1784700038
+        },
+        {
+          "rel": "javacard/Profiles/performance/fixed/JavaCOS_A20____PERFORMANCE_SYMMETRIC_ASYMMETRIC_DATAFIXED_1634757636336__3b_fe_91_00_ff_91_81_71_fe_40_00_41_20_00_81_80_71_90_67_46_4a_00_68_08_04_c1.csv",
+          "kind": "perf-fixed",
+          "createdAt": 1784700112
+        }
+      ]
+    },
+    "JavaCOS JC10M128C": {
+      "atrs": [
+        "3b90958011fe6a"
+      ],
+      "unitCount": 1,
+      "runs": [
+        {
+          "rel": "javacard/Profiles/performance/variable/JavaCOS_JC10M128C____PERFORMANCE_SYMMETRIC_ASYMMETRIC_DATADEPEND_1634969648570__3b_90_95_80_11_fe_6a.csv",
+          "kind": "perf-variable",
+          "createdAt": 1784700121
+        }
+      ]
+    },
+    "JavaCOS JC10M24R": {
+      "atrs": [
+        "3b90958011fe6a"
+      ],
+      "unitCount": 1,
+      "runs": [
+        {
+          "rel": "javacard/Profiles/performance/fixed/JavaCOS_JC10M24R____PERFORMANCE_SYMMETRIC_ASYMMETRIC_DATAFIXED_1634757483063__3b_90_95_80_11_fe_6a.csv",
+          "kind": "perf-fixed",
+          "createdAt": 1784700122
+        }
+      ]
+    },
+    "JavaCardOS JC10M24": {
+      "atrs": [
+        "3b8580010578f7b1023d"
+      ],
+      "unitCount": 1,
+      "runs": [
+        {
+          "rel": "javacard/Profiles/aid/JavaCardOS_JC10M24_AIDSUPPORT_3B8580010578F7B1023D.csv",
+          "kind": "aid",
+          "createdAt": 1784700123
+        }
+      ]
+    },
+    "NONAME": {
+      "atrs": [
+        "3b1d",
+        "3ba0"
+      ],
+      "unitCount": 2,
+      "runs": [
+        {
+          "rel": "javacard/Profiles/results/[undisclosed7]_ALGSUPPORT__3b_xx_xx_xx_xx_xx_xx_xx_xx_xx_xx_xx_xx_xx_xx_xx_xx_xx_xx_xx_xx_xx_xx_xx_1d_(provided_by_Cosmo).csv",
+          "kind": "support",
+          "createdAt": 1784700126
+        },
+        {
+          "rel": "javacard/Profiles/results/[undisclosed8]_ALGSUPPORT__3b_xx_xx_xx_xx_xx_xx_xx_xx_xx_xx_xx_xx_xx_xx_a0_(provided_by_Cosmo).csv",
+          "kind": "support",
+          "createdAt": 1784700127
+        }
+      ]
+    },
+    "NXP 2.4.1 R3": {
+      "atrs": [
+        "3bf81300008131fe454a434f5076323431b7"
+      ],
+      "unitCount": 1,
+      "runs": [
+        {
+          "rel": "javacard/Profiles/performance/fixed/NXP_2.4.1_R3____PERFORMANCE_SYMMETRIC_ASYMMETRIC_DATAFIXED_1557653388849__3b_f8_13_00_00_81_31_fe_45_4a_43_4f_50_76_32_34_31_b7.csv",
+          "kind": "perf-fixed",
+          "createdAt": 1784700128
+        }
+      ]
+    },
+    "NXP CJ3A081": {
+      "atrs": [
+        "3bf81300008131fe454a434f5076323431b7",
+        "3bfa1800008131fe454a33413038315632343189"
+      ],
+      "unitCount": 2,
+      "runs": [
+        {
+          "rel": "javacard/Profiles/aid/NXP_CJ3A081_AIDSUPPORT_3BFA1800008131FE454A33413038315632343189.csv",
+          "kind": "aid",
+          "createdAt": 1784700131
+        },
+        {
+          "rel": "javacard/Profiles/results/NXP_JCOP_CJ3A081_JC222_3b f8 13 00 00 81 31 fe 45 4a 33 41 30 38 31 56 32 34 31 89 _(provided_by_PetrS).csv",
+          "kind": "support",
+          "createdAt": 1784700132
+        }
+      ]
+    },
+    "NXP J2A080 80K": {
+      "atrs": [
+        "3bf61800ff8131fe454a32413038301b",
+        "3bf81800008131fe454a434f5076323431bc"
+      ],
+      "unitCount": 6,
+      "runs": [
+        {
+          "rel": "javacard/Profiles/aid/NXP_J2A080_80K_AIDSUPPORT_3BF81800008131FE454A434F5076323431BC.csv",
+          "kind": "aid",
+          "createdAt": 1784700133
+        },
+        {
+          "rel": "javacard/Profiles/performance/fixed/NXP_J2A080_80K____PERFORMANCE_SYMMETRIC_ASYMMETRIC_DATAFIXED_1634801332136__3b_f8_18_00_00_81_31_fe_45_4a_43_4f_50_76_32_34_31_bc.csv",
+          "kind": "perf-fixed",
+          "createdAt": 1784700134
+        },
+        {
+          "rel": "javacard/Profiles/performance/variable/NXP_J2A080_80K____PERFORMANCE_SYMMETRIC_ASYMMETRIC_DATADEPEND_1634893745552__3b_f8_18_00_00_81_31_fe_45_4a_43_4f_50_76_32_34_31_bc.csv",
+          "kind": "perf-variable",
+          "createdAt": 1784700135
+        },
+        {
+          "rel": "javacard/Profiles/results/NXP_JCOP_J2A080_3b f6 18 00 ff 81 31 fe 45 4a 32 41 30 38 30 1b_(provided_by_Pierre-d).csv",
+          "kind": "support",
+          "createdAt": 1784700136
+        },
+        {
+          "rel": "javacard/Profiles/results/NXP_JCOP_J2A080_80K_ICFabDate_2011_070_ALGSUPPORT__3b_f8_18_00_00_81_31_fe_45_4a_43_4f_50_76_32_34_31_bc__(provided_by_PetrS).csv",
+          "kind": "support",
+          "createdAt": 1784700137
+        },
+        {
+          "rel": "javacard/Profiles/results/NXP JCOP J2A080 80K_ICFabDate_2011_070_ALGSUPPORT___3b_f8_18_00_00_81_31_fe_45_4a_43_4f_50_76_32_34_31_bc_(provided_by_PetrS).csv",
+          "kind": "support",
+          "createdAt": 1784700179
+        }
+      ]
+    },
+    "NXP J2D081 80K": {
+      "atrs": [
+        "3bf91800008131fe454a32443038315f5056b6"
+      ],
+      "unitCount": 5,
+      "runs": [
+        {
+          "rel": "javacard/Profiles/aid/NXP_J2D081_80K_AIDSUPPORT_3BF91800008131FE454A32443038315F5056B6.csv",
+          "kind": "aid",
+          "createdAt": 1784700138
+        },
+        {
+          "rel": "javacard/Profiles/performance/fixed/NXP_J2D081_80K____PERFORMANCE_SYMMETRIC_ASYMMETRIC_DATAFIXED_1437420594230__3b_f9_18_00_00_81_31_fe_45_4a_32_44_30_38_31_5f_50_56_b6.csv",
+          "kind": "perf-fixed",
+          "createdAt": 1784700139
+        },
+        {
+          "rel": "javacard/Profiles/performance/variable/NXP_J2D081_80K____PERFORMANCE_SYMMETRIC_DATADEPEND_1437692274833__3b_f9_18_00_00_81_31_fe_45_4a_32_44_30_38_31_5f_50_56_b6.csv",
+          "kind": "perf-variable",
+          "createdAt": 1784700140
+        },
+        {
+          "rel": "javacard/Profiles/results/NXP_JCOP_J2D081_80K_ICFabDate_2014_126_ALGSUPPORT__3b_f9_18_00_00_81_31_fe_45_4a_32_44_30_38_31_5f_50_56_b6_(provided_by_PetrS_and_Paul_Crocker).csv",
+          "kind": "support",
+          "createdAt": 1784700141
+        },
+        {
+          "rel": "javacard/Profiles/results/NXP_JCOP_J2D081_ICFabDate_2017_ALGSUPPORT__3b_f9_18_00_00_81_31_fe_45_4a_32_44_30_38_31_5f_50_56_b6_(provided_by_Toporin).csv",
+          "kind": "support",
+          "createdAt": 1784700223
+        }
+      ]
+    },
+    "NXP J2E081": {
+      "atrs": [
+        "3bf81300008131fe454a434f5076323431b7",
+        "3bf91300008131fe454a434f503234325233a2"
+      ],
+      "unitCount": 4,
+      "runs": [
+        {
+          "rel": "javacard/Profiles/aid/NXP_J2E081_AIDSUPPORT_3BF91300008131FE454A434F503234325233A2.csv",
+          "kind": "aid",
+          "createdAt": 1784700142
+        },
+        {
+          "rel": "javacard/Profiles/performance/fixed/NXP_J2E081____PERFORMANCE_SYMMETRIC_ASYMMETRIC_DATAFIXED_1634734453202__3b_f8_13_00_00_81_31_fe_45_4a_43_4f_50_76_32_34_31_b7.csv",
+          "kind": "perf-fixed",
+          "createdAt": 1784700143
+        },
+        {
+          "rel": "javacard/Profiles/performance/variable/NXP_J2E081____PERFORMANCE_SYMMETRIC_ASYMMETRIC_DATADEPEND_1634893676503__3b_f8_13_00_00_81_31_fe_45_4a_43_4f_50_76_32_34_31_b7.csv",
+          "kind": "perf-variable",
+          "createdAt": 1784700144
+        },
+        {
+          "rel": "javacard/Profiles/results/NXP_J2E081_ALGSUPPORT__3b_f9_13_00_00_81_31_fe_45_4a_43_4f_50_32_34_32_52_33_a2_(provided_by_PetrS).csv",
+          "kind": "support",
+          "createdAt": 1784700145
+        }
+      ]
+    },
+    "NXP J2E145G": {
+      "atrs": [
+        "3bf91300008131fe454a434f503234325233a2"
+      ],
+      "unitCount": 2,
+      "runs": [
+        {
+          "rel": "javacard/Profiles/aid/NXP_J2E145G_v2.4.2_R3_AIDSUPPORT_3BF91300008131FE454A434F503234325233A2.csv",
+          "kind": "aid",
+          "createdAt": 1784700146
+        },
+        {
+          "rel": "javacard/Profiles/results/NXP_J2E145G_ICFabDate_2013_025_ALGSUPPORT__3b_f9_13_00_00_81_31_fe_45_4a_43_4f_50_32_34_32_52_33_a2_(provided_by_PetrS_and_Lukas_Malina).csv",
+          "kind": "support",
+          "createdAt": 1784700147
+        }
+      ]
+    },
+    "NXP J3A080": {
+      "atrs": [
+        "3bf81300008131fe454a434f5076323431b7"
+      ],
+      "unitCount": 5,
+      "runs": [
+        {
+          "rel": "javacard/Profiles/aid/NXP_J3A080_AIDSUPPORT_3BF81300008131FE454A434F5076323431B7.csv",
+          "kind": "aid",
+          "createdAt": 1784700148
+        },
+        {
+          "rel": "javacard/Profiles/performance/fixed/NXP_J3A080____PERFORMANCE_SYMMETRIC_ASYMMETRIC_DATAFIXED_1437777165525__3b_f8_13_00_00_81_31_fe_45_4a_43_4f_50_76_32_34_31_b7.csv",
+          "kind": "perf-fixed",
+          "createdAt": 1784700149
+        },
+        {
+          "rel": "javacard/Profiles/performance/variable/NXP_J3A080____PERFORMANCE_SYMMETRIC_DATADEPEND_1437946761019__3b_f8_13_00_00_81_31_fe_45_4a_43_4f_50_76_32_34_31_b7.csv",
+          "kind": "perf-variable",
+          "createdAt": 1784700150
+        },
+        {
+          "rel": "javacard/Profiles/results/NXP_J3A080_ICFabDate_2011_035_ALGSUPPORT__3b_f8_13_00_00_81_31_fe_45_4a_43_4f_50_76_32_34_31_b7_(provided_by_PetrS).csv",
+          "kind": "support",
+          "createdAt": 1784700151
+        },
+        {
+          "rel": "javacard/Profiles/results/NXP_JCOP_CJ3A080v241_3B F8 13 00 00 81 31 FE 45 4A 43 4F 50 76 32 34 31 B7_(provided_by_Lazuardi_Nasution).csv",
+          "kind": "support",
+          "createdAt": 1784700152
+        }
+      ]
+    },
+    "NXP J3A081 JCOP v2.4.1": {
+      "atrs": [
+        "3bf81800ff8131fe454a434f507632343143"
+      ],
+      "unitCount": 2,
+      "runs": [
+        {
+          "rel": "javacard/Profiles/performance/fixed/NXP_J3A081_JCOP_v2.4.1____PERFORMANCE_SYMMETRIC_ASYMMETRIC_DATAFIXED_1634801210191__3b_f8_18_00_ff_81_31_fe_45_4a_43_4f_50_76_32_34_31_43.csv",
+          "kind": "perf-fixed",
+          "createdAt": 1784700153
+        },
+        {
+          "rel": "javacard/Profiles/performance/variable/NXP_J3A081_v2.4.1____PERFORMANCE_SYMMETRIC_ASYMMETRIC_DATADEPEND_1634918756547__3b_f8_18_00_ff_81_31_fe_45_4a_43_4f_50_76_32_34_31_43.csv",
+          "kind": "perf-variable",
+          "createdAt": 1784700154
+        }
+      ]
+    },
+    "NXP J3R150 EMV 4K RSA no OKBG no ECC": {
+      "atrs": [
+        "3b6a00ff0031c173c84000009000"
+      ],
+      "unitCount": 1,
+      "runs": [
+        {
+          "rel": "javacard/Profiles/results/NXP_JCOP4_J3R150_EMV_4K_RSA_no_OKBG_no_ECC_ALGSUPPORT__3b_6a_00_ff_00_31_c1_73_c8_40_00_00_90_00_(provided_by_dilucide).csv",
+          "kind": "support",
+          "createdAt": 1784700160
+        }
+      ]
+    },
+    "NXP JCOP 1018 v2.3.1": {
+      "atrs": [
+        "3bfa1300008131fe454a434f5031305632333193"
+      ],
+      "unitCount": 2,
+      "runs": [
+        {
+          "rel": "javacard/Profiles/results/NXP_JCOP_10.18_v2.3.1_ICFabDate_2008_163_ALGSUPPORT__3b_fa_13_00_00_81_31_fe_45_4a_43_4f_50_31_30_56_32_33_31_93_(provided_by_PetrS).csv",
+          "kind": "support",
+          "createdAt": 1784700162
+        },
+        {
+          "rel": "javacard/Profiles/aid/NXP_JCOP_1018_v2.3.1_AIDSUPPORT_3BFA1300008131FE454A434F5031305632333193.csv",
+          "kind": "aid",
+          "createdAt": 1784700163
+        }
+      ]
+    },
+    "NXP JCOP 21 V2.2 36K": {
+      "atrs": [
+        "3bf91800008131fe454a434f503231563232a9"
+      ],
+      "unitCount": 4,
+      "runs": [
+        {
+          "rel": "javacard/Profiles/aid/NXP_JCOP_21_V2.2_36K_AIDSUPPORT_3BF91800008131FE454A434F503231563232A9.csv",
+          "kind": "aid",
+          "createdAt": 1784700164
+        },
+        {
+          "rel": "javacard/Profiles/performance/fixed/NXP_JCOP_21_V2.2_36K____PERFORMANCE_SYMMETRIC_ASYMMETRIC_DATAFIXED_1437865461314__3b_f9_18_00_00_81_31_fe_45_4a_43_4f_50_32_31_56_32_32_a9.csv",
+          "kind": "perf-fixed",
+          "createdAt": 1784700165
+        },
+        {
+          "rel": "javacard/Profiles/performance/variable/NXP_JCOP_21_V2.2_36K____PERFORMANCE_SYMMETRIC_DATADEPEND_1437903196676__3b_f9_18_00_00_81_31_fe_45_4a_43_4f_50_32_31_56_32_32_a9.csv",
+          "kind": "perf-variable",
+          "createdAt": 1784700166
+        },
+        {
+          "rel": "javacard/Profiles/results/NXP_JCOP_21_V2.2_36K_ICFabDate_2008_015_ALGSUPPORT__3b_f9_18_00_00_81_31_fe_45_4a_43_4f_50_32_31_56_32_32_a9_(provided_by_PetrS).csv",
+          "kind": "support",
+          "createdAt": 1784700167
+        }
+      ]
+    },
+    "NXP JCOP 31 V2.2 36K": {
+      "atrs": [
+        "3beb0000813120454a434f503331333647445478"
+      ],
+      "unitCount": 4,
+      "runs": [
+        {
+          "rel": "javacard/Profiles/aid/NXP_JCOP_31_V2.2_36K_AIDSUPPORT_3BEB0000813120454A434F503331333647445478.csv",
+          "kind": "aid",
+          "createdAt": 1784700168
+        },
+        {
+          "rel": "javacard/Profiles/performance/fixed/NXP_JCOP_31_V2.2_36K____PERFORMANCE_SYMMETRIC_ASYMMETRIC_DATAFIXED_1437865510842__3b_eb_00_00_81_31_20_45_4a_43_4f_50_33_31_33_36_47_44_54_78.csv",
+          "kind": "perf-fixed",
+          "createdAt": 1784700169
+        },
+        {
+          "rel": "javacard/Profiles/performance/variable/NXP_JCOP_31_V2.2_36K____PERFORMANCE_SYMMETRIC_DATADEPEND_1437903220592__3b_eb_00_00_81_31_20_45_4a_43_4f_50_33_31_33_36_47_44_54_78.csv",
+          "kind": "perf-variable",
+          "createdAt": 1784700170
+        },
+        {
+          "rel": "javacard/Profiles/results/NXP_JCOP_31_V2.2_36K_ICFabDate_2006_306_ALGSUPPORT__3b_eb_00_00_81_31_20_45_4a_43_4f_50_33_31_33_36_47_44_54_78_(provided_by_PetrS).csv",
+          "kind": "support",
+          "createdAt": 1784700171
+        }
+      ]
+    },
+    "NXP JCOP 31 V2.3.2": {
+      "atrs": [
+        "3b8a80014a434f503331563233327a"
+      ],
+      "unitCount": 1,
+      "runs": [
+        {
+          "rel": "javacard/Profiles/results/NXP_JCOP_31_V2.3.2_ICFabDate_2011_016_ALGSUPPORT__3b_8a_80_01_4a_43_4f_50_33_31_56_32_33_32_7a_(provided_by_Martin_Omacka).csv",
+          "kind": "support",
+          "createdAt": 1784700172
+        }
+      ]
+    },
+    "NXP JCOP 31 v2.4.1 72K": {
+      "atrs": [
+        "3bf81300008131fe454a434f5076323431b7"
+      ],
+      "unitCount": 4,
+      "runs": [
+        {
+          "rel": "javacard/Profiles/aid/NXP_JCOP_31_v2.4.1_72K_AIDSUPPORT_3BF81300008131FE454A434F5076323431B7.csv",
+          "kind": "aid",
+          "createdAt": 1784700173
+        },
+        {
+          "rel": "javacard/Profiles/performance/fixed/NXP_JCOP31_v2.4.1_72K____PERFORMANCE_SYMMETRIC_ASYMMETRIC_DATAFIXED_1437420692943__3b_f8_13_00_00_81_31_fe_45_4a_43_4f_50_76_32_34_31_b7.csv",
+          "kind": "perf-fixed",
+          "createdAt": 1784700204
+        },
+        {
+          "rel": "javacard/Profiles/performance/variable/NXP_JCOP31_v2.4.1_72K____PERFORMANCE_SYMMETRIC_DATADEPEND_1437819472481__3b_f8_13_00_00_81_31_fe_45_4a_43_4f_50_76_32_34_31_b7.csv",
+          "kind": "perf-variable",
+          "createdAt": 1784700205
+        },
+        {
+          "rel": "javacard/Profiles/results/NXP_JCOP_31_V2.4.1_72K_ICFabDate_2012_240_3b_f8_13_00_00_81_31_fe_45_4a_43_4f_50_76_32_34_31_b7_(provided_by_PetrS).csv",
+          "kind": "support",
+          "createdAt": 1784700206
+        }
+      ]
+    },
+    "NXP JCOP 41 v2.2.1 72K": {
+      "atrs": [
+        "3bfa1800008131fe454a434f503431563232319d"
+      ],
+      "unitCount": 4,
+      "runs": [
+        {
+          "rel": "javacard/Profiles/aid/NXP_JCOP_41_v2.2.1_72K_AIDSUPPORT_3BFA1800008131FE454A434F503431563232319D.csv",
+          "kind": "aid",
+          "createdAt": 1784700174
+        },
+        {
+          "rel": "javacard/Profiles/performance/fixed/NXP_JCOP41_v2.2.1_72K____PERFORMANCE_SYMMETRIC_ASYMMETRIC_DATAFIXED_1437603424356__3b_fa_18_00_00_81_31_fe_45_4a_43_4f_50_34_31_56_32_32_31_9d.csv",
+          "kind": "perf-fixed",
+          "createdAt": 1784700218
+        },
+        {
+          "rel": "javacard/Profiles/performance/variable/NXP_JCOP41_v2.2.1_72K____PERFORMANCE_SYMMETRIC_DATADEPEND_1437659420392__3b_fa_18_00_00_81_31_fe_45_4a_43_4f_50_34_31_56_32_32_31_9d.csv",
+          "kind": "perf-variable",
+          "createdAt": 1784700219
+        },
+        {
+          "rel": "javacard/Profiles/results/NXP_JCOP41_v221_3b fa 18 00 00 81 31 fe 45 4a 43 4f 50 34 31 56 32 32 31 9d _(provided_by_PetrS).csv",
+          "kind": "support",
+          "createdAt": 1784700220
+        }
+      ]
+    },
+    "NXP JCOP J3A081": {
+      "atrs": [
+        "3bf91800ff8131fe4550565f4a33413038314d"
+      ],
+      "unitCount": 1,
+      "runs": [
+        {
+          "rel": "javacard/Profiles/results/NXP_JCOP_J3A081_ALGSUPPORT_ICFabDate_2013__3b_f9_18_00_ff_81_31_fe_45_50_56_5f_4a_33_41_30_38_31_4d_(provided_by_Toporin).csv",
+          "kind": "support",
+          "createdAt": 1784700180
+        }
+      ]
+    },
+    "NXP JCOP J3D081 v2.4.2R2": {
+      "atrs": [
+        "3bf91300008131fe454a434f503234325232a3"
+      ],
+      "unitCount": 2,
+      "runs": [
+        {
+          "rel": "javacard/Profiles/performance/variable/NXP_JCOP_J3D081_v2.4.2R2____PERFORMANCE_SYMMETRIC_ASYMMETRIC_DATADEPEND_1453982019247__3b_f9_13_00_00_81_31_fe_45_4a_43_4f_50_32_34_32_52_32_a3.csv",
+          "kind": "perf-variable",
+          "createdAt": 1784700181
+        },
+        {
+          "rel": "javacard/Profiles/results/NXP_JCOP_J3D081_v242r2_ICFabDate_2012_334_3b f9 13 00 00 81 31 fe 45 4a 43 4f 50 32 34 32 52 32 a3.csv_(provided_by_Martin_Paljak_and_Arnis_UT).csv",
+          "kind": "support",
+          "createdAt": 1784700191
+        }
+      ]
+    },
+    "NXP JCOP J3R180": {
+      "atrs": [
+        "3bd518ff8191fe1fc38073c821100a",
+        "3bfc9600008131fe455432433134504a3431389000f6",
+        "3bfd9600008131fe45534c4a35324778787979797a5224"
+      ],
+      "unitCount": 4,
+      "runs": [
+        {
+          "rel": "javacard/Profiles/results/NXP_JCOP4_J3R180/J3R180_ALGSUPPORT__3b_fd_96_00_00_81_31_fe_45_53_4c_4a_35_32_47_78_78_79_79_79_7a_52_24.csv",
+          "kind": "support",
+          "createdAt": 1784700106
+        },
+        {
+          "rel": "javacard/Profiles/results/NXP_JCOP4_J3R180_6PIN_ALGSUPPORT__3b_fc_96_00_00_81_31_fe_45_54_32_43_31_34_50_4a_34_31_38_90_00_f6_(provided_by_ameneko).csv",
+          "kind": "support",
+          "createdAt": 1784700183
+        },
+        {
+          "rel": "javacard/Profiles/results/NXP_JCOP4_J3R180_8PIN_ALGSUPPORT__3b_d5_18_ff_81_91_fe_1f_c3_80_73_c8_21_10_0a_(provided_by_ameneko).csv",
+          "kind": "support",
+          "createdAt": 1784700184
+        },
+        {
+          "rel": "javacard/Profiles/results/NXP_JCOP4_J3R180_ICFab_2022_345_ALGSUPPORT__3b_fd_96_00_00_81_31_fe_45_53_4c_4a_35_32_47_78_78_79_79_79_7a_52_24_(provided_by_Kagurazaka_Setsuna).csv",
+          "kind": "support",
+          "createdAt": 1784700185
+        }
+      ]
+    },
+    "NXP JCOP NXP250A v242r3": {
+      "atrs": [
+        "3bf91300008131fe454a434f503234325233a2"
+      ],
+      "unitCount": 1,
+      "runs": [
+        {
+          "rel": "javacard/Profiles/results/NXP_JCOP_NXP250A_v242r3_3b_f9_13_00_00_81_31_fe_45_4a_43_4f_50_32_34_32_52_33_a2 (provided_by_Amir_Digar_Nemikhandad).csv",
+          "kind": "support",
+          "createdAt": 1784700189
+        }
+      ]
+    },
+    "NXP JCOP SmartMX2 Unknown": {
+      "atrs": [
+        "3b8a800150564a434f5033454d5676"
+      ],
+      "unitCount": 1,
+      "runs": [
+        {
+          "rel": "javacard/Profiles/results/NXP_JCOP_SmartMX2_Unknown_ALGSUPPORT__3b_8a_80_01_50_56_4a_43_4f_50_33_45_4d_56_76.csv",
+          "kind": "support",
+          "createdAt": 1784700190
+        }
+      ]
+    },
+    "NXP JCOP v2.4.2R3": {
+      "atrs": [
+        "3bf91300008131fe454a434f503234325233a2"
+      ],
+      "unitCount": 1,
+      "runs": [
+        {
+          "rel": "javacard/Profiles/aid/NXP_JCOP_v2.4.2R3_AIDSUPPORT_3BF91300008131FE454A434F503234325233A2.csv",
+          "kind": "aid",
+          "createdAt": 1784700192
+        }
+      ]
+    },
+    "NXP JCOP10 (DES only version)": {
+      "atrs": [
+        "3be900008131fe454a434f503130563232a3"
+      ],
+      "unitCount": 1,
+      "runs": [
+        {
+          "rel": "javacard/Profiles/results/NXP_JCOP10_(DES only version)_3b e9 00 00 81 31 fe 45 4a 43 4f 50 31 30 56 32 32 a3_(provided_by_Henrik).csv",
+          "kind": "support",
+          "createdAt": 1784700193
+        }
+      ]
+    },
+    "NXP JCOP21 v2.4.2R3": {
+      "atrs": [
+        "3bf91300008131fe454a434f503234325233a2"
+      ],
+      "unitCount": 3,
+      "runs": [
+        {
+          "rel": "javacard/Profiles/performance/fixed/NXP_JCOP21_v2.4.2R3____PERFORMANCE_SYMMETRIC_ASYMMETRIC_DATAFIXED_1437420662344__3b_f9_13_00_00_81_31_fe_45_4a_43_4f_50_32_34_32_52_33_a2.csv",
+          "kind": "perf-fixed",
+          "createdAt": 1784700194
+        },
+        {
+          "rel": "javacard/Profiles/performance/variable/NXP_JCOP21_v2.4.2R3____PERFORMANCE_SYMMETRIC_DATADEPEND_1437692250276__3b_f9_13_00_00_81_31_fe_45_4a_43_4f_50_32_34_32_52_33_a2.csv",
+          "kind": "perf-variable",
+          "createdAt": 1784700195
+        },
+        {
+          "rel": "javacard/Profiles/results/NXP_JCOP_21 v2.4.2R3_ICFabDate_2013_025_ALGSUPPORT___3b_f9_13_00_00_81_31_fe_45_4a_43_4f_50_32_34_32_52_33_a2_(provided_by_PetrS).csv",
+          "kind": "support",
+          "createdAt": 1784700196
+        }
+      ]
+    },
+    "NXP JCOP3 J3E145": {
+      "atrs": [
+        "3bf91800008131fe4550565f4a3345303832b5"
+      ],
+      "unitCount": 2,
+      "runs": [
+        {
+          "rel": "javacard/Profiles/aid/NXP_J3E145_AIDSUPPORT_3BF91800008131FE4550565F4A3345303832B5.csv",
+          "kind": "aid",
+          "createdAt": 1784700101
+        },
+        {
+          "rel": "javacard/Profiles/results/NXP_JCOP3_J3E145_ALGSUPPORT__3b_f9_18_00_00_81_31_fe_45_50_56_5f_4a_33_45_30_38_32_b5_(provided_by_Anonymous).csv",
+          "kind": "support",
+          "createdAt": 1784700197
+        }
+      ]
+    },
+    "NXP JCOP41 v2.3.1": {
+      "atrs": [
+        "3bfa1800ff8131fe454a434f5034315632333163"
+      ],
+      "unitCount": 1,
+      "runs": [
+        {
+          "rel": "javacard/Profiles/results/NXP_JCOP41_v2.3.1_ICFabDate_2008_ALGSUPPORT__3b_fa_18_00_ff_81_31_fe_45_4a_43_4f_50_34_31_56_32_33_31_63__(provided_by_Radboud_University).csv",
+          "kind": "support",
+          "createdAt": 1784700221
+        }
+      ]
+    },
+    "NXP-JCOP-J2A080": {
+      "atrs": [
+        "3bf91300008131fe454a434f5076323431b701"
+      ],
+      "unitCount": 1,
+      "runs": [
+        {
+          "rel": "javacard/Profiles/results/NXP_JCOP_J2A080_ICFabDate_2018_ALGSUPPORT__3b_f9_13_00_00_81_31_fe_45_4a_43_4f_50_76_32_34_31_b7_01_(provided_by_Toporin).csv",
+          "kind": "support",
+          "createdAt": 1784700222
+        }
+      ]
+    },
+    "NXP JCOP4 J3R110 SecID": {
+      "atrs": [
+        "3bfa1800008131fe454a546178436f72655631b2"
+      ],
+      "unitCount": 1,
+      "runs": [
+        {
+          "rel": "javacard/Profiles/aid/NXP_JCOP4_J3R110_SecID_AIDSUPPORT_3BFA1800008131FE454A546178436F72655631B2.csv",
+          "kind": "aid",
+          "createdAt": 1784700207
+        }
+      ]
+    },
+    "NXP JCOP4 J3R110": {
+      "atrs": [
+        "3bfe9500008131fe45ff43525950544e4f582043415244be"
+      ],
+      "unitCount": 1,
+      "runs": [
+        {
+          "rel": "javacard/Profiles/results/NXP_JCOP4_J3R110_ALGSUPPORT__3b_fe_95_00_00_81_31_fe_45_ff_43_52_59_50_54_4e_4f_58_20_43_41_52_44_be_(provided_by_Francesco_Gugliuzza_and_PetrS).csv",
+          "kind": "support",
+          "createdAt": 1784700208
+        }
+      ]
+    },
+    "NXP JCOP4 P71 NoECC": {
+      "atrs": [
+        "3bea00008131fe450031c173c840000090007a"
+      ],
+      "unitCount": 1,
+      "runs": [
+        {
+          "rel": "javacard/Profiles/results/NXP_JCOP4_P71_NoECC_ALGSUPPORT__3b_ea_00_00_81_31_fe_45_00_31_c1_73_c8_40_00_00_90_00_7a.csv",
+          "kind": "support",
+          "createdAt": 1784700215
+        }
+      ]
+    },
+    "NXP JCOP4 P71D321": {
+      "atrs": [
+        "3b8a800150564a434f503453494471"
+      ],
+      "unitCount": 2,
+      "runs": [
+        {
+          "rel": "javacard/Profiles/results/NXP_JCOP4_P71D321_ALGSUPPORT__3b_8a_80_01_50_56_4a_43_4f_50_34_53_49_44_71_(provided_by_Riley_Gall).csv",
+          "kind": "support",
+          "createdAt": 1784700216
+        },
+        {
+          "rel": "javacard/Profiles/performance/fixed/NXP_JCOP4_P71D321____PERFORMANCE_SYMMETRIC_ASYMMETRIC_DATAFIXED_1578910230714__3b_8a_80_01_50_56_4a_43_4f_50_34_53_49_44_71_(provided_by_Riley_Gall).csv",
+          "kind": "perf-fixed",
+          "createdAt": 1784700217
+        }
+      ]
+    },
+    "NXP JCOP4 J3R180": {
+      "atrs": [
+        "3b6e000080318066b1a30401110b83009000",
+        "3b8a800150564a434f503453494471"
+      ],
+      "unitCount": 4,
+      "runs": [
+        {
+          "rel": "javacard/Profiles/results/NXP_JCOP4_J3R180/NXPJ3R180_NFC_1_ALGSUPPORT__3b_8a_80_01_50_56_4a_43_4f_50_34_53_49_44_71.csv",
+          "kind": "support",
+          "createdAt": 1784700224
+        },
+        {
+          "rel": "javacard/Profiles/results/NXP_JCOP4_J3R180/NXPJ3R180_NFC_2_ALGSUPPORT__3b_8a_80_01_50_56_4a_43_4f_50_34_53_49_44_71.csv",
+          "kind": "support",
+          "createdAt": 1784700225
+        },
+        {
+          "rel": "javacard/Profiles/results/NXP_JCOP4_J3R180/NXPJ3R180_USB_1_ALGSUPPORT__3b_6e_00_00_80_31_80_66_b1_a3_04_01_11_0b_83_00_90_00.csv",
+          "kind": "support",
+          "createdAt": 1784700226
+        },
+        {
+          "rel": "javacard/Profiles/results/NXP_JCOP4_J3R180/NXPJ3R180_USB_2_ALGSUPPORT__3b_6e_00_00_80_31_80_66_b1_a3_04_01_11_0b_83_00_90_00.csv",
+          "kind": "support",
+          "createdAt": 1784700227
+        }
+      ]
+    },
+    "Nokia 6131": {
+      "atrs": [],
+      "unitCount": 1,
+      "runs": [
+        {
+          "rel": "javacard/Profiles/results/Nokia_6131_3B 88 80 01 00 73 C8 40 13 00 90 00 71_(provided_by_Hakan_Karahan).csv",
+          "kind": "support",
+          "createdAt": 1784700228
+        }
+      ]
+    },
+    "ifx": {
+      "atrs": [
+        "3b888001534c4a01305023100e"
+      ],
+      "unitCount": 1,
+      "runs": [
+        {
+          "rel": "javacard/Profiles/results/Infineon_Secora_Connect_S_(Fidesmo)_ALGSUPPORT__3b_88_80_01_53_4c_4a_01_30_50_23_10_0e_(provided_by_VivoKey_Technologies).csv",
+          "kind": "support",
+          "createdAt": 1784700265
+        }
+      ]
+    },
+    "jCardSim-2.2.1-all": {
+      "atrs": [],
+      "unitCount": 1,
+      "runs": [
+        {
+          "rel": "javacard/Profiles/results/jCardSim-2.2.1-all_ALGSUPPORT__3B_FA_18_00_00_81_31_FE_45_4A_43_4F_50_33_31_56_32_33_32_98_(provided_by_PetrS).csv",
+          "kind": "support",
+          "createdAt": 1784700267
+        }
+      ]
+    },
+    "jCardSim-2.2.2-all": {
+      "atrs": [],
+      "unitCount": 1,
+      "runs": [
+        {
+          "rel": "javacard/Profiles/results/jCardSim-2.2.2-all_ALGSUPPORT__3B_FA_18_00_00_81_31_FE_45_4A_43_4F_50_33_31_56_32_33_32_98_(provided_by_PetrS).csv",
+          "kind": "support",
+          "createdAt": 1784700268
+        }
+      ]
+    },
+    "jCardSim-3.0.4-SNAPSHOT": {
+      "atrs": [],
+      "unitCount": 1,
+      "runs": [
+        {
+          "rel": "javacard/Profiles/results/jCardSim-3.0.4-SNAPSHOT_ALGSUPPORT__3B_FA_18_00_00_81_31_FE_45_4A_43_4F_50_33_31_56_32_33_32_98_(provided_by_PetrS).csv",
+          "kind": "support",
+          "createdAt": 1784700269
+        }
+      ]
+    },
+    "jCardSim-3.0.5-SNAPSHOT": {
+      "atrs": [],
+      "unitCount": 1,
+      "runs": [
+        {
+          "rel": "javacard/Profiles/results/jCardSim-3.0.5-SNAPSHOT_ALGSUPPORT__3B_FA_18_00_00_81_31_FE_45_4A_43_4F_50_33_31_56_32_33_32_98_(provided_by_PetrS).csv",
+          "kind": "support",
+          "createdAt": 1784700270
+        }
+      ]
+    },
+    "jCardSim-3.0.5.5": {
+      "atrs": [],
+      "unitCount": 1,
+      "runs": [
+        {
+          "rel": "javacard/Profiles/results/jCardSim-3.0.5.5_ALGSUPPORT__3B_FA_18_00_00_81_31_FE_45_4A_43_4F_50_33_31_56_32_33_32_98_(provided_by_Licel_jCardSim).csv",
+          "kind": "support",
+          "createdAt": 1784700271
+        }
+      ]
+    },
+    "jCardSim-3.0.6-SNAPSHOT": {
+      "atrs": [],
+      "unitCount": 1,
+      "runs": [
+        {
+          "rel": "javacard/Profiles/results/jCardSim-3.0.6-SNAPSHOT_ALGSUPPORT__3B_FA_18_00_00_81_31_FE_45_4A_43_4F_50_33_31_56_32_33_32_98_(provided_by_PetrS).csv",
+          "kind": "support",
+          "createdAt": 1784700272
+        }
+      ]
+    },
+    "n26 mastercard.txt": {
+      "atrs": [],
+      "unitCount": 1,
+      "runs": [
+        {
+          "rel": "cplc/n26_mastercard.txt",
+          "kind": "cplc",
+          "createdAt": 1784700273
+        }
+      ]
+    },
+    "Oberthur CosmoDual72K": {
+      "atrs": [
+        "3b7b1800000031c06477e30300829000"
+      ],
+      "unitCount": 3,
+      "runs": [
+        {
+          "rel": "javacard/Profiles/aid/Oberthur_Cosmo_Dual_72K_AIDSUPPORT_3B7B1800000031C06477E30300829000.csv",
+          "kind": "aid",
+          "createdAt": 1784700229
+        },
+        {
+          "rel": "javacard/Profiles/results/Oberthur_CosmoDual72K_3B 7B 18 00 00 00 31 C0 64 77 E3 03 00 82 90 00_(provided_by_PetrS).csv",
+          "kind": "support",
+          "createdAt": 1784700233
+        },
+        {
+          "rel": "javacard/Profiles/aid/Oberthur_CosmoDual72K_AIDSUPPORT_3B7B1800000031C06477E30300829000.csv",
+          "kind": "aid",
+          "createdAt": 1784700234
+        }
+      ]
+    },
+    "Oberthur Cosmo V7 64K Dual 128K": {
+      "atrs": [
+        "3bdb180080b1fe451f830031c064c7fc1000019000fa"
+      ],
+      "unitCount": 1,
+      "runs": [
+        {
+          "rel": "javacard/Profiles/results/Oberthur_Cosmo_V7_64K_Dual_128K_3B DB 18 00 80 B1 FE 45 1F 83 00 31 C0 64 C7 FC 10 00 01 90 00 FA_(provided_by_Cosmo).csv",
+          "kind": "support",
+          "createdAt": 1784700230
+        }
+      ]
+    },
+    "Oberthur Cosmo v7": {
+      "atrs": [
+        "3bdb960080b1fe451f830031c064c308010001900095"
+      ],
+      "unitCount": 2,
+      "runs": [
+        {
+          "rel": "javacard/Profiles/aid/Oberthur_Cosmo_v7_AIDSUPPORT_3BDB960080B1FE451F830031C064C308010001900095.csv",
+          "kind": "aid",
+          "createdAt": 1784700231
+        },
+        {
+          "rel": "javacard/Profiles/results/Oberthur_Cosmo_v7_ALGSUPPORT__3b_db_96_00_80_b1_fe_45_1f_83_00_31_c0_64_c3_08_01_00_01_90_00_95_(provided_by_PetrS).csv",
+          "kind": "support",
+          "createdAt": 1784700232
+        }
+      ]
+    },
+    "Oberthur ID-ONE Cosmo 64 RSA v5.4": {
+      "atrs": [
+        "3b7b1800000031c06477e91000019000"
+      ],
+      "unitCount": 3,
+      "runs": [
+        {
+          "rel": "javacard/Profiles/performance/fixed/Oberthur_ID-ONE_Cosmo_64_RSA_v5.4____PERFORMANCE_SYMMETRIC_ASYMMETRIC_DATAFIXED_1437603478924__3b_7b_18_00_00_00_31_c0_64_77_e9_10_00_01_90_00.csv",
+          "kind": "perf-fixed",
+          "createdAt": 1784700235
+        },
+        {
+          "rel": "javacard/Profiles/results/Oberthur_ID-ONE_Cosmo_64_RSA_v5.4_ICFabDate_2007_031_ALGSUPPORT__3b_7b_18_00_00_00_31_c0_64_77_e9_10_00_01_90_00_(provided_by_PetrS).csv",
+          "kind": "support",
+          "createdAt": 1784700236
+        },
+        {
+          "rel": "javacard/Profiles/aid/Oberthur_ID-One_Cosmo_64_RSA_v5.4_AIDSUPPORT_3B7B1800000031C06477E91000019000.csv",
+          "kind": "aid",
+          "createdAt": 1784700237
+        }
+      ]
+    },
+    "P71D321": {
+      "atrs": [
+        "3b8580018073c821100e"
+      ],
+      "unitCount": 1,
+      "runs": [
+        {
+          "rel": "javacard/Profiles/results/NXP_JCOP4_P71D321_ALGSUPPORT__3b_85_80_01_80_73_c8_21_10_0e_(provided_by_Jean_Dupont).csv",
+          "kind": "support",
+          "createdAt": 1784700238
+        }
+      ]
+    },
+    "P71D600": {
+      "atrs": [
+        "3b8a80010031c173c8400000900090"
+      ],
+      "unitCount": 1,
+      "runs": [
+        {
+          "rel": "javacard/Profiles/results/NXP_JCOP4_P71D600_ALGSUPPORT__3b_8a_80_01_00_31_c1_73_c8_40_00_00_90_00_90_(provided_by_Jean_Dupont).csv",
+          "kind": "support",
+          "createdAt": 1784700239
+        }
+      ]
+    },
+    "PIVKey C910": {
+      "atrs": [
+        "3bfc180000813180459067464a00641606f2727e00e0"
+      ],
+      "unitCount": 2,
+      "runs": [
+        {
+          "rel": "javacard/Profiles/results/PIVKey_C910_ALGSUPPORT__3b_fc_18_00_00_81_31_80_45_90_67_46_4a_00_64_16_06_f2_72_7e_00_e0_(provided_by_Anonymous).csv",
+          "kind": "support",
+          "createdAt": 1784700240
+        },
+        {
+          "rel": "javacard/Profiles/aid/PIVKey_C910_AIDSUPPORT_3BFC180000813180459067464A00641606F2727E00E0.csv",
+          "kind": "aid",
+          "createdAt": 1784700242
+        }
+      ]
+    },
+    "PIVKey C980": {
+      "atrs": [
+        "3b898001535049564b4559373044"
+      ],
+      "unitCount": 1,
+      "runs": [
+        {
+          "rel": "javacard/Profiles/results/PIVKey_C980_ALGSUPPORT__3b_89_80_01_53_50_49_56_4b_45_59_37_30_44_(provide_by_Arthur_Moore).csv",
+          "kind": "support",
+          "createdAt": 1784700241
+        }
+      ]
+    },
+    "SECORA ID S (SCP02 with RSA2k JC305 GP230)": {
+      "atrs": [
+        "3bb89700c00831fe45ffff1357305023006a"
+      ],
+      "unitCount": 1,
+      "runs": [
+        {
+          "rel": "javacard/Profiles/performance/fixed/SECORA_ID_S_(SCP02_with_RSA2k_JC305_GP230)____PERFORMANCE_SYMMETRIC_ASYMMETRIC_DATAFIXED_1614583478094__3b_b8_97_00_c0_08_31_fe_45_ff_ff_13_57_30_50_23_00_6a_(provided_by_Thoth).csv",
+          "kind": "perf-fixed",
+          "createdAt": 1784700243
+        }
+      ]
+    },
+    "SECORA ID X": {
+      "atrs": [
+        "3bb89700c00831fe45ffff13583050230065"
+      ],
+      "unitCount": 1,
+      "runs": [
+        {
+          "rel": "javacard/Profiles/performance/fixed/SECORA_ID_X____PERFORMANCE_SYMMETRIC_ASYMMETRIC_DATAFIXED_1618222805031__3b_b8_97_00_c0_08_31_fe_45_ff_ff_13_58_30_50_23_00_65.csv",
+          "kind": "perf-fixed",
+          "createdAt": 1784700244
+        }
+      ]
+    },
+    "Samsung": {
+      "atrs": [
+        "3bfc180000813180459067464a01000524c0727e0086"
+      ],
+      "unitCount": 1,
+      "runs": [
+        {
+          "rel": "javacard/Profiles/results/Feitian_C21C_Samsung_S3FS91J_ALGSUPPORT__3b_fc_18_00_00_81_31_80_45_90_67_46_4a_01_00_05_24_c0_72_7e_00_86_(provided_by_Thotheolh_Tay).csv",
+          "kind": "support",
+          "createdAt": 1784700245
+        }
+      ]
+    },
+    "Schlumberger Cyberflex 32K e-gate": {
+      "atrs": [],
+      "unitCount": 1,
+      "runs": [
+        {
+          "rel": "javacard/Profiles/results/Axalto_Cyberflex32_3B 75 94 00 00 62 02 02 02 01_(provided_by_PetrS).csv",
+          "kind": "support",
+          "createdAt": 1784700246
+        }
+      ]
+    },
+    "Softlock SLCOS InfineonSLE78": {
+      "atrs": [
+        "3b8a8001534c434f5320543d434c0d"
+      ],
+      "unitCount": 2,
+      "runs": [
+        {
+          "rel": "javacard/Profiles/performance/fixed/Softlock_SLCOS_Infineon_SLE78___PERFORMANCE_SYMMETRIC_ASYMMETRIC_DATAFIXED_1460060148848__3b_8a_80_01_53_4c_43_4f_53_20_54_3d_43_4c_0d.csv",
+          "kind": "perf-fixed",
+          "createdAt": 1784700247
+        },
+        {
+          "rel": "javacard/Profiles/results/Softlock_SLCOS_InfineonSLE78_ALGSUPPORT__3b_8a_80_01_53_4c_43_4f_53_20_54_3d_43_4c_0d_(provided_by_Ahmed_Mamdouh).csv",
+          "kind": "support",
+          "createdAt": 1784700248
+        }
+      ]
+    },
+    "Taisys SIMoME Vault": {
+      "atrs": [
+        "3b9f95803fc3a08031e073fe2113638dd20183f09000e6",
+        "3b9f95803fc7a08031e073fa21106300000083f09000bb"
+      ],
+      "unitCount": 6,
+      "runs": [
+        {
+          "rel": "javacard/Profiles/aid/Taisys_SIMoME_VAULT_AIDSUPPORT_3B9F95803FC7A08031E073FA21106300000083F09000BB.csv",
+          "kind": "aid",
+          "createdAt": 1784700250
+        },
+        {
+          "rel": "javacard/Profiles/performance/fixed/Taisys_SIMoME_VAULT____PERFORMANCE_SYMMETRIC_ASYMMETRIC_DATAFIXED_1648721328221__3b_9f_95_80_3f_c3_a0_80_31_e0_73_fe_21_13_63_8d_d2_01_83_f0_90_00_e6_(provided_by_ThothTrust).csv",
+          "kind": "perf-fixed",
+          "createdAt": 1784700251
+        },
+        {
+          "rel": "javacard/Profiles/results/Taisys_SIMoME_VAULT_ICFabDate_2016_ALGSUPPORT__3b_9f_95_80_3f_c7_a0_80_31_e0_73_fa_21_10_63_00_00_00_83_f0_90_00_bb_(provided_by_PetrS).csv",
+          "kind": "support",
+          "createdAt": 1784700252
+        },
+        {
+          "rel": "javacard/Profiles/results/Taisys_SIMoME_VAULT_ICFabDate_2019_ALGSUPPORT__3b_9f_95_80_3f_c3_a0_80_31_e0_73_fe_21_13_63_8d_d2_01_83_f0_90_00_e6_(provided_by_Thoth).csv",
+          "kind": "support",
+          "createdAt": 1784700253
+        },
+        {
+          "rel": "javacard/Profiles/performance/fixed/Taisys_SIMoNE_VAULT____PERFORMANCE_SYMMETRIC_ASYMMETRIC_DATAFIXED_1634724620328__3b_9f_95_80_3f_c7_a0_80_31_e0_73_fa_21_10_63_00_00_00_83_f0_90_00_bb.csv",
+          "kind": "perf-fixed",
+          "createdAt": 1784700254
+        },
+        {
+          "rel": "javacard/Profiles/performance/variable/Taisys_SIMoNE_Vault____PERFORMANCE_SYMMETRIC_ASYMMETRIC_DATADEPEND_1634893836584__3b_9f_95_80_3f_c7_a0_80_31_e0_73_fa_21_10_63_00_00_00_83_f0_90_00_bb.csv",
+          "kind": "perf-variable",
+          "createdAt": 1784700255
+        }
+      ]
+    },
+    "Tongxin Microelectronics THD89 T101": {
+      "atrs": [
+        "3b1b96506f6c6172697320190121",
+        "3b1b96506f6c6172697320210111"
+      ],
+      "unitCount": 2,
+      "runs": [
+        {
+          "rel": "javacard/Profiles/results/Tongxin_Microelectronics_THD89_T101_ICFabDat_2021_011_ALGSUPPORT__3b_1b_96_50_6f_6c_61_72_69_73_20_21_01_11_(provided_by_Stephen_Rothery).csv",
+          "kind": "support",
+          "createdAt": 1784700249
+        },
+        {
+          "rel": "javacard/Profiles/results/Tongxin_Microelectronics_THD89_T101_ALGSUPPORT__3b_1b_96_50_6f_6c_61_72_69_73_20_19_01_21_(provided_by_Thoth_Tay).csv",
+          "kind": "support",
+          "createdAt": 1784700256
+        }
+      ]
+    },
+    "Unknown": {
+      "atrs": [
+        "3b6800000073c840120090003b6800000073c84012009000"
+      ],
+      "unitCount": 1,
+      "runs": [
+        {
+          "rel": "javacard/Profiles/results/Unknown_3b_68_00_00_00_73_c8_40_12_00_90_00_(provided_by_Amir_Digar_Nemikhandad).csv",
+          "kind": "support",
+          "createdAt": 1784700257
+        }
+      ]
+    },
+    "Yubikey Neo (not open JavaCard)": {
+      "atrs": [
+        "3bfa1300008131fe15597562696b65794e454fa6"
+      ],
+      "unitCount": 1,
+      "runs": [
+        {
+          "rel": "javacard/Profiles/results/Yubikey Neo_(Warning_not_open_JavaCard)_3b fa 13 00 00 81 31 fe 15 59 75 62 69 6b 65 79 4e 45 4f a6_(provided_by_Pierre-d and Cosmo).csv",
+          "kind": "support",
+          "createdAt": 1784700258
+        }
+      ]
+    },
+    "[Undisclosed 5]": {
+      "atrs": [
+        "3b00000000000000000000000000000000000000000000"
+      ],
+      "unitCount": 1,
+      "runs": [
+        {
+          "rel": "javacard/Profiles/results/[undisclosed5]_3b_00_00_00_00_00_00_00_00_00_00_00_00_00_00_00_00_00_00_00_00_00_00_(provided_by_Metro).csv",
+          "kind": "support",
+          "createdAt": 1784700259
+        }
+      ]
+    },
+    "[Undisclosed 6]": {
+      "atrs": [
+        "3b00000000000000000000000000000000000000000000"
+      ],
+      "unitCount": 1,
+      "runs": [
+        {
+          "rel": "javacard/Profiles/results/[undisclosed6]_3b_00_00_00_00_00_00_00_00_00_00_00_00_00_00_00_00_00_00_00_00_00_00_(provided_by_Metro).csv",
+          "kind": "support",
+          "createdAt": 1784700260
+        }
+      ]
+    },
+    "[undisclosed1]": {
+      "atrs": [],
+      "unitCount": 1,
+      "runs": [
+        {
+          "rel": "javacard/Profiles/results/[undisclosed1]_3b xx xx xx xx xx xx xx xx xx xx xx xx xx xx_(provided_by_Cosmo).csv",
+          "kind": "support",
+          "createdAt": 1784700261
+        }
+      ]
+    },
+    "[undisclosed2]": {
+      "atrs": [],
+      "unitCount": 1,
+      "runs": [
+        {
+          "rel": "javacard/Profiles/results/[undisclosed2]_3b xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx_(provided_by_Cosmo).csv",
+          "kind": "support",
+          "createdAt": 1784700262
+        }
+      ]
+    },
+    "[undisclosed3]": {
+      "atrs": [],
+      "unitCount": 1,
+      "runs": [
+        {
+          "rel": "javacard/Profiles/results/[undisclosed3]_3b xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx_(provided_by_Cosmo).csv",
+          "kind": "support",
+          "createdAt": 1784700263
+        }
+      ]
+    },
+    "[undisclosed4]": {
+      "atrs": [],
+      "unitCount": 1,
+      "runs": [
+        {
+          "rel": "javacard/Profiles/results/[undisclosed4]_3b xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx_(provided_by_Cosmo).csv",
+          "kind": "support",
+          "createdAt": 1784700264
+        }
+      ]
+    },
+    "sysmoISIM-SJA2": {
+      "atrs": [
+        "3b9f96801f878031e073fe211b674a4c753034054ba9"
+      ],
+      "unitCount": 1,
+      "runs": [
+        {
+          "rel": "javacard/Profiles/results/sysmoISIM-SJA2_ALGSUPPORT__3b_9f_96_80_1f_87_80_31_e0_73_fe_21_1b_67_4a_4c_75_30_34_05_4b_a9_(provided_by_Chris_Hicks).csv",
+          "kind": "support",
+          "createdAt": 1784700274
+        }
+      ]
+    },
+    "sysmoISIM-SJA5-9FV": {
+      "atrs": [
+        "3b9f96801f878031e073fe211b674a357530350259c4"
+      ],
+      "unitCount": 1,
+      "runs": [
+        {
+          "rel": "javacard/Profiles/results/sysmoISIM-SJA5-9FV_ALGSUPPORT__3b_9f_96_80_1f_87_80_31_e0_73_fe_21_1b_67_4a_35_75_30_35_02_59_c4.csv",
+          "kind": "support",
+          "createdAt": 1784700275
+        }
+      ]
+    },
+    "sysmoISIM-SJA5-S17": {
+      "atrs": [
+        "3b9f96801f878031e073fe211b674a357530350265f8"
+      ],
+      "unitCount": 1,
+      "runs": [
+        {
+          "rel": "javacard/Profiles/results/sysmoISIM-SJA5-S17_ALGSUPPORT__3b_9f_96_80_1f_87_80_31_e0_73_fe_21_1b_67_4a_35_75_30_35_02_65_f8.csv",
+          "kind": "support",
+          "createdAt": 1784700276
+        }
+      ]
+    },
+    "sysmocom sysmoUSIM-SJS1-3FF": {
+      "atrs": [
+        "3b9f96801fc78031a073be21136743200718000001a5"
+      ],
+      "unitCount": 2,
+      "runs": [
+        {
+          "rel": "javacard/Profiles/results/Sysmocom_sysmoISIM-SJA2_ALGSUPPORT__3b_9f_96_80_1f_87_80_31_e0_73_fe_21_1b_67_4a_4c_75_30_34_05_4b_a9_(provided_by_Chris_Hicks).csv",
+          "kind": "support",
+          "createdAt": 1784700277
+        },
+        {
+          "rel": "javacard/Profiles/results/sysmocom_sysmoUSIM-SJS1-3FF_ALGSUPPORT__3b_9f_96_80_1f_c7_80_31_a0_73_be_21_13_67_43_20_07_18_00_00_01_a5_(provided_by_promovicz).csv",
+          "kind": "support",
+          "createdAt": 1784700278
+        }
+      ]
+    },
+    "J3H145...C5": {
+      "atrs": [],
+      "unitCount": 1,
+      "runs": [
+        {
+          "rel": "javacard/Profiles/results/NXP_JCOP_J3H145G_C5_ALGSUPPORT__3b_94_95_81_01_46_54_56_00_c5_(provided_by_Jhony_Melendez).csv",
+          "kind": "support",
+          "createdAt": 1784700105
+        }
+      ]
+    },
+    "NXP JCOP3 J3H145 SECID P60": {
+      "atrs": [],
+      "unitCount": 5,
+      "runs": [
+        {
+          "rel": "javacard/Profiles/results/NXP_JCOP3_J3H145_(JCOP_3_SECID_P60)_ALGSUPPORT__3b_9e_95_81_01_41_4a_43_4f_53_01_45_48_54_01_52_01_56_00_83_(provided_by_Kenneth_Benson).csv",
+          "kind": "support",
+          "createdAt": 1784700182
+        },
+        {
+          "rel": "javacard/Profiles/aid/NXP_JCOP3_J3H145_SECID_P60_AIDSUPPORT_3B119580.csv",
+          "kind": "aid",
+          "createdAt": 1784700200
+        },
+        {
+          "rel": "javacard/Profiles/performance/variable/NXP_JCOP3_J3H145_SECID_P60____PERFORMANCE_SYMMETRIC_ASYMMETRIC_DATADEPEND_1634842922783__3b_94_95_81_01_46_54_56_01_c4.csv",
+          "kind": "perf-variable",
+          "createdAt": 1784700201
+        },
+        {
+          "rel": "javacard/Profiles/results/NXP_JCOP3_J3H145_SECID_P60_ALGSUPPORT__3b_11_95_80_(provided_by_Luka_Logar_and_Rowland_Watkins_and_PetrS).csv",
+          "kind": "support",
+          "createdAt": 1784700202
+        },
+        {
+          "rel": "javacard/Profiles/performance/fixed/NXP_JCOP3_J3H145g_P60____PERFORMANCE_SYMMETRIC_ASYMMETRIC_DATAFIXED_1634626143124__3b_94_95_81_01_46_54_56_01_c4.csv",
+          "kind": "perf-fixed",
+          "createdAt": 1784700203
+        }
+      ]
+    },
+    "NXP J3H145 RSA4096": {
+      "atrs": [],
+      "unitCount": 3,
+      "runs": [
+        {
+          "rel": "javacard/Profiles/performance/fixed/NXP_J3H145_RSA4096____PERFORMANCE_SYMMETRIC_ASYMMETRIC_DATAFIXED_1615470410543__3b_94_95_81_01_46_54_56_01_c4.csv",
+          "kind": "perf-fixed",
+          "createdAt": 1784700157
+        },
+        {
+          "rel": "javacard/Profiles/performance/variable/NXP_J3H145_RSA4096____PERFORMANCE_SYMMETRIC_ASYMMETRIC_DATADEPEND_1615555347012__3b_94_95_81_01_46_54_56_01_c4.csv",
+          "kind": "perf-variable",
+          "createdAt": 1784700158
+        },
+        {
+          "rel": "javacard/Profiles/results/NXP_JCOP3_J3H145g_P60/NXP_JCOP3_J3H145_RSA4096_ALGSUPPORT__3b_80_80_01_01_(provided_by_Zian).csv",
+          "kind": "support",
+          "createdAt": 1784700199
+        }
+      ]
+    },
+    "NXP JCOP4 J3R180 SECID P71": {
+      "atrs": [],
+      "unitCount": 6,
+      "runs": [
+        {
+          "rel": "javacard/Profiles/aid/NXP_JCOP4_J3R180_P71_AIDSUPPORT_3BFA1800FF10004A546178436F72655631.csv",
+          "kind": "aid",
+          "createdAt": 1784700209
+        },
+        {
+          "rel": "javacard/Profiles/results/NXP_JCOP4_J3R180_P71_ALGSUPPORT__3b_fa_18_00_ff_10_00_4a_54_61_78_43_6f_72_65_56_31_(provided_by_PetrS).csv",
+          "kind": "support",
+          "createdAt": 1784700210
+        },
+        {
+          "rel": "javacard/Profiles/results/NXP_JCOP4_J3R180_SecID_Feitian_ALGSUPPORT__3b_d5_18_ff_81_91_fe_1f_c3_80_73_c8_21_10_0a_(provided_by_PetrS).csv",
+          "kind": "support",
+          "createdAt": 1784700211
+        },
+        {
+          "rel": "javacard/Profiles/performance/fixed/NXP_JCOP4_J3R180_SECID_P71____PERFORMANCE_SYMMETRIC_ASYMMETRIC_DATAFIXED_1634708420109__3b_d5_18_ff_81_91_fe_1f_c3_80_73_c8_21_10_0a.csv",
+          "kind": "perf-fixed",
+          "createdAt": 1784700212
+        },
+        {
+          "rel": "javacard/Profiles/performance/variable/NXP_JCOP4_J3R180_SECID_P71____PERFORMANCE_SYMMETRIC_ASYMMETRIC_DATADEPEND_1634842873864__3b_fb_91_00_ff_91_81_71_fe_40_00_41_20_00_11_77_91_80_73_c8_21_10_d6.csv",
+          "kind": "perf-variable",
+          "createdAt": 1784700213
+        },
+        {
+          "rel": "javacard/Profiles/aid/NXP_JCOP4_J3R180_Feitian_AIDSUPPORT_3BD518FF8191FE1FC38073C821100A.csv",
+          "kind": "aid",
+          "createdAt": 1784700214
+        }
+      ]
+    },
+    "NXP JCOP J3H145G C4": {
+      "atrs": [],
+      "unitCount": 1,
+      "runs": [
+        {
+          "rel": "javacard/Profiles/results/NXP_JCOP_J3H145G_C4_ALGSUPPORT__3b_94_95_81_01_46_54_56_01_c4_(provided_by_Jhony_Melendez).csv",
+          "kind": "support",
+          "createdAt": 1784700266
+        }
+      ]
+    },
+    "NXP J3H145 Dual Interface 144k": {
+      "atrs": [],
+      "unitCount": 1,
+      "runs": [
+        {
+          "rel": "javacard/Profiles/results/NXP_JCOP3_J3H145g_P60/NXP_J3H145_Dual_Interface_Java_card_-_144k_ALGSUPPORT__3b_dc_18_ff_81_91_fe_1f_c3_80_73_c8_21_13_66_05_03_63_51_00_02_50.csv",
+          "kind": "support",
+          "createdAt": 1784700155
+        }
+      ]
+    },
+    "NXP J3H145 SCP03 RSA4K": {
+      "atrs": [],
+      "unitCount": 2,
+      "runs": [
+        {
+          "rel": "javacard/Profiles/performance/fixed/NXP_J3H145_RSA4096_enabled_SCP03____PERFORMANCE_SYMMETRIC_ASYMMETRIC_DATAFIXED_1616222288832__3b_dc_18_ff_81_91_fe_1f_c3_80_73_c8_21_13_66_05_03_63_51_00_02_50.csv",
+          "kind": "perf-fixed",
+          "createdAt": 1784700156
+        },
+        {
+          "rel": "javacard/Profiles/results/NXP_JCOP3_J3H145_SCP03_RSA4K_ALGSUPPORT__3b_dc_18_ff_81_91_fe_1f_c3_80_73_c8_21_13_66_05_03_63_51_00_02_50_(provided_by_Peter_Steiert).csv",
+          "kind": "support",
+          "createdAt": 1784700159
+        }
+      ]
+    },
+    "J2R180S0X6Q CZA441 JCOP4 SecID RSAKG": {
+      "atrs": [],
+      "unitCount": 1,
+      "runs": [
+        {
+          "rel": "javacard/Profiles/results/J2R180S0X6Q_CZA441_JCOP_4_SecID_RSAKG_ALGSUPPORT__3b_d5_18_ff_81_91_fe_1f_c3_80_73_c8_21_10_0a_(provided_by_Jonas_Lenz).csv",
+          "kind": "support",
+          "createdAt": 1784700100
+        }
+      ]
+    },
+    "NXP J3R180 SECID 4K RSA OBKG ECC": {
+      "atrs": [],
+      "unitCount": 1,
+      "runs": [
+        {
+          "rel": "javacard/Profiles/results/NXP_JCOP4_J3R180_SECID_4K_RSA_OBKG_ECC_ALGSUPPORT__3b_d5_18_ff_81_91_fe_1f_c3_80_73_c8_21_10_0a_(provided_by_dilucide).csv",
+          "kind": "support",
+          "createdAt": 1784700161
+        }
+      ]
+    },
+    "NXP JCOP CJ2A081": {
+      "atrs": [],
+      "unitCount": 4,
+      "runs": [
+        {
+          "rel": "javacard/Profiles/performance/fixed/NXP_CJ2A081____PERFORMANCE_SYMMETRIC_ASYMMETRIC_DATAFIXED_1557936391694__3b_f8_18_00_ff_81_31_fe_45_4a_43_4f_50_76_32_34_31_43.csv",
+          "kind": "perf-fixed",
+          "createdAt": 1784700129
+        },
+        {
+          "rel": "javacard/Profiles/performance/variable/NXP_CJ2A081____PERFORMANCE_SYMMETRIC_ASYMMETRIC_DATADEPEND_1634969585474__3b_f8_18_00_ff_81_31_fe_45_4a_43_4f_50_76_32_34_31_43.csv",
+          "kind": "perf-variable",
+          "createdAt": 1784700130
+        },
+        {
+          "rel": "javacard/Profiles/aid/NXP_JCOP_CJ2A081_AIDSUPPORT_3BF81300008131FE454A434F5076323431B7.csv",
+          "kind": "aid",
+          "createdAt": 1784700175
+        },
+        {
+          "rel": "javacard/Profiles/performance/fixed/NXP_JCOP_CJ2A081____PERFORMANCE_SYMMETRIC_ASYMMETRIC_DATAFIXED_1634708377965__3b_f8_18_00_ff_81_31_fe_45_4a_43_4f_50_76_32_34_31_43.csv",
+          "kind": "perf-fixed",
+          "createdAt": 1784700176
+        }
+      ]
+    },
+    "NXP JCOP CJ2A081 JC222": {
+      "atrs": [],
+      "unitCount": 1,
+      "runs": [
+        {
+          "rel": "javacard/Profiles/results/NXP_JCOP_CJ2A081_JC222_ICFabDate_2012_240_3b_f8_13_00_00_81_31_fe_45_4a_43_4f_50_76_32_34_31_b7_(provided_by_PetrS).csv",
+          "kind": "support",
+          "createdAt": 1784700177
+        }
+      ]
+    },
+    "Omni Ring": {
+      "atrs": [],
+      "unitCount": 1,
+      "runs": [
+        {
+          "rel": "javacard/Profiles/results/Omni_Ring_ALGSUPPORT__3b_88_80_01_00_00_00_11_77_81_83_00_6d_(provided_by_Nazar_Serhiichuk).csv",
+          "kind": "support",
+          "createdAt": 1784700178
+        }
+      ]
+    },
+    "IBM TPM 8215.1561.22.13878": {
+      "atrs": [],
+      "unitCount": 2,
+      "runs": [
+        {
+          "rel": "tpm/profiles/performance/IBM _SW   TPM_8215.1561.22.13878.csv",
+          "kind": "tpm-perf",
+          "createdAt": 1784700083
+        },
+        {
+          "rel": "tpm/profiles/results/IBM _SW   TPM_8215.1561.22.13878.csv",
+          "kind": "tpm-support",
+          "createdAt": 1784700084
+        }
+      ]
+    },
+    "INTC TPM 10.0.36.1030": {
+      "atrs": [],
+      "unitCount": 2,
+      "runs": [
+        {
+          "rel": "tpm/profiles/performance/INTC_Intel_10.0.36.1030.csv",
+          "kind": "tpm-perf",
+          "createdAt": 1784700085
+        },
+        {
+          "rel": "tpm/profiles/results/INTC_Intel_10.0.36.1030.csv",
+          "kind": "tpm-support",
+          "createdAt": 1784700086
+        }
+      ]
+    },
+    "INTC TPM 11.0.0.1202": {
+      "atrs": [],
+      "unitCount": 2,
+      "runs": [
+        {
+          "rel": "tpm/profiles/performance/INTC_Intel_11.0.0.1202.csv",
+          "kind": "tpm-perf",
+          "createdAt": 1784700087
+        },
+        {
+          "rel": "tpm/profiles/results/INTC_Intel_11.0.0.1202.csv",
+          "kind": "tpm-support",
+          "createdAt": 1784700088
+        }
+      ]
+    },
+    "INTC TPM 11.6.0.1126": {
+      "atrs": [],
+      "unitCount": 2,
+      "runs": [
+        {
+          "rel": "tpm/profiles/performance/INTC_Intel_11.6.0.1126.csv",
+          "kind": "tpm-perf",
+          "createdAt": 1784700089
+        },
+        {
+          "rel": "tpm/profiles/results/INTC_Intel_11.6.0.1126.csv",
+          "kind": "tpm-support",
+          "createdAt": 1784700090
+        }
+      ]
+    },
+    "INTC TPM 11.8.50.3399": {
+      "atrs": [],
+      "unitCount": 2,
+      "runs": [
+        {
+          "rel": "tpm/profiles/performance/INTC_Intel_11.8.50.3399.csv",
+          "kind": "tpm-perf",
+          "createdAt": 1784700091
+        },
+        {
+          "rel": "tpm/profiles/results/INTC_Intel_11.8.50.3399.csv",
+          "kind": "tpm-support",
+          "createdAt": 1784700092
+        }
+      ]
+    },
+    "INTC TPM 11.8.50.3425": {
+      "atrs": [],
+      "unitCount": 2,
+      "runs": [
+        {
+          "rel": "tpm/profiles/performance/INTC_Intel_11.8.50.3425.csv",
+          "kind": "tpm-perf",
+          "createdAt": 1784700093
+        },
+        {
+          "rel": "tpm/profiles/results/INTC_Intel_11.8.50.3425.csv",
+          "kind": "tpm-support",
+          "createdAt": 1784700094
+        }
+      ]
+    },
+    "INTC TPM 302.12.0.0": {
+      "atrs": [],
+      "unitCount": 2,
+      "runs": [
+        {
+          "rel": "tpm/profiles/performance/INTC_Intel_302.12.0.0.csv",
+          "kind": "tpm-perf",
+          "createdAt": 1784700095
+        },
+        {
+          "rel": "tpm/profiles/results/INTC_Intel_302.12.0.0.csv",
+          "kind": "tpm-support",
+          "createdAt": 1784700096
+        }
+      ]
+    },
+    "NTC TPM 1.3.1.0": {
+      "atrs": [],
+      "unitCount": 2,
+      "runs": [
+        {
+          "rel": "tpm/profiles/performance/NTC_rlsNPCT  _1.3.1.0.csv",
+          "kind": "tpm-perf",
+          "createdAt": 1784700142
+        },
+        {
+          "rel": "tpm/profiles/results/NTC_rlsNPCT  _1.3.1.0.csv",
+          "kind": "tpm-support",
+          "createdAt": 1784700143
+        }
+      ]
+    },
+    "NTC TPM 7.2.0.1": {
+      "atrs": [],
+      "unitCount": 2,
+      "runs": [
+        {
+          "rel": "tpm/profiles/performance/NTC_NPCT75x6rls_7.2.0.1.csv",
+          "kind": "tpm-perf",
+          "createdAt": 1784700144
+        },
+        {
+          "rel": "tpm/profiles/results/NTC_NPCT75x6rls_7.2.0.1.csv",
+          "kind": "tpm-support",
+          "createdAt": 1784700145
+        }
+      ]
+    },
+    "STM TPM 73.4.17568.4452": {
+      "atrs": [],
+      "unitCount": 2,
+      "runs": [
+        {
+          "rel": "tpm/profiles/performance/STM __73.4.17568.4452.csv",
+          "kind": "tpm-perf",
+          "createdAt": 1784700263
+        },
+        {
+          "rel": "tpm/profiles/results/STM __73.4.17568.4452.csv",
+          "kind": "tpm-support",
+          "createdAt": 1784700264
+        }
+      ]
+    }
+  }
+}
