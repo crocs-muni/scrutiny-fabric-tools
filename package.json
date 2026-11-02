@@ -41,13 +41,14 @@
     "typescript": "^5.8"
   },
   "pnpm": {
-    "//pnpm": "Security floors on transitive dev-dependency chains. qs >=6.16.0 (via @stryker-mutator/core -> typed-rest-client) carries GHSA-q8mj-m7cp-5q26, GHSA-x5fp-wj9c-mxmx, and GHSA-4mjr-xmp4-gh2g. brace-expansion >=5.0.12 and source-map-js >=1.2.2 close remaining moderate advisories reachable from the dev toolchain. zod >=4.6.6 (via @stryker-mutator/core -> mutation-server-protocol) closes its memory-exhaustion advisory; fast-uri >=3.1.9 (via @microsoft/api-extractor -> ajv) closes four low/moderate URI-parsing advisories. The vite pin of earlier history is gone: vitest 5 declares a proper ^6.4.0 || ^7 || ^8 range where pnpm resolves a patched version on its own, with no lockfile-snapshot trap. All are dev-only, never shipped: @scrutiny-fabric/core has diff as its sole runtime dependency.",
+    "//pnpm": "Security floors on transitive dev-dependency chains. qs >=6.16.0 (via @stryker-mutator/core -> typed-rest-client) carries GHSA-q8mj-m7cp-5q26, GHSA-x5fp-wj9c-mxmx, and GHSA-4mjr-xmp4-gh2g. brace-expansion >=5.0.12 and source-map-js >=1.2.2 close remaining moderate advisories reachable from the dev toolchain. zod >=4.6.6 (via @stryker-mutator/core -> mutation-server-protocol) closes its memory-exhaustion advisory; fast-uri >=3.1.9 (via @microsoft/api-extractor -> ajv) closes four low/moderate URI-parsing advisories; minimatch >=11.0.1 (via @microsoft/api-extractor and @stryker-mutator/core, both on 10.x) closes GHSA-g3hv-75wg-m249, a moderate globparts DoS. The vite pin of earlier history is gone: vitest 5 declares a proper ^6.4.0 || ^7 || ^8 range where pnpm resolves a patched version on its own, with no lockfile-snapshot trap. All are dev-only, never shipped: @scrutiny-fabric/core has diff as its sole runtime dependency.",
     "overrides": {
       "brace-expansion": ">=5.0.12",
       "source-map-js": ">=1.2.2",
       "qs": ">=6.16.0",
       "zod": ">=4.6.6",
-      "fast-uri": ">=3.1.9"
+      "fast-uri": ">=3.1.9",
+      "minimatch": ">=11.0.1"
     },
     "//builds": "Install-script allowlist, the infection vector of the Oct 2026 npm worm campaigns (tensorlake preinstall, MALFEX postinstall): a new transitive dep with lifecycle scripts is silently skipped rather than executed. esbuild fetches its platform binary via install; @biomejs/biome ships platform binaries the same way. pnpm 9 syntax.",
     "onlyBuiltDependencies": ["@biomejs/biome", "esbuild"],
