@@ -11,7 +11,9 @@
       "**/*.md",
       "vectors/**",
       "tools/extract-rules.mjs",
-      "packages/core/src/rules.ts"
+      "packages/core/src/rules.ts",
+      "examples/*-port/**",
+      "examples/publish-bulk.mjs"
     ]
   },
   "formatter": {
