@@ -230,9 +230,9 @@ func openSearch(base *boltdb.BoltBackend, searchIndexPath string) (*bleve.BleveB
 		// Only kind-1 notes carry vocabulary content. Kind 5 deletion
 		// requests MUST stay out of the search index: DEL-11 stores them but
 		// never acts on them, and a searchable deletion event would suggest
-		// the opposite semantics.
-		// TODO(verify): revisit this list when the vocabulary gate starts
-		// accepting more event kinds.
+		// the opposite semantics. Kind 0 profiles stay out as well: their
+		// superseded versions (NIP-01 replace) are never re-indexed, so an
+		// index entry would go stale on every profile update.
 		IndexableKinds: []nostr.Kind{nostr.KindTextNote},
 		// A single language: bleve's own language detector is only built for
 		// two or more (eventstore/bleve/lib.go:206-210).
