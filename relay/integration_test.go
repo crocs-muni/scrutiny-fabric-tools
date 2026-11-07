@@ -279,6 +279,125 @@ func TestPastAgeWindow(t *testing.T) {
 	}
 }
 
+// TestKindZeroReplaceableProfile pins the NIP-01 posture for kind 0: the
+// profile is stored, a newer profile of the same author supersedes the older
+// one, and a re-send of the older profile is dropped as already-superseded.
+func TestKindZeroReplaceableProfile(t *testing.T) {
+	sk := nostr.Generate()
+	pk := sk.Public()
+
+	dataDir := t.TempDir()
+	cfg := config.Config{
+		Paths: config.Paths{
+			DataDir:         dataDir,
+			BaseDBPath:      filepath.Join(dataDir, "base.bolt"),
+			SearchIndexPath: filepath.Join(dataDir, "search"),
+		},
+		ListenAddr:       "127.0.0.1:0",
+		ServiceURL:       "",
+		AllowedPubkeys:   []nostr.PubKey{pk},
+		AcceptedTags:     config.DefaultAcceptedTags(),
+		RelayName:        "scrutiny-fabric relay (test)",
+		RelayDescription: "integration test instance",
+		RelayContact:     config.DefaultRelayContact,
+		MaxQueryLimit:    500,
+		MaxEventPastAge:  config.DefaultMaxEventPastAge,
+	}
+
+	bundle, err := relay.Build(cfg, log.New(io.Discard, "", 0))
+	if err != nil {
+		t.Fatalf("building the relay: %v", err)
+	}
+	defer bundle.Close()
+
+	srv := httptest.NewServer(bundle.Handler())
+	defer srv.Close()
+
+	wsURL := "ws" + strings.TrimPrefix(srv.URL, "http")
+
+	ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
+	defer cancel()
+
+	conn, _, err := websocket.Dial(ctx, wsURL, nil)
+	if err != nil {
+		t.Fatalf("dialing the relay: %v", err)
+	}
+	defer conn.Close(websocket.StatusNormalClosure, "test done")
+
+	client := &wsClient{t: t, ctx: ctx, conn: conn}
+	client.expectEagerChallenge()
+
+	profile := func(name string, ts nostr.Timestamp) nostr.Event {
+		evt := nostr.Event{
+			Kind:      nostr.KindProfileMetadata,
+			CreatedAt: ts,
+			Tags:      nostr.Tags{{"l", "pilot-profile@example.org"}},
+			Content:   name,
+		}
+		if err := evt.Sign(sk); err != nil {
+			t.Fatalf("signing the profile: %v", err)
+		}
+		return evt
+	}
+
+	// 0) kind 0 is auth-gated like every other write: an unauthenticated
+	// profile is rejected with the NIP-42 challenge
+	first := profile("pilot profile v1", nostr.Now()-60)
+	client.send(nostr.EventEnvelope{Event: first})
+	unauthedOK := client.readOK(first.ID)
+	if unauthedOK.OK {
+		t.Fatal("expected the unauthenticated kind-0 write to be rejected")
+	}
+	if !strings.HasPrefix(unauthedOK.Reason, "auth-required:") {
+		t.Fatalf("unauthenticated kind-0 rejection reason = %q, want the auth-required: prefix", unauthedOK.Reason)
+	}
+
+	client.authenticate(sk, wsURL)
+
+	latest := func() string {
+		client.send(nostr.ReqEnvelope{
+			SubscriptionID: "profile-latest",
+			Filters:        []nostr.Filter{{Kinds: []nostr.Kind{nostr.KindProfileMetadata}, Authors: []nostr.PubKey{pk}}},
+		})
+		events := client.readUntilEOSE()
+		if len(events) != 1 {
+			t.Fatalf("profile query returned %d events, want exactly the one live profile", len(events))
+		}
+		return events[0].Content
+	}
+
+	// 1) the same profile, now authenticated, is accepted and queryable by
+	// kind + author
+	client.send(nostr.EventEnvelope{Event: first})
+	if ok := client.readOK(first.ID); !ok.OK {
+		t.Fatalf("kind 0 publish failed: %s", ok.Reason)
+	}
+	if got := latest(); got != "pilot profile v1" {
+		t.Fatalf("profile content = %q, want the first profile", got)
+	}
+
+	// 2) a newer profile of the same author supersedes it: the query returns
+	// the newer one only
+	second := profile("pilot profile v2", nostr.Now())
+	client.send(nostr.EventEnvelope{Event: second})
+	if ok := client.readOK(second.ID); !ok.OK {
+		t.Fatalf("second kind 0 publish failed: %s", ok.Reason)
+	}
+	if got := latest(); got != "pilot profile v2" {
+		t.Fatalf("profile content = %q, want the superseding profile", got)
+	}
+
+	// 3) a re-send of the older profile is an OK no-op: the superseded event
+	// stays superseded
+	client.send(nostr.EventEnvelope{Event: first})
+	if ok := client.readOK(first.ID); !ok.OK {
+		t.Fatalf("re-sent older profile must be an OK no-op, got: %s", ok.Reason)
+	}
+	if got := latest(); got != "pilot profile v2" {
+		t.Fatalf("profile content = %q, want the newer profile after the older re-send", got)
+	}
+}
+
 // TestSearchBudgetLimitsSearchesOnly drains the per-IP NIP-50 budget: the
 // search limiter holds 120 tokens (30/min refill) and has no loopback exemption,
 // so more searches than that are answered with CLOSED carrying the search
@@ -880,6 +999,12 @@ func assertNIP11(t *testing.T, baseURL string) {
 	}
 	if !strings.Contains(doc.PostingPolicy, "never re-emitted") {
 		t.Errorf("NIP-11 posting_policy = %q, want the probe-retention sentence", doc.PostingPolicy)
+	}
+	if !strings.Contains(doc.PostingPolicy, "kind 0 profile metadata") {
+		t.Errorf("NIP-11 posting_policy = %q, want the kind-0 profile sentence", doc.PostingPolicy)
+	}
+	if !strings.Contains(doc.Retention, "NIP-01 replaceable") {
+		t.Errorf("NIP-11 retention = %q, want the kind-0 NIP-01 exception note", doc.Retention)
 	}
 	if doc.Software != "github.com/crocs-muni/scrutiny-fabric-tools/relay" {
 		t.Errorf("NIP-11 software = %q", doc.Software)

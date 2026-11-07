@@ -101,6 +101,12 @@ func (g *AuthGate) Check(ctx context.Context, evt nostr.Event) (reject bool, msg
 
 // VocabularyGate implements the pilot vocabulary gate:
 //
+//   - kind 0 (profile metadata, NIP-01) is always accepted: a standard nostr
+//     kind, exempt from the scrutiny-fabric vocabulary. It is not "regular"
+//     in NIP-01 terms (Kind.IsRegular is false), so it is stored via the
+//     replaceable path — the relay wires rl.ReplaceEvent to the bolt
+//     backend's ReplaceEvent (eventstore/boltdb/replace.go), where a newer
+//     profile supersedes older ones of the same author;
 //   - kind 5 (deletion request, NIP-09) is always accepted: DEL-11 requires
 //     these events to be stored and served while never being acted upon, so
 //     they must pass the gate and reach the store;
@@ -126,6 +132,9 @@ func NewVocabularyGate(acceptedTags []string) *VocabularyGate {
 // Check implements Gate.
 func (g *VocabularyGate) Check(_ context.Context, event nostr.Event) (reject bool, msg string) {
 	switch event.Kind {
+	case nostr.KindProfileMetadata:
+		// NIP-01 replaceable; see the type comment.
+		return false, ""
 	case nostr.KindDeletion:
 		// DEL-11: the deletion request is accepted and stored, never acted on.
 		return false, ""

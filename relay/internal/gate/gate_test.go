@@ -68,9 +68,14 @@ func TestVocabularyGateMatrix(t *testing.T) {
 			reject: true,
 		},
 		{
-			name:   "kind 0 is rejected",
+			name:   "kind 0 profile metadata is accepted",
 			event:  testEvent(nostr.KindProfileMetadata, nil),
-			reject: true,
+			reject: false,
+		},
+		{
+			name:   "kind 0 with arbitrary tags is accepted (no t tag required)",
+			event:  testEvent(nostr.KindProfileMetadata, nostr.Tags{{"n", strings.Repeat("ab", 32)}, {"l", "pilot-profile@example.org"}}),
+			reject: false,
 		},
 		{
 			name:   "kind 7 is rejected",

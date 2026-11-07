@@ -12,7 +12,8 @@ import (
 //
 // It exists for operator verification: after an `import` or a volume restore,
 // "the store holds exactly the corpus we expect" is the claim to check, and
-// /metrics cannot answer it (events_stored counts accepts since process start).
+// /metrics cannot answer it (`events_stored` counts only kind-1/kind-5 accepts
+// since process start, `events_replaced` only kind-0).
 //
 // A missing base.bolt is an error, not an empty store: openBase would happily
 // create one, and a mistyped SCRUTINY_DATA_DIR or the wrong volume must not
