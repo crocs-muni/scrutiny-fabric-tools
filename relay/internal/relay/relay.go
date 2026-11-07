@@ -110,7 +110,10 @@ const relayInfoPubKey = "c0df886f934aad0c1e62f08b04bd54b44bdd1b5cb0b2ab250cbed25
 // nip11.RelayRetentionDocument only models purge schedules (time/count/kinds),
 // so this prose value is emitted through the document's Malformed escape hatch
 // (nip11/easyjson.go). See OverwriteRelayInformation below.
-const retentionNote = "none — events are never deleted; kind-5 deletion requests are stored but not honored (DEL-11)"
+const (
+	retentionNote = "none — events are never deleted: kind-5 deletion requests are stored but not honored (DEL-11) and NIP-9 is not implemented. " +
+		"The only exception is kind-0 profile metadata, which follows NIP-01 replaceable semantics: a newer profile supersedes the older ones of the same author."
+)
 
 // Bundle is a fully assembled relay and everything it owns.
 type Bundle struct {
@@ -208,9 +211,10 @@ func Build(cfg config.Config, logger *log.Logger) (*Bundle, error) {
 	// policy is advertised here instead.
 	info.PostingPolicy = fmt.Sprintf(
 		"Writes require NIP-42 authentication from an allowlisted publisher. "+
-			"Accepted events: kind 1 notes carrying at least one of the t tags [%s], "+
+			"Accepted events: kind 0 profile metadata (NIP-01 replaceable: a newer profile supersedes older ones), "+
+			"kind 1 notes carrying at least one of the t tags [%s], "+
 			"and kind 5 deletion requests. Deletion requests are stored and served "+
-			"but never acted upon (DEL-11): no event is ever deleted and NIP-9 is not implemented. "+
+			"but never acted upon (DEL-11): NIP-9 is not implemented. "+
 			"Test/probe events (t:probe burst, label-tagged freshness probes) are retained as test data; they are never re-emitted.",
 		strings.Join(cfg.AcceptedTags, ", "))
 
@@ -269,10 +273,10 @@ func Build(cfg config.Config, logger *log.Logger) (*Bundle, error) {
 		gate.Func(policies.PreventLargeContent(maxContentBytes)),
 		gate.Func(policies.PreventTimestampsInThePast(cfg.MaxEventPastAge)),
 		gate.Func(policies.PreventTimestampsInTheFuture(maxFutureAge)),
-		// The indexable-tag cap covers both writable kinds: our own kind-5
-		// deletion requests carry e/a tags too, and NIP-11 advertises
-		// max_event_tags for every kind.
-		gate.Func(policies.PreventTooManyIndexableTags(maxIndexableTags, nil, []nostr.Kind{nostr.KindTextNote, nostr.KindDeletion})),
+		// The indexable-tag cap covers every writable kind: kind-0 profiles
+		// may carry arbitrary tags, our own kind-5 deletion requests carry
+		// e/a tags too, and NIP-11 advertises max_event_tags for every kind.
+		gate.Func(policies.PreventTooManyIndexableTags(maxIndexableTags, nil, []nostr.Kind{nostr.KindProfileMetadata, nostr.KindTextNote, nostr.KindDeletion})),
 		gate.NewVocabularyGate(cfg.AcceptedTags),
 	)
 
@@ -318,9 +322,35 @@ func Build(cfg config.Config, logger *log.Logger) (*Bundle, error) {
 		}
 		return err
 	}
-	// Replaceable kinds are not part of the pilot vocabulary (kind 1 and kind 5
-	// are both regular), so ReplaceEvent stays unwired.
-	// DEL-11: rl.DeleteEvent is deliberately left nil. Nothing ever deletes.
+	// Replaceable kinds (kind 0 profile metadata) follow NIP-01. The bolt
+	// backend's own ReplaceEvent supersedes the older same-kind, same-author
+	// event (keeps the newest by created_at; eventstore/boltdb/replace.go:36-50),
+	// and khatru routes every non-regular kind here (khatru/adding.go:46-58),
+	// answering OK:true whether the event was stored or dropped as
+	// already-superseded. Known consequence, inherited from khatru's default
+	// replaceable wiring (khatru/handlers.go:246-251): a re-send of an older,
+	// already-superseded profile is not stored but IS still broadcast to live
+	// subscribers — benign, since NIP-01 clients keep the newest version. A
+	// fix (suppress the broadcast via skipBroadcast) is deliberately not
+	// attempted here: it would need a pre-query against the base store whose
+	// result ordering would have to be verified, for a case no client can act
+	// on. The deleted older versions are not broadcast as deletions
+	// (OnEventDeleted stays unwired). The search index is untouched: it
+	// indexes kind-1 content only, so there is nothing to reconcile when a
+	// kind-0 profile is superseded.
+	rl.ReplaceEvent = func(ctx context.Context, evt nostr.Event) error {
+		if _, err := dual.Base.ReplaceEvent(evt); err != nil {
+			// the client gets OK:false
+			m.EventsRejected.Add(1)
+			return err
+		}
+		m.EventsReplaced.Add(1)
+		return nil
+	}
+	// DEL-11: rl.DeleteEvent is deliberately left nil. The relay never
+	// deletes a stored event on request — kind-5 deletion requests are stored
+	// but not honored, and NIP-9 is not implemented. The kind-0 supersede
+	// above is NIP-01 replaceable semantics, not a deletion.
 
 	// Ops endpoints, mounted on khatru's extra router (which is served for
 	// every path that is not the relay endpoint itself).

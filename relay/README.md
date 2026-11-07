@@ -4,11 +4,13 @@ A single-binary [khatru](https://pkg.go.dev/fiatjaf.com/nostr/khatru) relay for 
 scrutiny-fabric pilot. Reads are open: all NIP-01 filters, plus NIP-50 search over a
 bleve index. Writes must be NIP-42 authenticated by a pubkey on the pilot allowlist
 and must pass a vocabulary gate. A kind 1 note needs at least one accepted scrutiny
-`t` tag. A kind 5 deletion request passes on its own. Deletion requests follow spec
-rule **DEL-11** ("store, never act"). The relay accepts a kind 5 event, stores it and
-serves it like any other event. It never deletes its targets. NIP-11 does not
-advertise NIP-9. The framework `DeleteEvent` hook is deliberately left unwired, so
-nothing in the relay can ever delete an event. Events live in a pure-Go boltdb base
+`t` tag. A kind 5 deletion request passes on its own: it is stored and served like
+any other event, never acts on its targets (spec rule **DEL-11**, "store, never
+act"), and NIP-11 does not advertise NIP-9. Kind 0 profile metadata follows the
+nostr standard: NIP-01 replaceable semantics, so a newer profile supersedes the
+older ones of the same author. The framework `DeleteEvent` hook is deliberately
+left unwired, so the relay never deletes an event on request — the only removal it
+performs is that NIP-01 supersede. Events live in a pure-Go boltdb base
 store. The bleve search index holds only kind-1 content, and it hydrates its hits
 from the base store.
 
@@ -58,7 +60,10 @@ Endpoints:
   root match only; every other unmatched path stays `404`.
 * `GET /healthz`: `200 ok` when the base store answers, else `503`
 * `GET /metrics`: JSON counters: `events_stored`, `events_rejected`,
-  `queries_with_search`, `store_drift`, `uptime_s`. `store_drift` counts
+  `events_replaced`, `queries_with_search`, `store_drift`, `uptime_s`.
+  `events_replaced` counts kind-0 profile accepts through the NIP-01 replace
+  path (a re-send of an older, already-superseded profile also counts: the
+  client gets OK, the store stays unchanged). `store_drift` counts
   search-index writes that failed after the base store accepted the event;
   nonzero means NIP-50 results are incomplete until a `relay reindex`.
 
@@ -90,12 +95,15 @@ takes an exclusive lock on its file, so a running instance makes the open fail.
 | `relay diff -other BASE.bolt [-out FILE.ndjson]` | writes the events this store has and another lacks, as NDJSON feedable straight back into `import` |
 
 `relay count` is the read-side counterpart, used to verify a store after an import or a
-volume restore (`/metrics` cannot: `events_stored` counts accepts since process start).
+volume restore (`/metrics` cannot: `events_stored` counts only kind-1/kind-5 accepts since
+process start, and `events_replaced` only kind-0 accepts).
 A missing `base.bolt` is an error, never `events: 0` — an empty result means a wrong
 path or the wrong volume, so treat `0` as a mount mistake until proven otherwise.
 
 `relay import` is the offline disaster-recovery path. It bypasses **every** write
-policy — NIP-42, the allowlist, the vocabulary gate and the freshness window —
+policy — NIP-42, the allowlist, the vocabulary gate, the freshness window and the
+NIP-01 replace path (imported kind-0 profiles are stored as regular events, so an
+archive captured before a profile supersede can resurrect superseded versions) —
 because a restore must rebuild a store from an archive whose events are far older
 than any allowed past age and without a publisher secret. Keep it off the network; it
 is an operator command only. It writes the base store with fsync disabled and one
@@ -108,6 +116,11 @@ backend still commits one document per event, so expect roughly 20 ms per event
 (a 200k-event corpus is about an hour). `-verify=false` skips the id re-hash and the
 BIP-340 check; leave it on for archives that may have been edited after export —
 note it cannot rescue a truncated file, whose last line fails JSON parsing either way.
+Finally, note the bolt replace path only inspects up to 10 previous events of the
+same kind and author: a restored author with more than 10 imported versions keeps
+the oldest of them, so a kind-0 query can return several profiles for that author
+until enough newer network profiles from them have flowed through (each one clears
+at most 10 of the old versions).
 
 ```
 docker run --rm -v scrutiny-relay-data:/data \
@@ -122,9 +135,15 @@ docker run --rm -v scrutiny-relay-data:/data \
   fresh challenge. It rejects an authenticated pubkey outside the allowlist with
   `blocked: not an allowed publisher`. Reads are never gated, so
   `Limitation.auth_required` stays false in NIP-11.
+* **Profiles**: kind 0 is stored with NIP-01 replaceable semantics — a new
+  profile from the same author supersedes (removes) the author's older profiles.
+  A re-send of an older, already-superseded profile answers OK, is not stored,
+  but is still broadcast to live subscribers (inherited from khatru's default
+  replaceable wiring; harmless because NIP-01 clients keep the newest version).
+  Superseded versions are not broadcast as deletions.
 * **Deletion**: kind 5 is stored and queryable (`{"kinds":[5],"#e":[...]}`). The
-  referenced event keeps being served. NIP-11 lists NIP-1, 11, 42, 50, 70. It
-  lists no NIP-9 and no NIP-86: the management API is never served (see below).
+  referenced event keeps being served. NIP-11 lists NIP-1, 11, 42, 50, 70, and no
+  NIP-9 and no NIP-86: the management API is never served (see below).
 * **Search**: NIP-50 over kind 1 content. A search string shorter than 2
   characters (after trimming) returns no events.
 * **Counting**: NIP-45 is not supported. It is not advertised in NIP-11, and

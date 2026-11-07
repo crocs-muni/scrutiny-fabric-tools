@@ -57,8 +57,9 @@ const (
 // clients that never read PostingPolicy still see it.
 const DefaultRelayDescription = "Pilot relay for the scrutiny-fabric vocabulary. " +
 	"Reads are open; writes require NIP-42 authentication from an allowlisted publisher. " +
-	"Only kind 1 notes carrying an accepted scrutiny t tag and kind 5 deletion requests are accepted. " +
-	"Deletion requests are stored and served but never acted upon (DEL-11): no event is ever deleted, " +
+	"Accepted events: kind 0 profile metadata (NIP-01 replaceable), " +
+	"kind 1 notes carrying an accepted scrutiny t tag, and kind 5 deletion requests. " +
+	"Deletion requests are stored and served but never acted upon (DEL-11), " +
 	"so NIP-9 is not implemented and not advertised."
 
 // CanonicalVocabularyTags are the canonical t tag values of the scrutiny

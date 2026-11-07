@@ -17,8 +17,15 @@ import (
 
 // Metrics holds the process-lifetime counters.
 type Metrics struct {
-	EventsStored      atomic.Uint64
-	EventsRejected    atomic.Uint64
+	EventsStored   atomic.Uint64
+	EventsRejected atomic.Uint64
+	// EventsReplaced counts kind-0 events that reached the replaceable path
+	// and were answered OK — including a re-send of an older, already-
+	// superseded profile, which the bolt ReplaceEvent drops (nil error, no
+	// deletions). Deliberately not the count of actual supersedes: the
+	// deleted-slice is available but a drop is indistinguishable from a
+	// supersede at this seam, so the counter names the accepts instead.
+	EventsReplaced    atomic.Uint64
 	QueriesWithSearch atomic.Uint64
 	// StoreDrift counts search-index writes that failed after the base store
 	// accepted the event. Nonzero means NIP-50 results are incomplete until a
@@ -37,6 +44,7 @@ func New() *Metrics {
 type Snapshot struct {
 	EventsStored      uint64 `json:"events_stored"`
 	EventsRejected    uint64 `json:"events_rejected"`
+	EventsReplaced    uint64 `json:"events_replaced"`
 	QueriesWithSearch uint64 `json:"queries_with_search"`
 	StoreDrift        uint64 `json:"store_drift"`
 	UptimeSeconds     int64  `json:"uptime_s"`
@@ -47,6 +55,7 @@ func (m *Metrics) Snapshot() Snapshot {
 	return Snapshot{
 		EventsStored:      m.EventsStored.Load(),
 		EventsRejected:    m.EventsRejected.Load(),
+		EventsReplaced:    m.EventsReplaced.Load(),
 		QueriesWithSearch: m.QueriesWithSearch.Load(),
 		StoreDrift:        m.StoreDrift.Load(),
 		UptimeSeconds:     int64(time.Since(m.started).Seconds()),
