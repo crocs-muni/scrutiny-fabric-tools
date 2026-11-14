@@ -40,7 +40,9 @@ const indexers = z
 
 const link = z
   .object({
-    url: z.url().describe('absolute URL; Lens Files come from imeta, not from prose links'),
+    url: z
+      .url({ protocol: /^https?$/u })
+      .describe('absolute http(s) URL; Lens Files come from imeta, not from prose links'),
     label: z.string().min(1).optional().describe('display text; the URL is shown when omitted'),
   })
   .strict()
@@ -52,7 +54,9 @@ const mimeType = z
 
 const imetaRow = z
   .object({
-    url: z.url().describe('artifact URL — this server does not host bytes (#81, no Blossom)'),
+    url: z
+      .url({ protocol: /^https?$/u })
+      .describe('artifact http(s) URL — this server does not host bytes (#81, no Blossom)'),
     m: mimeType,
     x: z.string().regex(HEX64, 'must be the artifact SHA-256 as 64 lowercase hex'),
     size: z.number().int().nonnegative().describe('artifact size in bytes'),
@@ -115,7 +119,10 @@ export const setProfileInput = z
     name: z.string().min(1).describe('short handle; the Lens publisher chip renders it'),
     display_name: z.string().min(1).optional(),
     about: z.string().min(1).optional(),
-    picture_url: z.url().optional().describe('absolute http(s) URL'),
+    picture_url: z
+      .url({ protocol: /^https?$/u })
+      .optional()
+      .describe('absolute http(s) URL; other schemes are rejected — clients render this image'),
   })
   .strict()
 

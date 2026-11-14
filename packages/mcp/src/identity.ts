@@ -36,7 +36,14 @@ function bytesFromHex(hex: string): Uint8Array {
 /** Both dev forms decode to the same 32 bytes; the bech32 checksum is verified here, not in config. */
 function secretBytes(devKey: DevKey): Uint8Array {
   if (devKey.form === 'hex') return bytesFromHex(devKey.material)
-  const decoded = bech32.decodeToBytes(devKey.material)
+  // @scure/base names the offending string in its checksum error — the string IS the key, so
+  // nothing thrown from inside decode may escape (status reaches the model context via the SDK).
+  let decoded: { prefix: string; bytes: Uint8Array }
+  try {
+    decoded = bech32.decodeToBytes(devKey.material)
+  } catch {
+    throw new Error('not a valid bech32 nsec1… key — check for a mistyped or truncated character')
+  }
   if (decoded.prefix !== 'nsec') {
     throw new Error(`expected a bech32 nsec1… key, got ${decoded.prefix}1…`)
   }
@@ -48,7 +55,8 @@ function pubkeyOf(devKey: DevKey): string {
   try {
     bytes = secretBytes(devKey)
   } catch (cause) {
-    const reason = cause instanceof Error ? cause.message : String(cause)
+    // secretBytes errors are material-free by construction; re-wrap with the source only.
+    const reason = cause instanceof Error ? cause.message : 'failed to decode'
     throw new Error(`dev key (${devKey.source}): ${reason}`)
   }
   try {

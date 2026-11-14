@@ -168,7 +168,7 @@ export const TOOLS: readonly RegisteredTool[] = [
       readOnlyHint: true,
       destructiveHint: false,
       idempotentHint: true,
-      openWorldHint: false,
+      openWorldHint: true, // opens a relay connection — hosts gate approval on this hint
     },
     run: notWired,
   }),

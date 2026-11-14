@@ -158,9 +158,12 @@ function devKeyFromEnv(env: Env): DevKey | undefined {
  * explicit map instead of mutating `process.env`.
  */
 export function loadConfig(env: Env = process.env): ServerConfig {
+  const signerUri = signerUriFromEnv(env)
   return {
     relayUrl: relayUrlFromEnv(env),
-    signerUri: signerUriFromEnv(env),
-    devKey: devKeyFromEnv(env),
+    signerUri,
+    // Pilot mode must not touch dev material at all: an unrelated stale NSEC/NSEC_FILE must not
+    // fail startup (#108 custody), and the key must not sit in memory when a bunker holds it.
+    devKey: signerUri === undefined ? devKeyFromEnv(env) : undefined,
   }
 }

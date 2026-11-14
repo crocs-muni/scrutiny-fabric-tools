@@ -6,7 +6,7 @@ import { signerStatus } from '../src/identity.ts'
 const HEX_KEY = '01'.repeat(32)
 const HEX_PUBKEY = '1b84c5567b126440995d3ed5aaba0565d71e1834604819ff9c17f5e9d5dd078f'
 
-/** The same scalar as a bech32 `nsec1…` key, to prove both dev forms decode identically. */
+/** A second valid scalar as a bech32 `nsec1…` key (decodes to 67dea2ed…, not the hex vector). */
 const NSEC_KEY = 'nsec1vl029mgpspedva04g90vltkh6fvh240zqtv9k0t9af8935ke9laqsnlfe5'
 const NSEC_PUBKEY = '7e7e9c42a91bfef19fa929e5fda1b72e0ebc1a4c1141673e2794234d86addf4e'
 
@@ -45,5 +45,32 @@ describe('signerStatus', () => {
     expect(() => signerStatus(loadConfig({ NSEC: '00'.repeat(32) }))).toThrow(
       /not a valid secp256k1 secret/u,
     )
+  })
+
+  it('never echoes key material when the bech32 checksum fails', () => {
+    // Config shape-check passes (nsec1 + bech32 charset); the checksum is the first failure.
+    // @scure/base names the input string in its error — the string IS the key (#108 review).
+    const corrupted = `nsec1vl029mgpspedva04g90vltkh6fvh240zqtv9k0t9af8935ke9laqsnlfe0`
+    let message = ''
+    try {
+      signerStatus(loadConfig({ NSEC: corrupted }))
+    } catch (cause) {
+      message = cause instanceof Error ? cause.message : String(cause)
+    }
+    expect(message).not.toBe('')
+    expect(message).not.toContain(corrupted)
+    expect(message).not.toContain('nsec1vl029')
+    expect(message).toMatch(/mistyped or truncated/u)
+  })
+
+  it('pilot mode ignores dev material entirely (no startup failure, no key in memory)', () => {
+    const signerUri = `bunker://${'ab'.repeat(32)}?relay=wss://relay.example&secret=tok`
+    const config = loadConfig({
+      SCRUTINY_SIGNER_URI: signerUri,
+      NSEC: HEX_KEY,
+      NSEC_FILE: 'definitely-not-a-file',
+    })
+    expect(config.devKey).toBeUndefined()
+    expect(signerStatus(config).mode).toBe('nip46')
   })
 })
