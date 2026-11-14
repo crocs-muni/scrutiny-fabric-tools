@@ -1,0 +1,33 @@
+{
+  "name": "@scrutiny-fabric/mcp",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Publish-first MCP server: any MCP host can publish SCRUTINY Fabric events without ever holding the signing key (#108).",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "start": "node --experimental-strip-types src/index.ts",
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run"
+  },
+  "//mcp-sdk": "Pinned exactly, not ^: the tool-registration surface and its zod->JSON-Schema conversion moved between 1.x minors, and the pilot pins tool definitions as a rug-pull defense (report §8.3).",
+  "//core": "Declared now, imported by A3/A4 (buildProduct/buildMetadata/buildBinding/buildPatch, tag constants): this scaffold registers schemas only. Core's exports point at its dist, so the importing task runs `pnpm build` first — hence knip's ignoreDependencies entry rather than a fake import.",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "1.32.2",
+    "@noble/curves": "^2.0.1",
+    "@scure/base": "^2.0.0",
+    "@scrutiny-fabric/core": "workspace:*",
+    "zod": "^4.6.6"
+  },
+  "devDependencies": {
+    "@types/node": "^22",
+    "typescript": "^5.8",
+    "vitest": "^5.0.5"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "license": "MIT"
+}

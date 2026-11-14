@@ -18,6 +18,11 @@
       "entry": ["noble-signer.ts"],
       "project": ["*.ts"]
     },
+    "packages/mcp": {
+      "entry": ["test/**/*.test.ts"],
+      "project": ["src/**/*.ts", "test/**/*.ts"],
+      "ignoreDependencies": ["@scrutiny-fabric/core"]
+    },
     "packages/mirror": {
       "entry": [
         "src/emit/index.ts",
