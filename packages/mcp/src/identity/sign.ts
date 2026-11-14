@@ -101,7 +101,7 @@ export function nextCreatedAt(
 }
 
 /** NIP-01's `id` is `sha256(serializeForId(event))`, hex; core takes the hash as a parameter. */
-const sha256Hex: Sha256Hex = (serialized) => bytesToHex(sha256(utf8ToBytes(serialized)))
+export const sha256Hex: Sha256Hex = (serialized) => bytesToHex(sha256(utf8ToBytes(serialized)))
 
 /** The D13 signer: `publicKey` plus `sign(template)` that injects `id`/`pubkey`/`sig`. */
 export interface DevKeySigner {
