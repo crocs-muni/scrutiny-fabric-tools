@@ -50,7 +50,7 @@ describe('signerStatus', () => {
   it('never echoes key material when the bech32 checksum fails', () => {
     // Config shape-check passes (nsec1 + bech32 charset); the checksum is the first failure.
     // @scure/base names the input string in its error — the string IS the key (#108 review).
-    const corrupted = `nsec1vl029mgpspedva04g90vltkh6fvh240zqtv9k0t9af8935ke9laqsnlfe0`
+    const corrupted = 'nsec1vl029mgpspedva04g90vltkh6fvh240zqtv9k0t9af8935ke9laqsnlfe0'
     let message = ''
     try {
       signerStatus(loadConfig({ NSEC: corrupted }))
