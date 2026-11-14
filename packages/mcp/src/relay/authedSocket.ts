@@ -97,6 +97,12 @@ export interface AuthedSocket {
   readonly url: string
   /** True once the socket is closed, by either side. A closed socket is never reopened here. */
   readonly closed: boolean
+  /**
+   * True only while the connection is up (open and not closed). Deliberately not "a socket object
+   * exists": a dial can sit in CONNECTING for the whole connect budget, and a status line must not
+   * claim a connection the relay has not accepted yet.
+   */
+  readonly open: boolean
   /** True only after the relay accepted our latest kind 22242 AUTH event. */
   readonly authed: boolean
   /** Resolves on `open`, rejects with a retryable {@link RelayError} on connect failure. */
@@ -119,7 +125,18 @@ export interface AuthedSocket {
   fetchById(id: string, timeoutMs?: number): Promise<NostrEvent | null>
   /** Most recent `["NOTICE", …]` text, for timeout diagnostics. */
   lastNotice(): string | null
+  /**
+   * Close because the owner is done with this socket (the user, or a facade shutting down). Pending
+   * work fails with a **non-retryable** {@link RelayError}: nothing about a new socket helps.
+   */
   close(): void
+  /**
+   * Close because a *retryable* failure made this connection unusable; the facade's reconnect path
+   * calls it before dialing again. Pending work fails with a **retryable** error, so a peer
+   * operation sharing the socket retries on the fresh connection instead of failing (fix for the
+   * concurrency hole: `drop()` used `close()`, which told peers the session was over).
+   */
+  reset(reason: string): void
 }
 
 /** The relay's answer to one EVENT, or a transport-shaped failure with the same discriminant. */
@@ -151,11 +168,19 @@ class AuthedRelaySocket implements AuthedSocket {
   private notice: string | null = null
 
   private challenge: string | null = null
-  private challengeAnswered: string | null = null
+  /** The challenge an attempt is currently signing or awaiting an OK for; one at a time. */
+  private challengeInFlight: string | null = null
+  /** The challenge that was accepted; a repeat of it is a replay, not a new handshake. */
+  private acceptedChallenge: string | null = null
   /**
-   * AUTH event id → the challenge it quotes. A map, not one field: two concurrent writes can each
-   * provoke a challenge, and the relay rejects the older one as stale. That rejection must not read
-   * as "authentication failed" for the connection while the current attempt is still in flight.
+   * AUTH event id → the challenge it quotes.
+   *
+   * Keyed by the *signed event* id, which is unique per attempt: the signature covers the challenge
+   * and `created_at`, so two attempts cannot share an id unless they are byte-identical. That
+   * matters because nak's bunker reuses one challenge for the whole connection (it sends it only
+   * with an OK-false, bunker.go:304-315), so a challenge-keyed map would let one rejected attempt
+   * poison every later one. Challenge-keyed clearing survives as the secondary cleanup in
+   * {@link settleAuth}: once any attempt quoting a challenge is accepted, the others are moot.
    */
   private readonly authAttempts = new Map<string, string>()
   private authSettled = false
@@ -212,6 +237,10 @@ class AuthedRelaySocket implements AuthedSocket {
 
   get closed(): boolean {
     return this.isClosed
+  }
+
+  get open(): boolean {
+    return this.opened && !this.isClosed
   }
 
   get authed(): boolean {
@@ -277,6 +306,9 @@ class AuthedRelaySocket implements AuthedSocket {
       const abort = (error: RelayError): void => {
         clearTimeout(timer)
         this.reads.delete(subId)
+        // A read that gives up still owned its subscription: close it so the relay stops streaming
+        // at a waiter that no longer exists, and so a late EVENT cannot look like a live answer.
+        this.send(['CLOSE', subId])
         reject(error)
       }
       const timer = setTimeout(() => {
@@ -296,12 +328,26 @@ class AuthedRelaySocket implements AuthedSocket {
   close(): void {
     if (this.isClosed) return
     this.isClosed = true
+    this.shutdownSocket()
+    this.flush('socket closed by client', false)
+  }
+
+  reset(reason: string): void {
+    if (this.isClosed) return
+    this.isClosed = true
+    this.shutdownSocket()
+    // Retryable: the facade resets only after a failure a new connection can fix, and peers sharing
+    // this socket must retry rather than inherit a permanent error.
+    this.flush(reason, true)
+  }
+
+  /** Both close paths leave the wire the same way; only the pending-work classification differs. */
+  private shutdownSocket(): void {
     try {
       this.ws.close()
     } catch {
-      // Already closing or closed; the pending work is flushed below either way.
+      // Already closing or closed; the pending work is flushed by the caller either way.
     }
-    this.flush('socket closed by client', false)
   }
 
   private logAck(outcome: AckOutcome): void {
@@ -374,30 +420,44 @@ class AuthedRelaySocket implements AuthedSocket {
         ],
         content: '',
       })
+      // The signer's output is the one event this layer never composes, so it is checked before its
+      // id is used as a map key or sliced into a log line.
+      assertSignedEvent(authEvent, 'AUTH')
     } catch (cause) {
       // A failure signing a superseded challenge says nothing about the current handshake.
-      if (this.challengeAnswered === challenge) {
+      if (this.challenge === challenge) {
         this.settleAuth(
           false,
           `signer failed: ${cause instanceof Error ? cause.message : String(cause)}`,
+          challenge,
         )
       }
       return
     }
     if (this.isClosed) {
-      this.settleAuth(false, 'socket closed before AUTH was sent')
+      this.settleAuth(false, 'socket closed before AUTH was sent', challenge)
       return
     }
-    if (this.challengeAnswered !== challenge) return // a newer challenge superseded this one
+    if (this.challenge !== challenge) return // superseded; that challenge owns the in-flight slot
     this.authAttempts.set(authEvent.id, challenge)
     this.log(`[auth] challenged, responding (event ${authEvent.id.slice(0, 12)}…)`)
-    if (!this.send(['AUTH', authEvent])) this.settleAuth(false, 'socket not open for AUTH')
+    if (!this.send(['AUTH', authEvent]))
+      this.settleAuth(false, 'socket not open for AUTH', challenge)
   }
 
-  private settleAuth(accepted: boolean, message: string): void {
+  private settleAuth(accepted: boolean, message: string, challenge: string): void {
     this.authSettled = true
     this.authAccepted = accepted
     this.authMessage = message
+    if (challenge === this.challengeInFlight) this.challengeInFlight = null
+    if (accepted) {
+      this.acceptedChallenge = challenge
+      // Secondary, challenge-keyed cleanup: with one attempt in flight this drops nothing, but it
+      // keeps the map free of moot attempts for a challenge that will never be signed again.
+      for (const [eventId, attempt] of this.authAttempts) {
+        if (attempt === challenge) this.authAttempts.delete(eventId)
+      }
+    }
     this.log(`[auth] ${accepted ? 'accepted' : `rejected: ${message}`}`)
     const waiters = this.authWaiters
     this.authWaiters = []
@@ -406,9 +466,20 @@ class AuthedRelaySocket implements AuthedSocket {
 
   /**
    * The footgun, reported as one line: a handshake the relay refused names what was signed, the
-   * relay's own words, and both places the byte-match is specified.
+   * relay's own words, and both places the byte-match is specified. A rejection with no challenge
+   * at all is its own diagnosis — the relay gated the write but never offered a handshake.
    */
   private authFailure(reason: string): RelayError {
+    if (this.challenge === null) {
+      return new RelayError(
+        [
+          `NIP-42 authentication failed (${reason}): the relay never sent an ["AUTH", <challenge>]`,
+          'message, so no handshake could start. A relay that gates writes must challenge',
+          '(NIP-42 §relay); check that SCRUTINY_RELAY_URL points at the relay itself and not at a',
+          'proxy that drops the AUTH frame (relay/README.md:81-82).',
+        ].join(' '),
+      )
+    }
     const relaySaid = this.authMessage === null ? 'no message' : `"${this.authMessage}"`
     return new RelayError(
       [
@@ -460,17 +531,24 @@ class AuthedRelaySocket implements AuthedSocket {
   private onAuth(challenge: unknown): void {
     if (typeof challenge !== 'string' || this.isClosed) return
     this.challenge = challenge
-    // A repeat of the answered challenge is a relay replay; a new one is a new handshake (khatru
-    // sends a fresh challenge with every auth-required rejection — gate.go:82-85).
-    if (challenge === this.challengeAnswered && this.authSettled) return
-    this.challengeAnswered = challenge
+    // A repeat of the handshake that already succeeded is a replay.
+    if (challenge === this.acceptedChallenge) return
+    // A repeat while an attempt for it is running is not a second handshake either. A repeat after
+    // a *rejection* is a new opportunity, though: nak's bunker reuses one challenge per connection
+    // (bunker.go:304-315), so refusing to re-sign after a failed attempt would poison the session.
+    // The re-signed AUTH event gets a fresh id, so nothing in `authAttempts` collides.
+    if (challenge === this.challengeInFlight) return
+    this.challengeInFlight = challenge
     this.authAccepted = false
     this.authSettled = false
     this.signAndSendAuth(challenge).catch(() => {}) // failures are settled inside, never thrown here
   }
 
   private onOk(id: unknown, ok: unknown, message: unknown): void {
-    if (typeof id !== 'string') return
+    // A relay id that is not NIP-01-shaped cannot be one of ours: it can neither match an ack
+    // waiter nor safely reach a message that formats it. Foreign and truncated ids are dropped here,
+    // so a spurious `["OK", "ab", true, …]` cannot mis-attribute a verdict.
+    if (typeof id !== 'string' || !isEventId(id)) return
     const accepted = ok === true
     const text = typeof message === 'string' ? message : ''
     const authChallenge = this.authAttempts.get(id)
@@ -479,7 +557,7 @@ class AuthedRelaySocket implements AuthedSocket {
       // A superseded attempt is not a verdict on this connection: the relay rejected the challenge
       // it replaced (two writes can each provoke one), and the current attempt is still in flight.
       if (authChallenge !== this.challenge) return
-      this.settleAuth(accepted, text)
+      this.settleAuth(accepted, text, authChallenge)
       return
     }
     const waiter = this.acks.get(id)

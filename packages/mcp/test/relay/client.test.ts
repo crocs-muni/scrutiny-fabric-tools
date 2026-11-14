@@ -67,6 +67,36 @@ describe('socket lifecycle', () => {
     expect(relay.sockets).toHaveLength(1)
   })
 
+  it('does not report connected while the socket is still connecting', async () => {
+    const { relay, client } = makeClient({ stallConnect: true })
+
+    const pending = client.publish(signedEvent(27)).catch((cause: unknown) => cause)
+    await waitUntil(() => relay.sockets.length === 1, 'the dial to start')
+    // The socket object exists and is neither open nor closed: `status` must not claim a
+    // connection the relay has not accepted (this window lasts up to connectMs).
+    expect(client.connected).toBe(false)
+
+    client.close()
+    const failure = await pending
+    expect(failure).toBeInstanceOf(RelayError)
+    if (!(failure instanceof RelayError)) throw new Error('expected a RelayError')
+    expect(failure.message).toMatch(/relay client closed/u)
+  })
+
+  it('retries a peer operation when a concurrent failure resets the socket', async () => {
+    // The first write the relay would have acked is lost, so the shared socket is reset while the
+    // peer either waits for its own ack or is about to send; it must reconnect, not fail.
+    const { relay, client } = makeClient({ dropEvents: 'first' })
+
+    const published = await Promise.all([
+      client.publish(signedEvent(28)),
+      client.publish(signedEvent(29)),
+    ])
+
+    expect(published.map((result) => result.accepted)).toEqual([true, true])
+    expect(relay.sockets.length).toBeGreaterThanOrEqual(2)
+  })
+
   it('serves fetchById through the same socket', async () => {
     const stored = signedEvent(5)
     const { relay, client } = makeClient({ events: [stored] })
@@ -128,10 +158,13 @@ describe('reconnect policy', () => {
     expect(relay.sockets).toHaveLength(2)
   })
 
-  it('honours reconnectAttempts: 0', async () => {
-    const { relay, client } = makeClient({ dropEvents: 'all' }, 0)
+  it('reconnectAttempts: 0 means exactly one socket and a rethrown failure', async () => {
+    const { relay, client } = makeClient({ dropEvents: 'first' }, 0)
 
-    await expect(client.publish(signedEvent(12))).rejects.toBeInstanceOf(RelayError)
+    const failure = await client.publish(signedEvent(12)).catch((cause: unknown) => cause)
+    expect(failure).toBeInstanceOf(RelayError)
+    if (!(failure instanceof RelayError)) throw new Error('expected a RelayError')
+    expect(failure.message).toMatch(/connection closed/u)
     expect(relay.sockets).toHaveLength(1)
   })
 })

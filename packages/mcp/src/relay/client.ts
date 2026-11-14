@@ -40,7 +40,11 @@ export interface RelayClientOptions {
   readonly wsFactory?: WebSocketFactory
   /** Per-field overrides of the socket budgets. */
   readonly timeouts?: Partial<RelayTimeouts>
-  /** Fresh sockets one operation may open after a retryable failure. Default 1. */
+  /**
+   * Extra dials one operation may make after its first attempt fails retryably. `1` (the default)
+   * means one attempt plus one retry — at most two sockets per call; `0` disables the retry, so the
+   * call gets exactly one socket and rethrows the failure. Pinned by tests at both ends.
+   */
   readonly reconnectAttempts?: number
   /** Diagnostics only. */
   readonly log?: (line: string) => void
@@ -69,9 +73,13 @@ export class RelayClient {
     this.log = options.log ?? (() => {})
   }
 
-  /** True while a socket is open. The `status` tool can report it without dialing (A4). */
+  /**
+   * True only while a socket has actually reached `open`. The socket object exists during the
+   * CONNECTING window, so testing `!closed` would report a connection the relay has not accepted
+   * yet (up to `connectMs`); `status` (A4) must not.
+   */
   get connected(): boolean {
-    return this.socket !== null && !this.socket.closed
+    return this.socket?.open ?? false
   }
 
   /** Publish one signed event and resolve with the relay's NIP-20 verdict. */
@@ -155,8 +163,12 @@ export class RelayClient {
     }
   }
 
+  /**
+   * Retire a socket whose failure a new connection can fix. `reset`, not `close`: a peer operation
+   * still holding this socket must inherit a retryable error and reconnect, not a permanent one.
+   */
   private drop(socket: AuthedSocket): void {
-    socket.close()
+    socket.reset('socket reset after a retryable failure')
     if (this.socket === socket) this.socket = null
   }
 }

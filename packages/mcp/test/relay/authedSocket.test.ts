@@ -6,7 +6,12 @@
 
 import { afterEach, describe, expect, it } from 'vitest'
 import { type AuthedSocket, authedSocket } from '../../src/relay/authedSocket.ts'
-import { AUTH_KIND, RelayError } from '../../src/relay/types.ts'
+import {
+  AUTH_KIND,
+  type AuthSigner,
+  RelayError,
+  type UnsignedEvent,
+} from '../../src/relay/types.ts'
 import {
   type FakeRelay,
   type FakeRelayOptions,
@@ -47,6 +52,27 @@ function open(options: OpenOptions = {}): { relay: FakeRelay; socket: AuthedSock
   })
   sockets.push(socket)
   return { relay, socket }
+}
+
+/**
+ * A signer that does not answer until the test releases it, so the relay's eager challenge can be
+ * left unanswered while something else is checked (a pending handshake must not block reads).
+ */
+function gatedSigner(): { signer: AuthSigner; release: () => void } {
+  const inner = fakeSigner()
+  let release = (): void => {}
+  const gate = new Promise<void>((resolve) => {
+    release = resolve
+  })
+  return {
+    signer: {
+      sign: async (unsigned) => {
+        await gate
+        return inner.sign(unsigned)
+      },
+    },
+    release,
+  }
 }
 
 describe('NIP-42 handshake', () => {
@@ -111,6 +137,72 @@ describe('NIP-42 handshake', () => {
     for (const event of auth) expect(tagValues(event, 'relay')).toEqual([dial])
     expect(tagValues(auth[0], 'challenge')).toEqual(['challenge-1'])
   })
+
+  it('re-signs a reused challenge after a rejection and publishes (nak bunker)', async () => {
+    const { relay, socket } = open({
+      relay: {
+        eagerChallenge: false,
+        // One challenge per connection, re-sent with every auth-required rejection; the first
+        // handshake is refused by a transient verifier, the second must succeed.
+        reuseChallenge: true,
+        rejectFirstAuth: 'auth-required: verifier temporarily unavailable',
+      },
+    })
+
+    const first = await socket.publish(signedEvent(16)).catch((cause: unknown) => cause)
+    expect(first).toBeInstanceOf(RelayError)
+    if (!(first instanceof RelayError)) throw new Error('expected a RelayError')
+    expect(first.message).toContain('verifier temporarily unavailable')
+
+    expect((await socket.publish(signedEvent(17))).accepted).toBe(true)
+    const auth = sentEvents(relay, 'AUTH')
+    expect(auth).toHaveLength(2)
+    // Same challenge value, two distinct signed events: signing per attempt is what keeps a
+    // reused challenge from poisoning the rest of the session.
+    expect(tagValues(auth[0], 'challenge')).toEqual(['challenge-fixed'])
+    expect(tagValues(auth[1], 'challenge')).toEqual(['challenge-fixed'])
+    expect(auth[0]?.id).not.toBe(auth[1]?.id)
+  })
+
+  it('refuses an AUTH event the signer returned malformed', async () => {
+    const relay = createFakeRelay({ expectedRelay: RELAY })
+    // The signer's output is the one event this layer never composes; a short id would otherwise
+    // reach the map key and the log slice.
+    const brokenSigner = {
+      sign: async (unsigned: UnsignedEvent) => ({
+        ...unsigned,
+        id: 'short',
+        pubkey: 'x',
+        sig: 'y',
+      }),
+    }
+    const socket = authedSocket({
+      relayUrl: RELAY,
+      signer: brokenSigner,
+      wsFactory: relay.factory,
+      timeouts: TINY,
+    })
+    sockets.push(socket)
+
+    const failure = await socket.publish(signedEvent(25)).catch((cause: unknown) => cause)
+    expect(failure).toBeInstanceOf(RelayError)
+    if (!(failure instanceof RelayError)) throw new Error('expected a RelayError')
+    expect(failure.message).toContain('signer failed: AUTH: event.id must be 64-char lowercase hex')
+    expect(sentEvents(relay, 'AUTH')).toHaveLength(0)
+  })
+
+  it('names a missing challenge when the relay gates writes without challenging', async () => {
+    const { relay, socket } = open({
+      relay: { eagerChallenge: false, noChallengeOnReject: true },
+    })
+
+    const failure = await socket.publish(signedEvent(22)).catch((cause: unknown) => cause)
+    expect(failure).toBeInstanceOf(RelayError)
+    if (!(failure instanceof RelayError)) throw new Error('expected a RelayError')
+    expect(failure.message).toContain('never sent an ["AUTH", <challenge>]')
+    expect(failure.message).toContain('SCRUTINY_RELAY_URL')
+    expect(sentEvents(relay, 'AUTH')).toHaveLength(0)
+  })
 })
 
 describe('NIP-20 verdicts', () => {
@@ -160,6 +252,22 @@ describe('NIP-20 verdicts', () => {
     )
     expect(sentEvents(relay, 'EVENT')).toHaveLength(0)
   })
+
+  it('ignores OK frames carrying a foreign or truncated event id', async () => {
+    const { relay, socket } = open({
+      relay: {
+        spuriousOk: true,
+        verdict: () => ({ accepted: false, message: 'blocked: not an allowed publisher' }),
+      },
+    })
+    await relay.authAccepted()
+
+    // The spurious frames claim acceptance; the real verdict is the blocked one, and nothing threw.
+    expect(await socket.publish(signedEvent(20))).toEqual({
+      accepted: false,
+      message: 'blocked: not an allowed publisher',
+    })
+  })
 })
 
 describe('fetchById', () => {
@@ -179,12 +287,52 @@ describe('fetchById', () => {
     expect(await socket.fetchById(signedEvent(9).id)).toBeNull()
   })
 
-  it('does not need a handshake: reads are never gated', async () => {
+  it('ignores a foreign event on an ids-REQ and waits for EOSE', async () => {
+    const { relay, socket } = open({ relay: { events: [], mismatchedRead: true } })
+
+    expect(await socket.fetchById(signedEvent(18).id)).toBeNull()
+    expect(relay.inbound.filter((frame) => frame[0] === 'CLOSE')).toEqual([['CLOSE', 'mcp-read-1']])
+  })
+
+  it('times out rather than accept a foreign event, and closes the subscription', async () => {
+    const { relay, socket } = open({
+      relay: { events: [], mismatchedRead: true, stallEose: true },
+    })
+
+    await expect(socket.fetchById(signedEvent(19).id)).rejects.toThrow(/no EOSE/u)
+    expect(relay.inbound.filter((frame) => frame[0] === 'CLOSE')).toEqual([['CLOSE', 'mcp-read-1']])
+  })
+
+  it('surfaces a CLOSED with no message as "closed by relay"', async () => {
+    const { socket } = open({ relay: { closedReads: '' } })
+    await expect(socket.fetchById(signedEvent(21).id)).rejects.toThrow(
+      /relay CLOSED the REQ: closed by relay/u,
+    )
+  })
+
+  it('reads a stored event while the handshake is still pending (reads are never gated)', async () => {
     const stored = signedEvent(10)
-    const { relay, socket } = open({ relay: { events: [stored], eagerChallenge: false } })
+    const relay = createFakeRelay({ expectedRelay: RELAY, events: [stored] })
+    const { signer, release } = gatedSigner()
+    const socket = authedSocket({
+      relayUrl: RELAY,
+      signer,
+      wsFactory: relay.factory,
+      timeouts: TINY,
+    })
+    sockets.push(socket)
+
+    await socket.ready()
+    // The eager challenge has been issued and the signer is held: no AUTH event can exist yet.
+    await waitUntil(
+      () => relay.sockets.some((candidate) => candidate.currentChallenge !== null),
+      'the eager challenge',
+    )
+    expect(sentEvents(relay, 'AUTH')).toHaveLength(0)
 
     expect(await socket.fetchById(stored.id)).toEqual(stored)
-    expect(sentEvents(relay, 'AUTH')).toHaveLength(0)
+    expect(socket.authed).toBe(false)
+    release()
   })
 
   it('throws on timeout rather than pretending the event is absent', async () => {
@@ -197,6 +345,9 @@ describe('fetchById', () => {
     expect(failure.message).toContain('no EOSE for REQ {"ids":["ee0000')
     expect(failure.retryable).toBe(false)
     expect(relay.inbound.filter((frame) => frame[0] === 'REQ')).toHaveLength(1)
+    // A timeout abandons the read, so its subscription must be closed too — otherwise every slow
+    // read leaks a live REQ on the session-long socket.
+    expect(relay.inbound.filter((frame) => frame[0] === 'CLOSE')).toEqual([['CLOSE', 'mcp-read-1']])
   })
 
   it('surfaces a CLOSED answer verbatim', async () => {
@@ -235,5 +386,22 @@ describe('connection lifecycle', () => {
     if (!(failure instanceof RelayError)) throw new Error('expected a RelayError')
     expect(failure.message).toBe('socket closed by client')
     expect(failure.retryable).toBe(false)
+  })
+
+  it('fails pending work retryably when the facade resets the socket', async () => {
+    const { relay, socket } = open({ relay: { silentEvents: true } })
+    await relay.authAccepted()
+
+    const pending = socket.publish(signedEvent(26))
+    await waitUntil(() => relay.inbound.some((frame) => frame[0] === 'EVENT'), 'the EVENT to land')
+    // What the facade does after a retryable failure: peers sharing the socket must retry, so the
+    // flush is retryable — unlike `close()`, which is the user ending the session.
+    socket.reset('socket reset after a retryable failure')
+
+    const failure = await pending.catch((cause: unknown) => cause)
+    expect(failure).toBeInstanceOf(RelayError)
+    if (!(failure instanceof RelayError)) throw new Error('expected a RelayError')
+    expect(failure.message).toBe('socket reset after a retryable failure')
+    expect(failure.retryable).toBe(true)
   })
 })

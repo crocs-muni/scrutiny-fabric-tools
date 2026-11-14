@@ -149,24 +149,30 @@ export function isEventId(value: string): boolean {
 }
 
 /**
- * Guard against a malformed event reaching the wire: publish matches the relay's ack by `id`, so an
- * id that is not NIP-01-shaped would wait out the whole budget and then report a "timeout" for what
- * is a local bug.
+ * Guard against a malformed event reaching the wire, or against a signer that returned one: publish
+ * matches the relay's ack by `id`, so an id that is not NIP-01-shaped would wait out the whole
+ * budget and then report a "timeout" for what is a local bug. `context` names the caller in the
+ * message (`publish`, `AUTH`) so the fix is readable from the error alone.
  */
-export function assertSignedEvent(event: NostrEvent): void {
+export function assertSignedEvent(event: NostrEvent, context = 'publish'): void {
   if (!HEX_64.test(event.id)) {
     throw new RelayError(
-      `publish: event.id must be 64-char lowercase hex (NIP-01), got "${event.id}"`,
+      `${context}: event.id must be 64-char lowercase hex (NIP-01), got "${event.id}"`,
     )
   }
   if (!HEX_64.test(event.pubkey)) {
-    throw new RelayError('publish: event.pubkey must be a 64-char lowercase hex key (NIP-01)')
+    throw new RelayError(`${context}: event.pubkey must be a 64-char lowercase hex key (NIP-01)`)
   }
   if (!HEX_128.test(event.sig)) {
-    throw new RelayError('publish: event.sig must be a 128-char lowercase hex signature (NIP-01)')
+    throw new RelayError(
+      `${context}: event.sig must be a 128-char lowercase hex signature (NIP-01)`,
+    )
   }
-  if (!Number.isInteger(event.kind)) throw new RelayError('publish: event.kind must be an integer')
-  if (typeof event.content !== 'string') throw new RelayError('publish: event.content must be text')
+  if (!Number.isInteger(event.kind))
+    throw new RelayError(`${context}: event.kind must be an integer`)
+  if (typeof event.content !== 'string') {
+    throw new RelayError(`${context}: event.content must be text`)
+  }
 }
 
 /**

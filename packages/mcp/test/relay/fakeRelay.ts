@@ -54,10 +54,29 @@ export interface FakeRelayOptions {
   readonly dropEvents?: 'none' | 'first' | 'all'
   /** Refuse to open: `open` never fires, `error` and `close` do. */
   readonly failConnect?: boolean
+  /** Never open and never fail: the dial window stays open (status/connected checks). */
+  readonly stallConnect?: boolean
+  /**
+   * One challenge per connection, re-sent with every auth-required rejection — nak's bunker
+   * behaviour (bunker.go:304-315). Default false: a fresh challenge each time, like khatru.
+   */
+  readonly reuseChallenge?: boolean
+  /** Reject the first AUTH event with this NIP-20 message, then behave normally. */
+  readonly rejectFirstAuth?: string
+  /** Reject unauthenticated writes without sending a challenge (a relay that gates but never offers). */
+  readonly noChallengeOnReject?: boolean
+  /** Answer an ids-REQ with a foreign event alongside the real ones (wrong-record check). */
+  readonly mismatchedRead?: boolean
+  /** Withhold EOSE: the REQ is answered with events only, so the client must time out. */
+  readonly stallEose?: boolean
+  /** Send `["OK", …]` frames for a foreign and a truncated id before the real verdict. */
+  readonly spuriousOk?: boolean
 }
 
 interface FakeSocket extends WebSocketLike {
   readonly url: string
+  /** The challenge this relay last issued on the socket; null before the first one. */
+  readonly currentChallenge: string | null
   /** Frames this client sent, parsed, in order. */
   readonly inbound: unknown[][]
   /** Close from the relay side, as a lost connection (no OK). */
@@ -157,10 +176,18 @@ class FakeRelayState implements FakeRelay {
   private readonly closedReads: string | undefined
   private readonly dropEvents: 'none' | 'first' | 'all'
   private readonly failConnect: boolean
+  private readonly stallConnect: boolean
+  private readonly reuseChallenge: boolean
+  private readonly rejectFirstAuth: string | undefined
+  private readonly noChallengeOnReject: boolean
+  private readonly mismatchedRead: boolean
+  private readonly stallEose: boolean
+  private readonly spuriousOk: boolean
 
   private challengeSeq = 0
   private eventCount = 0
   private authCount = 0
+  private authFrames = 0
 
   constructor(options: FakeRelayOptions) {
     this.expectedRelay = options.expectedRelay
@@ -173,6 +200,13 @@ class FakeRelayState implements FakeRelay {
     this.closedReads = options.closedReads
     this.dropEvents = options.dropEvents ?? 'none'
     this.failConnect = options.failConnect ?? false
+    this.stallConnect = options.stallConnect ?? false
+    this.reuseChallenge = options.reuseChallenge ?? false
+    this.rejectFirstAuth = options.rejectFirstAuth
+    this.noChallengeOnReject = options.noChallengeOnReject ?? false
+    this.mismatchedRead = options.mismatchedRead ?? false
+    this.stallEose = options.stallEose ?? false
+    this.spuriousOk = options.spuriousOk ?? false
   }
 
   async authAccepted(): Promise<void> {
@@ -194,6 +228,8 @@ class FakeRelayState implements FakeRelay {
     // A close can land before this microtask runs (a test scripting a dead connection); a closed
     // socket must not reopen.
     if (socket.readyState === 3) return
+    // A dial that neither opens nor fails: the CONNECTING window tests need it to last.
+    if (this.stallConnect) return
     if (this.failConnect) {
       socket.onerror?.({ type: 'error' })
       socket.shutdown(1006, 'connect failed')
@@ -207,7 +243,9 @@ class FakeRelayState implements FakeRelay {
   /** `khatru.RequestAuth`: a new random challenge, replacing any previous one for this socket. */
   challenge(socket: RelaySocket): void {
     this.challengeSeq += 1
-    const challenge = `challenge-${this.challengeSeq}`
+    // nak's bunker reuses one challenge for the connection and only ever sends it with an OK-false
+    // (bunker.go:304-315), so a client must re-sign per attempt rather than per challenge value.
+    const challenge = this.reuseChallenge ? 'challenge-fixed' : `challenge-${this.challengeSeq}`
     socket.currentChallenge = challenge
     socket.deliver(['AUTH', challenge])
   }
@@ -224,11 +262,17 @@ class FakeRelayState implements FakeRelay {
     if (!isEventShaped(raw)) return
     const relayTag = tagValue(raw, 'relay')
     const challengeTag = tagValue(raw, 'challenge')
+    const quotesCurrentChallenge =
+      challengeTag !== undefined && challengeTag === socket.currentChallenge
     const accepted =
-      raw.kind === AUTH_KIND &&
-      relayTag === this.expectedRelay &&
-      challengeTag !== undefined &&
-      challengeTag === socket.currentChallenge
+      raw.kind === AUTH_KIND && relayTag === this.expectedRelay && quotesCurrentChallenge
+    this.authFrames += 1
+    // A transient rejection: the tags are right, the relay says no once (a verifier hiccup). This is
+    // the case that must not poison a reused challenge.
+    if (accepted && this.rejectFirstAuth !== undefined && this.authFrames === 1) {
+      socket.deliver(['OK', raw.id, false, this.rejectFirstAuth])
+      return
+    }
     if (accepted) {
       this.authCount += 1
       socket.authed = true
@@ -245,19 +289,28 @@ class FakeRelayState implements FakeRelay {
 
   private handleEvent(socket: RelaySocket, raw: unknown): void {
     if (!isEventShaped(raw)) return
-    this.eventCount += 1
     if (this.gateWrites && !socket.authed) {
-      // gate.go:82-85: a fresh challenge, then the rejection — in that order.
-      this.challenge(socket)
+      // gate.go:82-85: a fresh challenge, then the rejection — in that order. (Unless the relay is
+      // scripted to gate without ever offering a handshake.)
+      if (!this.noChallengeOnReject) this.challenge(socket)
       socket.deliver(['OK', raw.id, false, 'auth-required: writes require authentication'])
       return
     }
+    // Count only writes that pass the gate: `first` means "the first event the relay would have
+    // acked", which is what a reconnect test needs regardless of how many auth round trips came
+    // before it.
+    this.eventCount += 1
     const lose = this.dropEvents === 'all' || (this.dropEvents === 'first' && this.eventCount === 1)
     if (lose) {
       socket.shutdown(1006, 'connection lost before OK')
       return
     }
     if (this.silentEvents) return
+    if (this.spuriousOk) {
+      // A foreign id and a truncated one, both claiming acceptance: neither may reach an ack waiter.
+      socket.deliver(['OK', 'ff'.repeat(32), true, 'spurious'])
+      socket.deliver(['OK', 'ab', true, 'spurious'])
+    }
     const verdict = this.verdict(raw)
     socket.deliver(['OK', raw.id, verdict.accepted, verdict.message])
   }
@@ -273,6 +326,10 @@ class FakeRelayState implements FakeRelay {
     for (const event of this.events) {
       if (ids.includes(event.id)) socket.deliver(['EVENT', subId, event])
     }
+    // A relay answering an ids-REQ with some other event: the client must not treat it as the
+    // record it asked for, whatever that event's signature says.
+    if (this.mismatchedRead) socket.deliver(['EVENT', subId, signedEvent(999)])
+    if (this.stallEose) return
     socket.deliver(['EOSE', subId])
   }
 }
