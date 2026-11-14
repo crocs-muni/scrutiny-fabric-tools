@@ -33,6 +33,35 @@ export const NIP46_KIND = 24133
 const HEX64 = /^[0-9a-f]{64}$/u
 const DEFAULT_REQUEST_TIMEOUT_MS = 60_000
 
+/**
+ * Machine-readable failure classes. Callers (A4, tests) need to distinguish "the bunker said no"
+ * from "nothing ever answered"; matching message prose is not a contract.
+ */
+export type Nip46FailureReason =
+  | 'closed'
+  | 'timeout'
+  | 'unexpected-author'
+  | 'relay-closed'
+  | 'send-failed'
+  | 'connect-refused'
+  | 'auth-required'
+  | 'bunker-error'
+  | 'invalid-response'
+  | 'tampered'
+  | 'wrong-user-key'
+  | 'stale-template'
+  | 'invalid-uri'
+
+export class Nip46Error extends Error {
+  readonly reason: Nip46FailureReason
+
+  constructor(reason: Nip46FailureReason, message: string, options?: ErrorOptions) {
+    super(message, options)
+    this.name = 'Nip46Error'
+    this.reason = reason
+  }
+}
+
 /** The `bunker://` token's three payloads, validated. */
 export interface BunkerUri {
   /** The signer daemon's pubkey (response author and NIP-44 peer), hex. */
@@ -58,12 +87,45 @@ function normalizeRelay(raw: string): string {
   try {
     url = new URL(raw)
   } catch {
-    throw new Error(`NIP-46: relay parameter "${raw}" is not an absolute URL`)
+    throw new Nip46Error('invalid-uri', `NIP-46: relay parameter "${raw}" is not an absolute URL`)
   }
   if (url.protocol !== 'ws:' && url.protocol !== 'wss:') {
-    throw new Error(`NIP-46: relay parameter must be ws:// or wss:// — got ${url.protocol}//`)
+    throw new Nip46Error(
+      'invalid-uri',
+      `NIP-46: relay parameter must be ws:// or wss:// — got ${url.protocol}//`,
+    )
   }
   return url.href.replace(/\/+$/u, '')
+}
+
+/**
+ * Percent-decode one query component exactly once, per RFC 3986. `URLSearchParams` would also map
+ * `+` to a space (form-urlencoded semantics), which silently changes a secret containing `+`; a
+ * bunker URI is a URI, not a form body, so `+` stays a plus and `%2B` also decodes to one.
+ */
+function decodeQueryComponent(raw: string): string {
+  try {
+    return decodeURIComponent(raw)
+  } catch {
+    throw new Nip46Error(
+      'invalid-uri',
+      'NIP-46: malformed percent-encoding in the bunker URI query — re-copy the URI',
+    )
+  }
+}
+
+/** Every value of `name`, decoded once, in URI order. Empty pairs (`&&`, trailing `&`) are skipped. */
+function queryParamValues(search: string, name: string): string[] {
+  const values: string[] = []
+  const query = search.startsWith('?') ? search.slice(1) : search
+  for (const pair of query.split('&')) {
+    if (pair === '') continue
+    const separator = pair.indexOf('=')
+    const key = decodeQueryComponent(separator === -1 ? pair : pair.slice(0, separator))
+    if (key !== name) continue
+    values.push(decodeQueryComponent(separator === -1 ? '' : pair.slice(separator + 1)))
+  }
+  return values
 }
 
 /**
@@ -78,27 +140,33 @@ export function parseBunkerUri(uri: string): BunkerUri {
   try {
     url = new URL(uri)
   } catch {
-    throw new Error(
+    throw new Nip46Error(
+      'invalid-uri',
       'NIP-46: invalid bunker URI — expected bunker://<remote-signer-pubkey>?relay=wss://…',
     )
   }
   if (url.protocol !== 'bunker:') {
-    throw new Error(
+    throw new Nip46Error(
+      'invalid-uri',
       `NIP-46: expected a bunker:// URI, got ${url.protocol}// — nostrconnect:// is the client-initiated flow and belongs in the client UI, not in server config`,
     )
   }
   const remotePubkey = url.hostname
   if (!HEX64.test(remotePubkey)) {
-    throw new Error(
+    throw new Nip46Error(
+      'invalid-uri',
       `NIP-46: bunker URI host must be the remote-signer pubkey as 64-char hex — got "${remotePubkey}"`,
     )
   }
-  const relays = url.searchParams.getAll('relay').map(normalizeRelay)
+  const relays = queryParamValues(url.search, 'relay').map(normalizeRelay)
   if (relays.length === 0) {
-    throw new Error('NIP-46: bunker URI needs at least one relay= parameter, e.g. ?relay=wss://…')
+    throw new Nip46Error(
+      'invalid-uri',
+      'NIP-46: bunker URI needs at least one relay= parameter, e.g. ?relay=wss://…',
+    )
   }
   // `|| undefined`: `?secret=` is an absent secret, not an empty one.
-  const secret = url.searchParams.get('secret') || undefined
+  const secret = queryParamValues(url.search, 'secret')[0] || undefined
   return { remotePubkey, relays, secret }
 }
 
@@ -107,8 +175,12 @@ export interface BunkerSignerOptions {
   readonly uri: string
   /** Injected by A4 (WebSocket) or by tests (in-memory fake). */
   readonly transport: RelayTransport
-  /** Disposable client key; generated when omitted. Never leaves this process. */
-  readonly clientSecretKey?: Uint8Array
+  /**
+   * The NIP-44 *local* private key; generated when omitted. ECDH pairs it with the bunker's
+   * `remotePubkey` — the same direction as `nostr-tools.getConversationKey(sec, pub)` and nak's
+   * `computeConversationKey(sec, remote)`. Never leaves this process.
+   */
+  readonly localSecretKey?: Uint8Array
   /** Sent as `optional_client_metadata.name`, so the bunker UI can label the approval prompt. */
   readonly appName?: string
   /** Per-RPC deadline. A human approval can be slow; 60 s is the default. */
@@ -142,21 +214,22 @@ export async function createBunkerSigner(options: BunkerSignerOptions): Promise<
   const relayUrl = bunker.relays[0]
   if (relayUrl === undefined) {
     // parseBunkerUri already guarantees one; this keeps `noUncheckedIndexedAccess` honest.
-    throw new Error('NIP-46: bunker URI has no relay')
+    throw new Nip46Error('invalid-uri', 'NIP-46: bunker URI has no relay')
   }
   const timeoutMs = options.requestTimeoutMs ?? DEFAULT_REQUEST_TIMEOUT_MS
-  const clientSecretKey = options.clientSecretKey ?? randomBytes(32)
+  const localSecretKey = options.localSecretKey ?? randomBytes(32)
   const remotePubkeyBytes = hexToBytes(bunker.remotePubkey)
   let conversationKey: Uint8Array
   try {
-    conversationKey = getConversationKey(clientSecretKey, remotePubkeyBytes)
+    conversationKey = getConversationKey(localSecretKey, remotePubkeyBytes)
   } catch (cause) {
     const reason = cause instanceof Error ? cause.message : String(cause)
-    throw new Error(
+    throw new Nip46Error(
+      'invalid-uri',
       `NIP-46: bunker URI host ${bunker.remotePubkey} is not a valid secp256k1 pubkey (${reason})`,
     )
   }
-  const client = createDevKeySigner(clientSecretKey)
+  const client = createDevKeySigner(localSecretKey)
 
   const socket: RelaySocket = await options.transport.connect(relayUrl)
   const pending = new Map<string, PendingRequest>()
@@ -178,6 +251,7 @@ export async function createBunkerSigner(options: BunkerSignerOptions): Promise<
    * legitimate signing round-trip at will.
    */
   let unexpectedAuthor: string | undefined
+  let undecryptableFromBunker = false
 
   function handleEvent(value: unknown): void {
     if (!verifySignedEvent(value)) return
@@ -192,9 +266,10 @@ export async function createBunkerSigner(options: BunkerSignerOptions): Promise<
     try {
       envelope = RpcResponse.parse(JSON.parse(decrypt(value.content, conversationKey)))
     } catch {
-      // Unattributable: a tampered ciphertext or a response to another client. The matching
-      // request's deadline surfaces the failure; guessing which pending id it belonged to could
-      // fail the wrong request.
+      // Authenticated author, but the ciphertext does not open with the conversation key. Record
+      // it so a timeout can say "wrong key" instead of "bunker asleep"; the request id is inside
+      // the ciphertext, so guessing which pending request it belonged to could fail the wrong one.
+      undecryptableFromBunker = true
       return
     }
 
@@ -205,19 +280,28 @@ export async function createBunkerSigner(options: BunkerSignerOptions): Promise<
 
     if (envelope.result === 'auth_url' && envelope.error !== undefined) {
       request.reject(
-        new Error(
+        new Nip46Error(
+          'auth-required',
           `NIP-46: bunker requires interactive authorization — open ${envelope.error} in the bunker’s own UI, approve, then retry`,
         ),
       )
       return
     }
     if (envelope.error !== undefined) {
-      request.reject(new Error(`NIP-46: ${request.method} failed in the bunker: ${envelope.error}`))
+      request.reject(
+        new Nip46Error(
+          'bunker-error',
+          `NIP-46: ${request.method} failed in the bunker: ${envelope.error}`,
+        ),
+      )
       return
     }
     if (envelope.result === undefined) {
       request.reject(
-        new Error(`NIP-46: ${request.method} response carried neither a result nor an error`),
+        new Nip46Error(
+          'invalid-response',
+          `NIP-46: ${request.method} response carried neither a result nor an error`,
+        ),
       )
       return
     }
@@ -234,7 +318,8 @@ export async function createBunkerSigner(options: BunkerSignerOptions): Promise<
       case 'CLOSED':
         if (frame[1] === subscriptionId) {
           rejectAll(
-            new Error(
+            new Nip46Error(
+              'relay-closed',
               `NIP-46: relay ${relayUrl} closed the subscription: ${String(frame[2] ?? '')}`,
             ),
           )
@@ -252,7 +337,7 @@ export async function createBunkerSigner(options: BunkerSignerOptions): Promise<
     if (closed) return
     closed = true
     unsubscribe()
-    rejectAll(new Error('NIP-46: signer was closed'))
+    rejectAll(new Nip46Error('closed', 'NIP-46: signer was closed'))
     try {
       socket.send(JSON.stringify(['CLOSE', subscriptionId]))
     } catch {
@@ -262,7 +347,7 @@ export async function createBunkerSigner(options: BunkerSignerOptions): Promise<
   }
 
   function sendRequest(method: string, params: readonly string[]): Promise<string> {
-    if (closed) return Promise.reject(new Error('NIP-46: signer is closed'))
+    if (closed) return Promise.reject(new Nip46Error('closed', 'NIP-46: signer is closed'))
     const id = bytesToHex(randomBytes(8))
     const content = encrypt(JSON.stringify({ id, method, params }), conversationKey)
     const event = client.sign({
@@ -274,8 +359,11 @@ export async function createBunkerSigner(options: BunkerSignerOptions): Promise<
     const { promise, resolve, reject } = Promise.withResolvers<string>()
     const timer = setTimeout(() => {
       pending.delete(id)
+      const timeoutReason: Nip46FailureReason =
+        unexpectedAuthor === undefined ? 'timeout' : 'unexpected-author'
       reject(
-        new Error(
+        new Nip46Error(
+          timeoutReason,
           [
             `NIP-46: ${method} timed out after ${timeoutMs} ms on ${relayUrl} — is the bunker running, connected to that relay, and authorized for this client?`,
             ...(unexpectedAuthor === undefined
@@ -283,6 +371,11 @@ export async function createBunkerSigner(options: BunkerSignerOptions): Promise<
               : [
                   `A kind-24133 response addressed to this client was authored by ${unexpectedAuthor}, not the configured bunker ${bunker.remotePubkey} — check SCRUTINY_SIGNER_URI.`,
                 ]),
+            ...(undecryptableFromBunker
+              ? [
+                  'A response from the configured bunker did not decrypt with the NIP-44 conversation key — the URI pubkey and the local secret may belong to different keypairs.',
+                ]
+              : []),
           ].join(' '),
         ),
       )
@@ -294,7 +387,12 @@ export async function createBunkerSigner(options: BunkerSignerOptions): Promise<
       pending.delete(id)
       clearTimeout(timer)
       const reason = cause instanceof Error ? cause.message : String(cause)
-      reject(new Error(`NIP-46: failed to publish ${method} to ${relayUrl}: ${reason}`))
+      reject(
+        new Nip46Error(
+          'send-failed',
+          `NIP-46: failed to publish ${method} to ${relayUrl}: ${reason}`,
+        ),
+      )
     }
     return promise
   }
@@ -325,37 +423,56 @@ export async function createBunkerSigner(options: BunkerSignerOptions): Promise<
     // `nak bunker` answers "ack" when the presented secret is authorized (or the user approves);
     // it answers with the secret itself in the client-initiated flow. Both mean "authorized".
     if (connectResult !== 'ack' && connectResult !== bunker.secret) {
-      throw new Error(
+      throw new Nip46Error(
+        'connect-refused',
         `NIP-46: bunker refused connect — expected "ack"${bunker.secret === undefined ? '' : ' or the URI secret'}, got ${JSON.stringify(connectResult).slice(0, 120)}. A bunker:// secret is single-use: nak rotates it after the first successful connection, so re-copy the URI`,
       )
     }
 
+    // Only a signed kind-24133 event whose content opens with this conversation key reaches
+    // `sendRequest` with a result. There is no plaintext `get_public_key` path: a bare hex string
+    // in an event content fails NIP-44 decryption in handleEvent and is dropped, never adopted.
     const userPubkey = await sendRequest('get_public_key', [])
     if (!HEX64.test(userPubkey)) {
-      throw new Error(
-        `NIP-46: get_public_key returned "${userPubkey.slice(0, 80)}", not a 64-char hex pubkey`,
+      // Length only: never echo bunker-controlled content into a host-visible error.
+      throw new Nip46Error(
+        'invalid-response',
+        `NIP-46: get_public_key response is not a 64-char hex pubkey (${userPubkey.length} chars) — refusing it`,
       )
     }
 
     async function sign(template: UnsignedEvent): Promise<NostrEvent> {
       // Same guard as the dev-key path: never spend a human approval on an event the relay's
       // freshness gate will reject (relay/internal/relay/relay.go, relay/README.md).
-      assertCreatedAtWithinRelayWindow(template.created_at)
+      try {
+        assertCreatedAtWithinRelayWindow(template.created_at)
+      } catch (cause) {
+        throw new Nip46Error(
+          'stale-template',
+          cause instanceof Error ? cause.message : 'created_at outside the relay window',
+          { cause },
+        )
+      }
       const result = await sendRequest('sign_event', [JSON.stringify(template)])
       let parsed: unknown
       try {
         parsed = JSON.parse(result)
       } catch {
-        throw new Error('NIP-46: sign_event returned a result that is not JSON')
+        throw new Nip46Error(
+          'invalid-response',
+          'NIP-46: sign_event returned a result that is not JSON',
+        )
       }
       if (!verifySignedEvent(parsed)) {
-        throw new Error(
+        throw new Nip46Error(
+          'tampered',
           'NIP-46: sign_event returned an event whose id or signature does not verify — ' +
             'refusing it (the relay or bunker altered it in flight)',
         )
       }
       if (parsed.pubkey !== userPubkey) {
-        throw new Error(
+        throw new Nip46Error(
+          'wrong-user-key',
           `NIP-46: sign_event returned an event signed by ${parsed.pubkey}, but the connected ` +
             `user key is ${userPubkey} — refusing it`,
         )
@@ -366,9 +483,15 @@ export async function createBunkerSigner(options: BunkerSignerOptions): Promise<
         parsed.content !== template.content ||
         JSON.stringify(parsed.tags) !== JSON.stringify(template.tags)
       ) {
-        throw new Error(
-          'NIP-46: sign_event returned an event that does not match the requested template — ' +
-            'kind, content, tags or created_at changed inside the bunker',
+        // No event content in the message: it is bunker-controlled text and this error can be
+        // rendered by a host. kind + created_at identify the template without echoing it.
+        throw new Nip46Error(
+          'tampered',
+          [
+            'NIP-46: sign_event returned an event that does not match the requested template',
+            `(kind ${template.kind}, created_at ${template.created_at}) — content or tags changed`,
+            'inside the bunker',
+          ].join(' '),
         )
       }
       return parsed

@@ -49,19 +49,28 @@ function assertBytes(value: Uint8Array, expected: number, label: string): void {
 }
 
 /**
- * `conversation_key = hkdf_extract(sha256, ECDH_x(sec1, pub2), salt="nip44-v2")`.
+ * `conversation_key = hkdf_extract(sha256, ECDH_x(local_secret, remote_pub), salt="nip44-v2")`.
+ *
+ * **Direction:** the first argument is the *local* secret key, the second the *peer's* x-only
+ * pubkey. NIP-44's ECDH is symmetric, so `conv(a, B) == conv(b, A)`; the official vectors pin both
+ * orderings and `test/nip44.test.ts:conversation key` asserts the equality explicitly. Both
+ * reference implementations (`nostr-tools.getConversationKey(sec, pub)`, nak's
+ * `computeConversationKey(sec, remote)`) have this shape.
  *
  * The ECDH output is the raw x coordinate of the shared point — not hashed, and not the compressed
  * point encoding (NIP-44 warns that some libraries hash it). BIP-340 pubkeys are x-only, so the
  * even-y compressed form `0x02 || pubkey` is the point NIP-44 means.
  */
-export function getConversationKey(privateKeyA: Uint8Array, publicKeyB: Uint8Array): Uint8Array {
-  assertBytes(privateKeyA, 32, 'private key')
-  assertBytes(publicKeyB, CONVERSATION_KEY_BYTES, 'public key')
+export function getConversationKey(
+  localSecretKey: Uint8Array,
+  remotePubkey: Uint8Array,
+): Uint8Array {
+  assertBytes(localSecretKey, 32, 'local secret key')
+  assertBytes(remotePubkey, CONVERSATION_KEY_BYTES, 'remote public key')
   const compressed = new Uint8Array(33)
   compressed[0] = 0x02
-  compressed.set(publicKeyB, 1)
-  const shared = secp256k1.getSharedSecret(privateKeyA, compressed, false)
+  compressed.set(remotePubkey, 1)
+  const shared = secp256k1.getSharedSecret(localSecretKey, compressed, false)
   if (shared.length !== 65) {
     throw new Error(`NIP-44: unexpected ECDH output length ${shared.length}, expected 65`)
   }
@@ -149,6 +158,19 @@ function unpad(padded: Uint8Array): Uint8Array {
 }
 
 /**
+ * NIP-44's AAD is the 32-byte per-message nonce: `mac = HMAC-SHA256(hmac_key, nonce || ciphertext)`
+ * (NIP-44 §Encryption step 6 and `hmac_aad`). v2 defines no conversation-topic AAD; adding one
+ * would change every official vector byte and break nak/nostr-tools interop. Routing both sides
+ * through this helper makes "AAD omitted" impossible to express.
+ */
+function hmacWithAad(hmacKey: Uint8Array, aad: Uint8Array, ciphertext: Uint8Array): Uint8Array {
+  if (aad.length !== NONCE_BYTES) {
+    throw new Error(`NIP-44: AAD must be the ${NONCE_BYTES}-byte nonce, got ${aad.length}`)
+  }
+  return hmac(sha256, hmacKey, concatBytes(aad, ciphertext))
+}
+
+/**
  * Encrypt `plaintext` for a conversation key. `nonce` is injectable so vector tests are exact; every
  * production call gets a fresh CSPRNG nonce, per the spec's one-nonce-per-message rule.
  */
@@ -160,7 +182,7 @@ export function encrypt(
   const padded = pad(utf8ToBytes(plaintext))
   const { chachaKey, chachaNonce, hmacKey } = deriveMessageKeys(conversationKey, nonce)
   const ciphertext = chacha20(chachaKey, chachaNonce, padded)
-  const mac = hmac(sha256, hmacKey, concatBytes(nonce, ciphertext))
+  const mac = hmacWithAad(hmacKey, nonce, ciphertext)
   return base64.encode(concatBytes(new Uint8Array([VERSION]), nonce, ciphertext, mac))
 }
 
@@ -196,7 +218,7 @@ export function decrypt(payload: string, conversationKey: Uint8Array): string {
   const ciphertext = raw.subarray(33, raw.length - 32)
   const mac = raw.subarray(raw.length - 32)
   const { chachaKey, chachaNonce, hmacKey } = deriveMessageKeys(conversationKey, nonce)
-  const expectedMac = hmac(sha256, hmacKey, concatBytes(nonce, ciphertext))
+  const expectedMac = hmacWithAad(hmacKey, nonce, ciphertext)
   if (!equalBytes(mac, expectedMac)) {
     throw new Error('NIP-44: invalid MAC — the payload was altered or encrypted for another key')
   }

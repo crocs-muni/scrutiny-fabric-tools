@@ -17,6 +17,7 @@ import { decrypt, encrypt, getConversationKey } from '../src/identity/nip44.ts'
 import {
   type BunkerSigner,
   NIP46_KIND,
+  Nip46Error,
   createBunkerSigner,
   parseBunkerUri,
 } from '../src/identity/nip46.ts'
@@ -38,6 +39,7 @@ type BunkerMode =
   | 'auth-url'
   | 'refuse-connect'
   | 'drop-sign'
+  | 'plaintext-gp'
 
 const REMOTE_SECRET = new Uint8Array(32).fill(9)
 const USER_SECRET = new Uint8Array(32).fill(7)
@@ -159,13 +161,19 @@ class FakeBunker implements RelayTransport {
 
     const payload = this.answer(request)
     if (payload === undefined) return
-    const responseEvent = this.signResponse(request, payload, event.pubkey)
+    // `plaintext-gp` models a broken/malicious signer that puts the pubkey in the event content
+    // without NIP-44. The client must never adopt it; it can only time out or fail authenticated.
+    const plaintext = this.mode === 'plaintext-gp' && request.method === 'get_public_key'
+    const responseEvent = this.signResponse(request, payload, event.pubkey, plaintext)
     socket.deliver(['EVENT', socket.subscriptionId, responseEvent])
   }
 
   private answer(request: RpcRequest): { result?: string; error?: string } | undefined {
     switch (request.method) {
       case 'connect':
+        if (this.mode === 'auth-url') {
+          return { result: 'auth_url', error: 'https://signer.example/authorize' }
+        }
         if (this.mode === 'refuse-connect') return { error: 'invalid secret' }
         if (this.requiredSecret !== undefined && request.params[1] !== this.requiredSecret) {
           return { error: 'invalid secret' }
@@ -208,9 +216,12 @@ class FakeBunker implements RelayTransport {
     request: RpcRequest,
     payload: { result?: string; error?: string },
     clientPubkey: string,
+    plaintext = false,
   ): NostrEvent {
     const conversationKey = getConversationKey(REMOTE_SECRET, hexToBytes(clientPubkey))
-    const content = encrypt(JSON.stringify({ id: request.id, ...payload }), conversationKey)
+    const content = plaintext
+      ? JSON.stringify({ id: request.id, ...payload })
+      : encrypt(JSON.stringify({ id: request.id, ...payload }), conversationKey)
     const signer = this.mode === 'wrong-author' ? this.impostorSigner : this.remoteSigner
     return signer.sign({
       kind: NIP46_KIND,
@@ -241,7 +252,7 @@ async function connect(
   const signer = await createBunkerSigner({
     uri,
     transport: bunker,
-    clientSecretKey: CLIENT_SECRET,
+    localSecretKey: CLIENT_SECRET,
     ...(options.appName === undefined ? {} : { appName: options.appName }),
     ...(options.requestTimeoutMs === undefined
       ? {}
@@ -251,6 +262,17 @@ async function connect(
   const socket = bunker.sockets.at(-1)
   if (socket === undefined) throw new Error('fake transport did not create a socket')
   return { signer, socket }
+}
+
+/** Await a rejection that must be a typed NIP-46 failure, and return it for reason assertions. */
+async function rejectionOf(promise: Promise<unknown>): Promise<Nip46Error> {
+  try {
+    await promise
+  } catch (error) {
+    expect(error).toBeInstanceOf(Nip46Error)
+    return error as Nip46Error
+  }
+  throw new Error('expected the NIP-46 operation to reject')
 }
 
 describe('parseBunkerUri', () => {
@@ -272,6 +294,20 @@ describe('parseBunkerUri', () => {
     expect(
       parseBunkerUri(`bunker://${pubkey}?relay=wss%3A%2F%2Frelay.example&secret=`).secret,
     ).toBeUndefined()
+  })
+
+  it('percent-decodes the secret exactly once and keeps + literal', () => {
+    // A secret containing '%' is encoded as %25; a literal '+' must not become a space the way
+    // URLSearchParams would decode it (form-urlencoded semantics do not apply to a URI).
+    expect(parseBunkerUri(`bunker://${pubkey}?relay=wss%3A%2F%2Fr&secret=a%25b`).secret).toBe('a%b')
+    expect(parseBunkerUri(`bunker://${pubkey}?relay=wss%3A%2F%2Fr&secret=a+b`).secret).toBe('a+b')
+    expect(parseBunkerUri(`bunker://${pubkey}?relay=wss%3A%2F%2Fr&secret=a%2Bb`).secret).toBe('a+b')
+  })
+
+  it('rejects malformed percent-encoding instead of echoing the query', () => {
+    expect(() => parseBunkerUri(`bunker://${pubkey}?relay=wss%3A%2F%2Fr&secret=a%zz`)).toThrow(
+      /malformed percent-encoding/u,
+    )
   })
 
   it('rejects a URI without a relay', () => {
@@ -317,15 +353,29 @@ describe('createBunkerSigner handshake', () => {
     const bunker = new FakeBunker()
     const uri = `bunker://${'00'.repeat(32)}?relay=${encodeURIComponent('wss://relay.example')}`
     await expect(
-      createBunkerSigner({ uri, transport: bunker, clientSecretKey: CLIENT_SECRET }),
+      createBunkerSigner({ uri, transport: bunker, localSecretKey: CLIENT_SECRET }),
     ).rejects.toThrow(/not a valid secp256k1 pubkey/u)
     expect(bunker.sockets).toHaveLength(0)
   })
 
-  it('rejects a mismatched secret and tears the socket down', async () => {
+  it('rejects a mismatched secret with the bunker error, not a timeout', async () => {
     const bunker = new FakeBunker()
     bunker.requiredSecret = 'right'
-    await expect(connect(bunker, { secret: 'wrong' })).rejects.toThrow(/invalid secret/u)
+    const error = await rejectionOf(connect(bunker, { secret: 'wrong' }))
+    expect(error.reason).toBe('bunker-error')
+    expect(error.message).toMatch(/invalid secret/u)
+    expect(error.message).not.toMatch(/timed out/u)
+    expect(bunker.sockets[0]?.closed).toBe(true)
+  })
+
+  it('surfaces an auth challenge instead of a timeout for an unapproved secret', async () => {
+    const bunker = new FakeBunker()
+    bunker.requiredSecret = 'right'
+    bunker.mode = 'auth-url'
+    const error = await rejectionOf(connect(bunker, { secret: 'wrong', requestTimeoutMs: 25 }))
+    expect(error.reason).toBe('auth-required')
+    expect(error.message).toMatch(/https:\/\/signer\.example\/authorize/u)
+    expect(error.message).not.toMatch(/timed out/u)
     expect(bunker.sockets[0]?.closed).toBe(true)
   })
 
@@ -333,7 +383,9 @@ describe('createBunkerSigner handshake', () => {
     const bunker = new FakeBunker()
     const { signer } = await connect(bunker)
     bunker.mode = 'auth-url'
-    await expect(signer.sign(template())).rejects.toThrow(
+    const error = await rejectionOf(signer.sign(template()))
+    expect(error.reason).toBe('auth-required')
+    expect(error.message).toMatch(
       /interactive authorization.*https:\/\/signer\.example\/authorize/u,
     )
   })
@@ -342,7 +394,18 @@ describe('createBunkerSigner handshake', () => {
     const bunker = new FakeBunker()
     const { signer } = await connect(bunker, { requestTimeoutMs: 25 })
     bunker.mode = 'drop-sign'
-    await expect(signer.sign(template())).rejects.toThrow(/timed out after 25 ms/u)
+    const error = await rejectionOf(signer.sign(template()))
+    expect(error.reason).toBe('timeout')
+    expect(error.message).toMatch(/timed out after 25 ms/u)
+  })
+
+  it('never adopts a plaintext get_public_key answer', async () => {
+    const bunker = new FakeBunker()
+    bunker.mode = 'plaintext-gp'
+    const error = await rejectionOf(connect(bunker, { requestTimeoutMs: 25 }))
+    expect(error.reason).toBe('timeout')
+    expect(error.message).toMatch(/did not decrypt with the NIP-44 conversation key/u)
+    expect(bunker.sockets[0]?.closed).toBe(true)
   })
 })
 
@@ -369,37 +432,51 @@ describe('createBunkerSigner sign_event', () => {
     const bunker = new FakeBunker()
     const { signer } = await connect(bunker)
     bunker.mode = 'tamper-resigned'
-    await expect(signer.sign(template())).rejects.toThrow(/does not match the requested template/u)
+    const error = await rejectionOf(signer.sign(template()))
+    expect(error.reason).toBe('tampered')
+    expect(error.message).toMatch(/does not match the requested template/u)
+    expect(error.message).toMatch(/kind 1, created_at \d+/u)
+    // The bunker-controlled content must not be echoed into a host-visible error.
+    expect(error.message).not.toContain('(tampered)')
   })
 
   it('rejects an event whose id no longer matches its content', async () => {
     const bunker = new FakeBunker()
     const { signer } = await connect(bunker)
     bunker.mode = 'tamper-raw'
-    await expect(signer.sign(template())).rejects.toThrow(/does not verify/u)
+    const error = await rejectionOf(signer.sign(template()))
+    expect(error.reason).toBe('tampered')
+    expect(error.message).toMatch(/does not verify/u)
   })
 
   it('rejects a response authored by anyone but the configured bunker', async () => {
     const bunker = new FakeBunker()
     const { signer } = await connect(bunker, { requestTimeoutMs: 25 })
     bunker.mode = 'wrong-author'
-    await expect(signer.sign(template())).rejects.toThrow(/not the configured bunker/u)
+    const error = await rejectionOf(signer.sign(template()))
+    expect(error.reason).toBe('unexpected-author')
+    expect(error.message).toContain(bunker.impostorSigner.publicKey)
+    expect(error.message).toMatch(/not the configured bunker/u)
   })
 
   it('rejects an event signed by a different user key', async () => {
     const bunker = new FakeBunker()
     const { signer } = await connect(bunker)
     bunker.mode = 'wrong-user-key'
-    await expect(signer.sign(template())).rejects.toThrow(/connected user key/u)
+    const error = await rejectionOf(signer.sign(template()))
+    expect(error.reason).toBe('wrong-user-key')
+    expect(error.message).toMatch(/connected user key/u)
   })
 
   it('refuses a stale template before spending a bunker round-trip', async () => {
     const bunker = new FakeBunker()
     const { signer } = await connect(bunker)
     const before = bunker.requests.length
-    await expect(signer.sign(template({ created_at: CLOCK() - 2 * 60 * 60 - 1 }))).rejects.toThrow(
-      /behind this machine's clock/u,
+    const error = await rejectionOf(
+      signer.sign(template({ created_at: CLOCK() - 2 * 60 * 60 - 1 })),
     )
+    expect(error.reason).toBe('stale-template')
+    expect(error.message).toMatch(/behind this machine's clock/u)
     expect(bunker.requests.length).toBe(before)
   })
 })

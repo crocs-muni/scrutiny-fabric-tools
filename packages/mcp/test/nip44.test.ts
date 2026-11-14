@@ -9,9 +9,12 @@
  */
 
 import { readFileSync } from 'node:fs'
+import { concatBytes } from '@noble/ciphers/utils.js'
 import { schnorr } from '@noble/curves/secp256k1.js'
+import { hmac } from '@noble/hashes/hmac.js'
 import { sha256 } from '@noble/hashes/sha2.js'
 import { bytesToHex, hexToBytes, utf8ToBytes } from '@noble/hashes/utils.js'
+import { base64 } from '@scure/base'
 import { describe, expect, it } from 'vitest'
 import {
   calcPaddedLen,
@@ -93,6 +96,19 @@ describe('NIP-44 v2 vectors: get_conversation_key', () => {
     }
   })
 
+  it('derives the same conversation key from either side of a pair', () => {
+    // The first two encrypt_decrypt vectors are the same keypair with sec1/sec2 swapped, so they
+    // prove the local-secret/remote-pubkey direction is symmetric (NIP-44: conv(a,B) == conv(b,A)).
+    const [first, second] = vectors.v2.valid.encrypt_decrypt
+    if (first === undefined || second === undefined) throw new Error('vectors missing a pair')
+    expect([second.sec1, second.sec2]).toStrictEqual([first.sec2, first.sec1])
+
+    const keyAB = getConversationKey(hexToBytes(first.sec1), pubkeyOf(first.sec2))
+    const keyBA = getConversationKey(hexToBytes(second.sec1), pubkeyOf(second.sec2))
+    expect(bytesToHex(keyAB)).toBe(first.conversation_key)
+    expect(bytesToHex(keyBA)).toBe(first.conversation_key)
+  })
+
   it('throws for every invalid pair', () => {
     for (const vector of vectors.v2.invalid.get_conversation_key) {
       expect(
@@ -171,7 +187,26 @@ describe('NIP-44 v2 invalid corpus', () => {
     }
   })
 
-  it('rejects an oversized payload before decoding it', () => {
-    expect(() => decrypt('A'.repeat(1_000_001), new Uint8Array(32))).toThrow(/exceeds/u)
+  it('rejects a MAC computed without the nonce as AAD', () => {
+    // NIP-44's AAD is the 32-byte nonce, not a topic string. Recompute the MAC over the
+    // ciphertext alone and prove decrypt notices (constant-time mismatch on AAD || ciphertext).
+    const vector = vectors.v2.valid.encrypt_decrypt[0]
+    if (vector === undefined) throw new Error('vectors missing a sample')
+    const conversationKey = hexToBytes(vector.conversation_key)
+    const nonce = hexToBytes(vector.nonce)
+    const raw = base64.decode(encrypt(vector.plaintext, conversationKey, nonce))
+    const ciphertext = raw.subarray(33, raw.length - 32)
+    const { hmacKey } = deriveMessageKeys(conversationKey, nonce)
+    const macWithoutAad = hmac(sha256, hmacKey, ciphertext)
+    const tampered = base64.encode(concatBytes(raw.subarray(0, raw.length - 32), macWithoutAad))
+    expect(() => decrypt(tampered, conversationKey)).toThrow(/invalid MAC/u)
+  })
+
+  it('enforces the 1 MiB decrypt cap at the boundary', () => {
+    const key = new Uint8Array(32)
+    expect(() => decrypt('A'.repeat(1_000_001), key)).toThrow(/exceeds/u)
+    // At exactly the cap the local ceiling must not be the rejection reason; the payload is still
+    // garbage and fails as an unknown version instead.
+    expect(() => decrypt('A'.repeat(1_000_000), key)).not.toThrow(/exceeds/u)
   })
 })
