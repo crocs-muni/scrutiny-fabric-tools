@@ -21,4 +21,4 @@ transport (`src/identity/transport.ts`); A4 supplies the WebSocket and hands the
 publishing tools. Both branches reject a `created_at` outside the relay's gate (2 h past,
 15 min future) before signing, naming the measured offset.
 
-Scaffold of the eight #108 tools (`src/tools/`); publisher guide: #109.
+The eight #108 tools are wired in `src/tools/handlers/`: the server composes content (`src/compose/`, rule 8 + rule 2a restatement), runs the preflight table (`src/preflight/checkTable.ts`) before any signature, publishes over the A3 relay client, and fetches every event back for an inline verification. The long-form publisher guide (#109) is served as the `scrutiny://publisher-guide` resource from `docs/publisher-guide.md`.
