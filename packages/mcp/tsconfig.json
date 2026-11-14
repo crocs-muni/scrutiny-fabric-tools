@@ -1,0 +1,22 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "types": ["node"],
+    "noEmit": true,
+    // Node 22 supports Promise.withResolvers; the base config's ES2022 lib predates its typing.
+    "lib": ["ES2022", "ES2024.Promise"],
+    // Core's exports point at `dist`, which does not exist in a checkout that has not run
+    // `pnpm build`. Tests and `tsc` import core straight from source instead; a runtime start
+    // still needs the build (A1's dist landmine, #108 A2).
+    "baseUrl": ".",
+    "paths": {
+      "@scrutiny-fabric/core": ["../core/src/index.ts"]
+    },
+    // Mirror shape: no build step, the entry runs from source. Node's type stripping needs the
+    // specifier to name the file that exists on disk, so imports spell `.ts` (see src/index.ts).
+    "allowImportingTsExtensions": true
+  },
+  "include": ["src/**/*.ts", "test/**/*.ts", "vitest.config.ts"]
+}

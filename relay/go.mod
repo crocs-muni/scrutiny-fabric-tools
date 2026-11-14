@@ -6,7 +6,11 @@ go 1.26.0
 // crypto/tls / net/http advisories fixed in go1.26.5..go1.26.10. The toolchain directive
 // makes GOTOOLCHAIN=auto (the default) select exactly this patch level, so the mitigated
 // stdlib travels with the commit rather than with whoever happens to build it.
-toolchain go1.26.10
+//
+// 1.26.11 clears GO-2026-6859 (CVE-2026-97054): an HTTP/1 server that uses MaxBytesReader
+// can panic when the handler reads the body concurrently with writing the header. The relay
+// caps non-websocket request bodies, so the affected path is reachable here.
+toolchain go1.26.11
 
 require (
 	fiatjaf.com/nostr v0.0.0-20260928115942-58e4c715304e

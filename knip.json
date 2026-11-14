@@ -18,6 +18,10 @@
       "entry": ["noble-signer.ts"],
       "project": ["*.ts"]
     },
+    "packages/mcp": {
+      "entry": ["test/**/*.test.ts"],
+      "project": ["src/**/*.ts", "test/**/*.ts"]
+    },
     "packages/mirror": {
       "entry": [
         "src/emit/index.ts",
