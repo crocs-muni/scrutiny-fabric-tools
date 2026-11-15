@@ -4,12 +4,16 @@
  * {@link buildServer} is transport-free by design, so this is the whole server minus stdio.
  */
 
+import { createHash } from 'node:crypto'
+import { readFileSync } from 'node:fs'
 import { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js'
 import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js'
 import { afterEach, describe, expect, it } from 'vitest'
 import { DEFAULT_RELAY_URL, type ServerConfig, loadConfig } from '../src/config.ts'
-import { INSTRUCTIONS, buildServer } from '../src/tools/register.ts'
+import { INSTRUCTIONS, PUBLISHER_GUIDE_URI, buildServer } from '../src/tools/register.ts'
+
+const GUIDE_PATH = new URL('../docs/publisher-guide.md', import.meta.url)
 
 const ID_A = 'a'.repeat(64)
 const HEX_KEY = '01'.repeat(32)
@@ -110,6 +114,7 @@ describe('status', () => {
     expect(result.isError).toBeFalsy()
     expect(text).toContain(`relay: ${DEFAULT_RELAY_URL}`)
     expect(text).toContain('signer: none — set SCRUTINY_SIGNER_URI')
+    expect(text).toContain('connected: no')
     expect(text).not.toContain('pubkey:')
   })
 
@@ -122,11 +127,34 @@ describe('status', () => {
   })
 })
 
+describe('resources', () => {
+  const sha256 = (value: string | Uint8Array): string =>
+    createHash('sha256').update(value).digest('hex')
+
+  it('lists and serves the publisher guide byte-identically', async () => {
+    const client = await connect()
+    const { resources } = await client.listResources()
+    const listed = resources.find((resource) => resource.uri === PUBLISHER_GUIDE_URI)
+    expect(listed?.mimeType).toBe('text/markdown')
+    expect(listed?.name).toBe('publisher-guide')
+
+    const read = await client.readResource({ uri: PUBLISHER_GUIDE_URI })
+    const block = read.contents[0]
+    if (block === undefined || !('text' in block)) {
+      throw new Error(`expected a text resource, got ${JSON.stringify(read.contents)}`)
+    }
+    expect(block.uri).toBe(PUBLISHER_GUIDE_URI)
+    // The served bytes are the file's bytes, not a re-encoded copy.
+    expect(sha256(block.text)).toBe(sha256(readFileSync(GUIDE_PATH)))
+  })
+})
+
 describe('publishing tools', () => {
-  it('answers with the A4 stub until the composer is wired', async () => {
+  it('refuses to publish when no signer is configured', async () => {
     const result = await call(await connect(), 'publish_product', PRODUCT_ARGS)
     expect(result.isError).toBe(true)
-    expect(textOf(result)).toBe('not wired yet — see #108 A4')
+    expect(textOf(result)).toContain('no signer configured')
+    expect(textOf(result)).toContain('SCRUTINY_SIGNER_URI')
   })
 
   it('rejects a free-form content argument on the wire', async () => {

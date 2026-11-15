@@ -71,6 +71,11 @@ export interface FakeRelayOptions {
   readonly stallEose?: boolean
   /** Send `["OK", …]` frames for a foreign and a truncated id before the real verdict. */
   readonly spuriousOk?: boolean
+  /**
+   * Store accepted events and serve them on a later ids-REQ. Default true, like a real relay;
+   * `false` models the "accepted but not returned" case `verify_event` must report honestly.
+   */
+  readonly storeAccepted?: boolean
 }
 
 interface FakeSocket extends WebSocketLike {
@@ -96,6 +101,8 @@ export interface FakeRelay {
   authAccepted(): Promise<void>
   /** Broadcast a NOTICE to every open socket (timeout-diagnostic tests). */
   notice(text: string): void
+  /** Add events the relay already has (a read can find them before any publish). */
+  seed(...events: readonly NostrEvent[]): void
   /** The most recent socket; throws when the client never dialed. */
   lastSocket(): FakeSocket
 }
@@ -170,7 +177,7 @@ class FakeRelayState implements FakeRelay {
   private readonly eagerChallenge: boolean
   private readonly gateWrites: boolean
   private readonly verdict: (event: NostrEvent) => { accepted: boolean; message: string }
-  private readonly events: readonly NostrEvent[]
+  private readonly events: NostrEvent[]
   private readonly silentEvents: boolean
   private readonly silentReads: boolean
   private readonly closedReads: string | undefined
@@ -183,18 +190,25 @@ class FakeRelayState implements FakeRelay {
   private readonly mismatchedRead: boolean
   private readonly stallEose: boolean
   private readonly spuriousOk: boolean
+  private readonly storeAccepted: boolean
 
   private challengeSeq = 0
   private eventCount = 0
   private authCount = 0
   private authFrames = 0
+  /**
+   * Events this relay accepted, served back on an ids-REQ. A real relay stores before it acks
+   * (NIP-20), and the #108 handlers fetch every publish back inline, so a fake that only answered
+   * scripted `events` would model a relay that accepts writes and forgets them.
+   */
+  private readonly stored: NostrEvent[] = []
 
   constructor(options: FakeRelayOptions) {
     this.expectedRelay = options.expectedRelay
     this.eagerChallenge = options.eagerChallenge ?? true
     this.gateWrites = options.gateWrites ?? true
     this.verdict = options.verdict ?? (() => ACCEPT_ALL)
-    this.events = options.events ?? []
+    this.events = [...(options.events ?? [])]
     this.silentEvents = options.silentEvents ?? false
     this.silentReads = options.silentReads ?? false
     this.closedReads = options.closedReads
@@ -207,6 +221,7 @@ class FakeRelayState implements FakeRelay {
     this.mismatchedRead = options.mismatchedRead ?? false
     this.stallEose = options.stallEose ?? false
     this.spuriousOk = options.spuriousOk ?? false
+    this.storeAccepted = options.storeAccepted ?? true
   }
 
   async authAccepted(): Promise<void> {
@@ -215,6 +230,10 @@ class FakeRelayState implements FakeRelay {
 
   notice(text: string): void {
     for (const socket of this.sockets) socket.deliver(['NOTICE', text])
+  }
+
+  seed(...events: readonly NostrEvent[]): void {
+    this.events.push(...events)
   }
 
   lastSocket(): FakeSocket {
@@ -312,6 +331,7 @@ class FakeRelayState implements FakeRelay {
       socket.deliver(['OK', 'ab', true, 'spurious'])
     }
     const verdict = this.verdict(raw)
+    if (verdict.accepted && this.storeAccepted) this.stored.push(raw)
     socket.deliver(['OK', raw.id, verdict.accepted, verdict.message])
   }
 
@@ -323,7 +343,7 @@ class FakeRelayState implements FakeRelay {
       return
     }
     const ids = idsOf(filter)
-    for (const event of this.events) {
+    for (const event of [...this.events, ...this.stored]) {
       if (ids.includes(event.id)) socket.deliver(['EVENT', subId, event])
     }
     // A relay answering an ids-REQ with some other event: the client must not treat it as the
