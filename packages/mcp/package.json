@@ -12,7 +12,8 @@
     "e2e": "node --experimental-strip-types scripts/e2e.mjs",
     "typecheck": "tsc -p tsconfig.json",
     "test": "vitest run",
-    "store-key": "node scripts/store-key.mjs"
+    "store-key": "node scripts/store-key.mjs",
+    "status": "node scripts/status.mjs"
   },
   "//mcp-sdk": "Pinned exactly, not ^: the tool-registration surface and its zod->JSON-Schema conversion moved between 1.x minors, and the pilot pins tool definitions as a rug-pull defense (report \u00a78.3).",
   "//core": "Imported from source by the signer (serializeForId/computeEventId/eventIdMatches) and by A3/A4 builders. Core's exports point at its dist, so tsconfig `paths` and vitest aliases map it to ../core/src; a `pnpm start` from a clean checkout still needs `pnpm build` first.",
