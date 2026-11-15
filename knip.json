@@ -20,7 +20,8 @@
     },
     "packages/mcp": {
       "entry": ["test/**/*.test.ts"],
-      "project": ["src/**/*.ts", "test/**/*.ts"]
+      "project": ["src/**/*.ts", "test/**/*.ts"],
+      "ignoreDependencies": ["@napi-rs/keyring"]
     },
     "packages/mirror": {
       "entry": [

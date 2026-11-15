@@ -4,7 +4,8 @@
  * - `nip46` — the pilot custody path: a `bunker://` token, key stays in the signer daemon, this
  *   process holds only a disposable client key (report §8.3). `loadSigner` performs the handshake
  *   and learns the user pubkey, because a NIP-46 pubkey is not derivable from configuration.
- * - `dev-key` — `NSEC`/`NSEC_FILE`, dev-grade only, never a shipped mode.
+ * - `local` — `SCRUTINY_KEYRING` (the platform keystore, the pilot default) or the test-only
+ *   `NSEC`/`NSEC_FILE`. Same code path, different strength, different `status` wording.
  *
  * Signing is async in both cases: the NIP-46 branch is a network round-trip, and a union that
  * returned `NostrEvent | Promise<NostrEvent>` would push a branch into every caller for no gain.
@@ -94,14 +95,21 @@ export function signerStatus(config: ServerConfig): SignerStatus {
       mode: 'none',
       pubkey: undefined,
       detail:
-        'none — set SCRUTINY_SIGNER_URI (bunker://…) for the pilot path, or NSEC / NSEC_FILE ' +
-        'for dev; publishing tools will refuse until one is set',
+        'none — set SCRUTINY_KEYRING (platform keystore) for the pilot, SCRUTINY_SIGNER_URI for ' +
+        'a signer daemon, or NSEC / NSEC_FILE for tests; publishing tools refuse until one is set',
     }
   }
   return {
     mode: 'dev-key',
     pubkey: devKeySigner(devKey).publicKey,
-    detail: `dev-key (${devKey.source}) — dev-grade only; the pilot path is a NIP-46 bunker (#108)`,
+    // The two local sources are not equally strong, so they do not share one sentence: a keyring
+    // entry keeps the secret out of the host config (the pilot default), while NSEC/NSEC_FILE is
+    // a test convenience. Neither stops a same-user process from asking the store or reading the
+    // file, which is why a signer daemon or a card is stronger upstream.
+    detail:
+      devKey.source === 'SCRUTINY_KEYRING'
+        ? 'OS secret store (SCRUTINY_KEYRING) — the key lives in the platform keystore, not in the host config; a same-user process can still read it, so a signer daemon or hardware is stronger'
+        : `dev key (${devKey.source}) — test-grade only; use SCRUTINY_KEYRING for the pilot, or a signer daemon / hardware when the key must leave the agent’s reach`,
   }
 }
 

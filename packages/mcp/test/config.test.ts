@@ -32,6 +32,60 @@ describe('loadConfig', () => {
     })
   })
 
+  it('reads the key from the injected OS store and never from an env value', () => {
+    const calls: Array<[string, string]> = []
+    const config = loadConfig({ SCRUTINY_KEYRING: 'scrutiny:publisher' }, (service, account) => {
+      calls.push([service, account])
+      return 'ab'.repeat(32)
+    })
+    expect(calls).toEqual([['scrutiny', 'publisher']])
+    expect(config.devKey).toMatchObject({
+      material: 'ab'.repeat(32),
+      form: 'hex',
+      source: 'SCRUTINY_KEYRING',
+    })
+  })
+
+  it('prefers the keyring over NSEC and reports a missing entry without echoing it', () => {
+    const config = loadConfig(
+      { SCRUTINY_KEYRING: 'scrutiny/publisher', NSEC: 'cd'.repeat(32) },
+      () => 'ef'.repeat(32),
+    )
+    expect(config.devKey?.source).toBe('SCRUTINY_KEYRING')
+
+    expect(() => loadConfig({ SCRUTINY_KEYRING: 'scrutiny:publisher' }, () => null)).toThrow(
+      /SCRUTINY_KEYRING/u,
+    )
+    expect(() => loadConfig({ SCRUTINY_KEYRING: 'scrutiny:publisher' }, () => '   ')).toThrow(
+      /not in the OS secret store/u,
+    )
+    expect(() => loadConfig({ SCRUTINY_KEYRING: 'malformed' }, () => 'x')).toThrow(
+      /service:account/u,
+    )
+  })
+
+  it('treats a store read failure as an outage, not a silent miss', () => {
+    const boom = () => {
+      throw new Error('keyring locked')
+    }
+    expect(() => loadConfig({ SCRUTINY_KEYRING: 'scrutiny:publisher' }, boom)).toThrow(
+      /OS secret store/u,
+    )
+  })
+
+  it('ignores keyring settings entirely when a bunker is configured', () => {
+    const config = loadConfig(
+      {
+        SCRUTINY_SIGNER_URI: `bunker://${'ab'.repeat(32)}?relay=wss://relay.example&secret=t`,
+        SCRUTINY_KEYRING: 'scrutiny:publisher',
+      },
+      () => {
+        throw new Error('must not be read')
+      },
+    )
+    expect(config.devKey).toBeUndefined()
+  })
+
   it('normalises the relay URL to an endpoint without a trailing slash', () => {
     expect(loadConfig({ SCRUTINY_RELAY_URL: 'ws://127.0.0.1:7777/' }).relayUrl).toBe(
       'ws://127.0.0.1:7777',

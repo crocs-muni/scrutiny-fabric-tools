@@ -13,6 +13,7 @@
  */
 
 import { readFileSync } from 'node:fs'
+import { createRequire } from 'node:module'
 
 /** `Implementation.name` reported to the host; also the scoped package name (report §8.3). */
 export const SERVER_NAME = '@scrutiny-fabric/mcp'
@@ -45,7 +46,7 @@ export interface DevKey {
   readonly material: string
   /** `hex` (mirror's hex64 form) or bech32 `nsec1…`; A2 decodes it into BIP-340 bytes. */
   readonly form: 'hex' | 'nsec1'
-  readonly source: 'NSEC' | 'NSEC_FILE'
+  readonly source: 'NSEC' | 'NSEC_FILE' | 'SCRUTINY_KEYRING'
 }
 
 export interface ServerConfig {
@@ -72,6 +73,7 @@ const ENV = {
   nsec: 'NSEC',
   nsecFile: 'NSEC_FILE',
   nsecAgeFile: 'NSEC_AGE_FILE',
+  keyring: 'SCRUTINY_KEYRING',
 } as const
 
 function relayUrlFromEnv(env: Env): string {
@@ -115,7 +117,10 @@ function signerUriFromEnv(env: Env): string | undefined {
   return raw
 }
 
-function classifyDevKey(material: string, source: 'NSEC' | 'NSEC_FILE'): DevKey {
+function classifyDevKey(
+  material: string,
+  source: 'NSEC' | 'NSEC_FILE' | 'SCRUTINY_KEYRING',
+): DevKey {
   if (HEX_KEY.test(material)) return { material: material.toLowerCase(), form: 'hex', source }
   if (NSEC_KEY.test(material)) return { material, form: 'nsec1', source }
   // Never the value: this message is displayed and may be quoted by an agent.
@@ -123,6 +128,67 @@ function classifyDevKey(material: string, source: 'NSEC' | 'NSEC_FILE'): DevKey 
     source,
     'must be 64-char hex or a bech32 nsec1… key; fix the value (it is deliberately not echoed here)',
   )
+}
+
+/**
+ * Where a keyring-stored secret is read from. Injected so unit tests never touch the real OS
+ * store: `@napi-rs/keyring` is a native module, and a test that writes to the developer's
+ * Credential Manager is a test that fails on someone else's machine.
+ */
+export type KeyringReader = (service: string, account: string) => string | null
+
+/** ESM has no `require`; the native module is CommonJS, so borrow one from this module's URL. */
+const requireNative = createRequire(import.meta.url)
+
+/** Default reader: the OS store (Windows Credential Manager, macOS Keychain, libsecret). */
+const osKeyringReader: KeyringReader = (service, account) => {
+  // Loaded lazily: the native module must not be required when no keyring is configured.
+  const { Entry } = requireNative('@napi-rs/keyring') as {
+    Entry: new (
+      service: string,
+      account: string,
+    ) => {
+      getPassword(): string | null
+    }
+  }
+  return new Entry(service, account).getPassword()
+}
+
+/**
+ * `SCRUTINY_KEYRING=service:account` reads the key from the OS secret store instead of an
+ * environment variable or a file. It is the publisher-facing default for the pilot: the secret
+ * stops living in a host config that gets copied, committed or pasted into a chat.
+ *
+ * It is NOT a custody boundary — Credential Manager / Keychain entries are readable by any
+ * process running as the same user, so an agent with a shell can still ask for them. Say that
+ * out loud rather than implying more (see the publisher guide).
+ */
+function devKeyFromKeyring(env: Env, read: KeyringReader): DevKey | undefined {
+  const spec = env[ENV.keyring]?.trim()
+  if (spec === undefined || spec === '') return undefined
+  const parts = spec.split(/[:/]/u)
+  if (parts.length !== 2 || parts[0] === '' || parts[1] === '') {
+    throw new ConfigError(ENV.keyring, 'must be "service:account", e.g. "scrutiny:publisher"')
+  }
+  const [service, account] = parts as [string, string]
+  let secret: string | null
+  try {
+    secret = read(service, account)
+  } catch (cause) {
+    const reason = cause instanceof Error ? cause.message : String(cause)
+    // The reason names the service/account, never a secret.
+    throw new ConfigError(
+      ENV.keyring,
+      `cannot read "${service}"/"${account}" from the OS secret store (${reason}) — create it with the store's own UI or CLI, then restart`,
+    )
+  }
+  if (secret === null || secret.trim() === '') {
+    throw new ConfigError(
+      ENV.keyring,
+      `"${service}"/"${account}" is not in the OS secret store — add it there, then restart`,
+    )
+  }
+  return classifyDevKey(secret.trim(), ENV.keyring)
 }
 
 function devKeyFromEnv(env: Env): DevKey | undefined {
@@ -157,13 +223,20 @@ function devKeyFromEnv(env: Env): DevKey | undefined {
  * Read and validate the environment. Pure apart from the `NSEC_FILE` read, so tests pass an
  * explicit map instead of mutating `process.env`.
  */
-export function loadConfig(env: Env = process.env): ServerConfig {
+export function loadConfig(
+  env: Env = process.env,
+  readKeyring: KeyringReader = osKeyringReader,
+): ServerConfig {
   const signerUri = signerUriFromEnv(env)
   return {
     relayUrl: relayUrlFromEnv(env),
     signerUri,
-    // Pilot mode must not touch dev material at all: an unrelated stale NSEC/NSEC_FILE must not
-    // fail startup (#108 custody), and the key must not sit in memory when a bunker holds it.
-    devKey: signerUri === undefined ? devKeyFromEnv(env) : undefined,
+    // Bunker mode must not touch local key material at all: an unrelated stale NSEC/NSEC_FILE
+    // must not fail startup (#108 custody), and the key must not sit in memory when a signer
+    // daemon holds it.
+    devKey:
+      signerUri === undefined
+        ? (devKeyFromKeyring(env, readKeyring) ?? devKeyFromEnv(env))
+        : undefined,
   }
 }

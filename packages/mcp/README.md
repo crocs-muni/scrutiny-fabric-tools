@@ -13,7 +13,7 @@ Stdio, host-agnostic — Claude, Codex, OpenCode, any MCP host.
 } } }
 ```
 
-`SCRUTINY_SIGNER_URI` is the pilot path: the key stays in the NIP-46 bunker (`nak bunker`, knox). `NSEC`/`NSEC_FILE` is dev-grade only, never a shipped mode.
+`SCRUTINY_SIGNER_URI` is the signer-daemon path: the key stays in a NIP-46 bunker (`nak bunker`, knox, Amber) and this process only ever asks for signatures. Note: the NIP-46 client here has **not** been validated against a live bunker, and the bunker channel needs a coordination relay the fabric relay cannot be (it accepts kinds 0/1/5 only). `SCRUTINY_KEYRING` is the pilot default; `NSEC`/`NSEC_FILE` is test-grade only.
 
 Signer port (A2, D13): `loadSigner(config, transport?)` resolves one of the two backends and
 returns `{ mode, publicKey, sign(template) }`. The NIP-46 branch needs an injected relay

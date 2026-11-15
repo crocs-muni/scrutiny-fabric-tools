@@ -15,7 +15,7 @@ describe('signerStatus', () => {
     const status = signerStatus(loadConfig({}))
     expect(status.mode).toBe('none')
     expect(status.pubkey).toBeUndefined()
-    expect(status.detail).toMatch(/^none — set SCRUTINY_SIGNER_URI/u)
+    expect(status.detail).toMatch(/^none — set SCRUTINY_KEYRING/u)
   })
 
   it('derives the x-only pubkey from a hex dev key', () => {
@@ -23,7 +23,9 @@ describe('signerStatus', () => {
     expect(status).toStrictEqual({
       mode: 'dev-key',
       pubkey: HEX_PUBKEY,
-      detail: 'dev-key (NSEC) — dev-grade only; the pilot path is a NIP-46 bunker (#108)',
+      detail:
+        'dev key (NSEC) — test-grade only; use SCRUTINY_KEYRING for the pilot, or a signer ' +
+        'daemon / hardware when the key must leave the agent’s reach',
     })
   })
 

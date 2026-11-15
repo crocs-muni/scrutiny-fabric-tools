@@ -18,6 +18,7 @@
   "//noble": "Pinned exactly: the NIP-44 vectors are byte-exact against these versions; a bump is a deliberate re-validation, not routine upkeep (D6: hand-rolled @noble stack, no nostr-tools).",
   "dependencies": {
     "@modelcontextprotocol/sdk": "1.32.2",
+    "@napi-rs/keyring": "^2.1.2",
     "@noble/ciphers": "2.1.1",
     "@noble/curves": "^2.0.1",
     "@noble/hashes": "2.0.1",

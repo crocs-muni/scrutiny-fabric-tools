@@ -180,6 +180,14 @@ Planning the corpus changes the numbers: a full Tropic Square-shaped set — one
 
 ## 7. Your key
 
+Three sources, strongest first. The server reports which one is in use on `status`.
+
+| Source | How | What it protects |
+| --- | --- | --- |
+| Signer daemon (`SCRUTINY_SIGNER_URI`) | a NIP-46 bunker holds the key; this server only asks for signatures | the agent cannot reach the key at all. Requires a coordination relay for the bunker channel — not the fabric relay, which accepts kinds 0/1/5 only |
+| **Platform keystore (`SCRUTINY_KEYRING=service:account`)** | Windows Credential Manager, macOS Keychain, Linux Secret Service | the key is not in a config file, a repo or a chat message. A same-user process can still ask the store, so this is at-rest hygiene, not isolation |
+| `NSEC` / `NSEC_FILE` | plaintext, test only | nothing. Use it for a local relay and a throwaway key, never for a record a reader should trust |
+
 The key never enters the agent's context. Signing goes through a NIP-46 bunker: the MCP server is a NIP-46 client, the bunker holds the key, and `sign_event` is a request over kind 24133 (NIP-46).
 
 1. **Create the identity.** On the publishing laptop, run `nak key generate` if you have no key yet, then `nak key encrypt` to store it as a NIP-49 `ncryptsec1…` string instead of plaintext. The plaintext key exists only inside these two commands.
