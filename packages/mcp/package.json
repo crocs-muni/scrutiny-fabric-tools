@@ -9,6 +9,7 @@
   },
   "scripts": {
     "start": "node --experimental-strip-types src/index.ts",
+    "e2e": "node --experimental-strip-types scripts/e2e.mjs",
     "typecheck": "tsc -p tsconfig.json",
     "test": "vitest run"
   },
