@@ -15,4 +15,10 @@ Stdio, host-agnostic — Claude, Codex, OpenCode, any MCP host.
 
 `SCRUTINY_SIGNER_URI` is the pilot path: the key stays in the NIP-46 bunker (`nak bunker`, knox). `NSEC`/`NSEC_FILE` is dev-grade only, never a shipped mode.
 
+Signer port (A2, D13): `loadSigner(config, transport?)` resolves one of the two backends and
+returns `{ mode, publicKey, sign(template) }`. The NIP-46 branch needs an injected relay
+transport (`src/identity/transport.ts`); A4 supplies the WebSocket and hands the signer to the
+publishing tools. Both branches reject a `created_at` outside the relay's gate (2 h past,
+15 min future) before signing, naming the measured offset.
+
 Scaffold of the eight #108 tools (`src/tools/`); publisher guide: #109.

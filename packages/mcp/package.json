@@ -13,12 +13,15 @@
     "test": "vitest run"
   },
   "//mcp-sdk": "Pinned exactly, not ^: the tool-registration surface and its zod->JSON-Schema conversion moved between 1.x minors, and the pilot pins tool definitions as a rug-pull defense (report §8.3).",
-  "//core": "Declared now, imported by A3/A4 (buildProduct/buildMetadata/buildBinding/buildPatch, tag constants): this scaffold registers schemas only. Core's exports point at its dist, so the importing task runs `pnpm build` first — hence knip's ignoreDependencies entry rather than a fake import.",
+  "//core": "Imported from source by the signer (serializeForId/computeEventId/eventIdMatches) and by A3/A4 builders. Core's exports point at its dist, so tsconfig `paths` and vitest aliases map it to ../core/src; a `pnpm start` from a clean checkout still needs `pnpm build` first.",
+  "//noble": "Pinned exactly: the NIP-44 vectors are byte-exact against these versions; a bump is a deliberate re-validation, not routine upkeep (D6: hand-rolled @noble stack, no nostr-tools).",
   "dependencies": {
     "@modelcontextprotocol/sdk": "1.32.2",
+    "@noble/ciphers": "2.1.1",
     "@noble/curves": "^2.0.1",
-    "@scure/base": "^2.0.0",
+    "@noble/hashes": "2.0.1",
     "@scrutiny-fabric/core": "workspace:*",
+    "@scure/base": "^2.0.0",
     "zod": "^4.6.6"
   },
   "devDependencies": {
