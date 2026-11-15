@@ -23,67 +23,75 @@ function tempFile(name: string, contents: string): string {
   return file
 }
 
+const HEX_PUBKEY = '1b84c5567b126440995d3ed5aaba0565d71e1834604819ff9c17f5e9d5dd078f'
+const KEYRING_URI = `keyring://scrutiny-fabric/${HEX_PUBKEY}`
+
 describe('loadConfig', () => {
   it('defaults to the public relay and no signer', () => {
     expect(loadConfig({})).toStrictEqual({
       relayUrl: DEFAULT_RELAY_URL,
-      signerUri: undefined,
-      devKey: undefined,
+      signer: undefined,
+      localKey: undefined,
     })
   })
 
-  it('reads the key from the injected OS store and never from an env value', () => {
+  it('reads the key from the injected OS store under the identity the URI names', () => {
     const calls: Array<[string, string]> = []
-    const config = loadConfig({ SCRUTINY_KEYRING: 'scrutiny:publisher' }, (service, account) => {
+    const config = loadConfig({ SCRUTINY_SIGNER: KEYRING_URI }, (service, account) => {
       calls.push([service, account])
-      return 'ab'.repeat(32)
+      return HEX_KEY
     })
-    expect(calls).toEqual([['scrutiny', 'publisher']])
-    expect(config.devKey).toMatchObject({
-      material: 'ab'.repeat(32),
+    // The account IS the pubkey: a label could not prove which key the entry holds.
+    expect(calls).toEqual([['scrutiny-fabric', HEX_PUBKEY]])
+    expect(config.signer).toStrictEqual({
+      kind: 'keyring',
+      service: 'scrutiny-fabric',
+      account: HEX_PUBKEY,
+    })
+    expect(config.localKey).toStrictEqual({
+      material: HEX_KEY,
       form: 'hex',
-      source: 'SCRUTINY_KEYRING',
+      source: 'keyring',
+      expectPubkey: HEX_PUBKEY,
     })
   })
 
-  it('prefers the keyring over NSEC and reports a missing entry without echoing it', () => {
+  it('prefers the named identity over NSEC and reports a missing entry without echoing it', () => {
     const config = loadConfig(
-      { SCRUTINY_KEYRING: 'scrutiny/publisher', NSEC: 'cd'.repeat(32) },
-      () => 'ef'.repeat(32),
+      { SCRUTINY_SIGNER: KEYRING_URI, NSEC: 'cd'.repeat(32) },
+      () => HEX_KEY,
     )
-    expect(config.devKey?.source).toBe('SCRUTINY_KEYRING')
+    expect(config.localKey?.source).toBe('keyring')
 
-    expect(() => loadConfig({ SCRUTINY_KEYRING: 'scrutiny:publisher' }, () => null)).toThrow(
-      /SCRUTINY_KEYRING/u,
+    expect(() => loadConfig({ SCRUTINY_SIGNER: KEYRING_URI }, () => null)).toThrow(
+      /SCRUTINY_SIGNER/u,
     )
-    expect(() => loadConfig({ SCRUTINY_KEYRING: 'scrutiny:publisher' }, () => '   ')).toThrow(
+    expect(() => loadConfig({ SCRUTINY_SIGNER: KEYRING_URI }, () => '   ')).toThrow(
       /not in the OS secret store/u,
     )
-    expect(() => loadConfig({ SCRUTINY_KEYRING: 'malformed' }, () => 'x')).toThrow(
-      /service:account/u,
-    )
+    expect(() =>
+      loadConfig({ SCRUTINY_SIGNER: 'keyring://scrutiny-fabric' }, () => HEX_KEY),
+    ).toThrow(/needs a service and an identity/u)
+    expect(() =>
+      loadConfig({ SCRUTINY_SIGNER: 'keyring://scrutiny-fabric/publisher' }, () => HEX_KEY),
+    ).toThrow(/must be the identity it holds/u)
   })
 
   it('treats a store read failure as an outage, not a silent miss', () => {
     const boom = () => {
       throw new Error('keyring locked')
     }
-    expect(() => loadConfig({ SCRUTINY_KEYRING: 'scrutiny:publisher' }, boom)).toThrow(
-      /OS secret store/u,
-    )
+    expect(() => loadConfig({ SCRUTINY_SIGNER: KEYRING_URI }, boom)).toThrow(/OS secret store/u)
   })
 
-  it('ignores keyring settings entirely when a bunker is configured', () => {
+  it('does not touch the store when a signer daemon is configured', () => {
     const config = loadConfig(
-      {
-        SCRUTINY_SIGNER_URI: `bunker://${'ab'.repeat(32)}?relay=wss://relay.example&secret=t`,
-        SCRUTINY_KEYRING: 'scrutiny:publisher',
-      },
+      { SCRUTINY_SIGNER: `bunker://${'ab'.repeat(32)}?relay=wss://relay.example&secret=t` },
       () => {
         throw new Error('must not be read')
       },
     )
-    expect(config.devKey).toBeUndefined()
+    expect(config.localKey).toBeUndefined()
   })
 
   it('normalises the relay URL to an endpoint without a trailing slash', () => {
@@ -99,29 +107,29 @@ describe('loadConfig', () => {
     )
   })
 
-  it('accepts a NIP-46 bunker URI', () => {
+  it('accepts a NIP-46 bunker URI as the signer plan', () => {
     const uri = `bunker://${'ab'.repeat(32)}?relay=wss://relay.example`
-    expect(loadConfig({ SCRUTINY_SIGNER_URI: uri }).signerUri).toBe(uri)
+    expect(loadConfig({ SCRUTINY_SIGNER: uri }).signer).toStrictEqual({ kind: 'bunker', uri })
   })
 
-  it('rejects a signer URI that is not a bunker', () => {
-    expect(() => loadConfig({ SCRUTINY_SIGNER_URI: 'nostrconnect://abc' })).toThrow(
-      /SCRUTINY_SIGNER_URI: must be a bunker:\/\/ URI \(NIP-46\)/u,
+  it('rejects a signer scheme it cannot honour', () => {
+    expect(() => loadConfig({ SCRUTINY_SIGNER: 'nostrconnect://abc' })).toThrow(
+      /unsupported scheme nostrconnect:\/\//u,
     )
   })
 
   it('accepts hex and nsec1 dev keys, normalising hex case', () => {
-    expect(loadConfig({ NSEC: HEX_KEY }).devKey).toStrictEqual({
+    expect(loadConfig({ NSEC: HEX_KEY }).localKey).toStrictEqual({
       material: HEX_KEY,
       form: 'hex',
-      source: 'NSEC',
+      source: 'env',
     })
-    expect(loadConfig({ NSEC: NSEC_KEY }).devKey).toStrictEqual({
+    expect(loadConfig({ NSEC: NSEC_KEY }).localKey).toStrictEqual({
       material: NSEC_KEY,
       form: 'nsec1',
-      source: 'NSEC',
+      source: 'env',
     })
-    expect(loadConfig({ NSEC: HEX_KEY.toUpperCase() }).devKey?.material).toBe(HEX_KEY)
+    expect(loadConfig({ NSEC: HEX_KEY.toUpperCase() }).localKey?.material).toBe(HEX_KEY)
   })
 
   it('rejects junk key material without echoing it', () => {
@@ -140,10 +148,10 @@ describe('loadConfig', () => {
 
   it('reads NSEC_FILE and reports its source', () => {
     const file = tempFile('nsec.txt', `${HEX_KEY}\n`)
-    expect(loadConfig({ NSEC_FILE: file }).devKey).toStrictEqual({
+    expect(loadConfig({ NSEC_FILE: file }).localKey).toStrictEqual({
       material: HEX_KEY,
       form: 'hex',
-      source: 'NSEC_FILE',
+      source: 'file',
     })
   })
 

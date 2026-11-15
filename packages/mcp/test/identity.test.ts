@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { loadConfig } from '../src/config.ts'
-import { signerStatus } from '../src/identity.ts'
+import { loadSigner, signerStatus } from '../src/identity.ts'
 
 /** 32 × 0x01 — a valid secp256k1 scalar; the pubkey below is its BIP-340 x-only key. */
 const HEX_KEY = '01'.repeat(32)
@@ -15,7 +15,7 @@ describe('signerStatus', () => {
     const status = signerStatus(loadConfig({}))
     expect(status.mode).toBe('none')
     expect(status.pubkey).toBeUndefined()
-    expect(status.detail).toMatch(/^none — set SCRUTINY_KEYRING/u)
+    expect(status.detail).toMatch(/^none — set SCRUTINY_SIGNER/u)
   })
 
   it('derives the x-only pubkey from a hex dev key', () => {
@@ -24,8 +24,8 @@ describe('signerStatus', () => {
       mode: 'dev-key',
       pubkey: HEX_PUBKEY,
       detail:
-        'dev key (NSEC) — test-grade only; use SCRUTINY_KEYRING for the pilot, or a signer ' +
-        'daemon / hardware when the key must leave the agent’s reach',
+        'local env key — test-grade only; use SCRUTINY_SIGNER=keyring://… for the pilot, or a ' +
+        'signer daemon when the key must leave the agent’s reach',
     })
   })
 
@@ -36,7 +36,7 @@ describe('signerStatus', () => {
   it('prefers the bunker and never echoes its secret param', () => {
     const secret = 'top-secret-bunker-token'
     const signerUri = `bunker://${'ab'.repeat(32)}?relay=wss://relay.example&secret=${secret}`
-    const status = signerStatus(loadConfig({ SCRUTINY_SIGNER_URI: signerUri, NSEC: HEX_KEY }))
+    const status = signerStatus(loadConfig({ SCRUTINY_SIGNER: signerUri, NSEC: HEX_KEY }))
     expect(status.mode).toBe('nip46')
     expect(status.pubkey).toBeUndefined()
     expect(status.detail).not.toContain(secret)
@@ -47,6 +47,23 @@ describe('signerStatus', () => {
     expect(() => signerStatus(loadConfig({ NSEC: '00'.repeat(32) }))).toThrow(
       /not a valid secp256k1 secret/u,
     )
+  })
+
+  it('resolves the keystore key whose pubkey matches the identity in the URI', async () => {
+    const config = loadConfig(
+      { SCRUTINY_SIGNER: `keyring://scrutiny-fabric/${HEX_PUBKEY}` },
+      () => HEX_KEY,
+    )
+    await expect(loadSigner(config)).resolves.toMatchObject({ publicKey: HEX_PUBKEY })
+  })
+
+  it('refuses a keystore key that derives to a different identity', async () => {
+    // The failure this design exists for: a wrong key sits in the entry, so publishing would
+    // happen under an identity nobody chose — permanently and unrevocably.
+    const config = loadConfig({ SCRUTINY_SIGNER: `keyring://scrutiny-fabric/${HEX_PUBKEY}` }, () =>
+      'cd'.repeat(32),
+    )
+    await expect(loadSigner(config)).rejects.toThrow(/holds a key for/u)
   })
 
   it('never echoes key material when the bech32 checksum fails', () => {
@@ -68,11 +85,11 @@ describe('signerStatus', () => {
   it('pilot mode ignores dev material entirely (no startup failure, no key in memory)', () => {
     const signerUri = `bunker://${'ab'.repeat(32)}?relay=wss://relay.example&secret=tok`
     const config = loadConfig({
-      SCRUTINY_SIGNER_URI: signerUri,
+      SCRUTINY_SIGNER: signerUri,
       NSEC: HEX_KEY,
       NSEC_FILE: 'definitely-not-a-file',
     })
-    expect(config.devKey).toBeUndefined()
+    expect(config.localKey).toBeUndefined()
     expect(signerStatus(config).mode).toBe('nip46')
   })
 })

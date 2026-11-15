@@ -293,7 +293,7 @@ describe('loadSigner facade', () => {
   it('resolves the bunker branch over the injected transport', async () => {
     const bunker = new FakeBunker()
     const uri = `bunker://${bunker.remotePubkey}?relay=${encodeURIComponent('wss://relay.example')}`
-    const signer = await loadSigner(loadConfig({ SCRUTINY_SIGNER_URI: uri }), bunker)
+    const signer = await loadSigner(loadConfig({ SCRUTINY_SIGNER: uri }), bunker)
     expect(signer.mode).toBe('nip46')
     expect(signer.publicKey).toBe(bunker.userPubkey)
     const event = await signer.sign(template())
@@ -303,7 +303,7 @@ describe('loadSigner facade', () => {
 
   it('explains that a bunker needs a transport', async () => {
     const signerUri = `bunker://${'ab'.repeat(32)}?relay=wss%3A%2F%2Frelay.example`
-    await expect(loadSigner(loadConfig({ SCRUTINY_SIGNER_URI: signerUri }))).rejects.toThrow(
+    await expect(loadSigner(loadConfig({ SCRUTINY_SIGNER: signerUri }))).rejects.toThrow(
       /needs a relay transport/u,
     )
   })

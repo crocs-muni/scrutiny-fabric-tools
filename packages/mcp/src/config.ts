@@ -41,21 +41,33 @@ export class ConfigError extends Error {
 
 export type Env = Readonly<Record<string, string | undefined>>
 
-/** Dev-grade key material. Held in memory only, never printed, never a tool argument. */
-export interface DevKey {
+/**
+ * Local key material. Held in memory only, never printed, never a tool argument.
+ *
+ * `expectPubkey` is the identity the source claims to hold (an npub from the signer URI). When it
+ * is present the loader refuses a key that derives to a different pubkey: publishing under an
+ * unintended identity is permanent, so the mismatch must be a startup error, not a surprise.
+ */
+export interface LocalKey {
   readonly material: string
   /** `hex` (mirror's hex64 form) or bech32 `nsec1…`; A2 decodes it into BIP-340 bytes. */
   readonly form: 'hex' | 'nsec1'
-  readonly source: 'NSEC' | 'NSEC_FILE' | 'SCRUTINY_KEYRING'
+  readonly source: 'env' | 'file' | 'keyring'
+  readonly expectPubkey?: string
 }
 
+/** Where the signature comes from — the one question `SCRUTINY_SIGNER` answers. */
+type SignerPlan =
+  | { readonly kind: 'bunker'; readonly uri: string }
+  | { readonly kind: 'keyring'; readonly service: string; readonly account: string }
+
 export interface ServerConfig {
-  /** Normalised, no trailing slash, so `status` and the A2 relay client print one spelling. */
+  /** Normalised, no trailing slash, so `status` and the relay client print one spelling. */
   readonly relayUrl: string
-  /** `bunker://…` (NIP-46). Present means the bunker is authoritative, whatever `devKey` says. */
-  readonly signerUri: string | undefined
-  /** Dev fallback. Present only when the pilot path is not configured. */
-  readonly devKey: DevKey | undefined
+  /** The one answer to "who signs": a bunker daemon (NIP-46) or the platform keystore. */
+  readonly signer: SignerPlan | undefined
+  /** Local material: the keystore key, or the test-only NSEC/NSEC_FILE. */
+  readonly localKey: LocalKey | undefined
 }
 
 /** BIP-340 x-only key material as mirror `loadKey` accepts it: hex64 or bech32 `nsec1…`. */
@@ -69,12 +81,14 @@ const NSEC_KEY = /^nsec1[qpzry9x8gf2tvdw0s3jn54khce6mua7l]{58}$/u
  */
 const ENV = {
   relayUrl: 'SCRUTINY_RELAY_URL',
-  signerUri: 'SCRUTINY_SIGNER_URI',
+  signer: 'SCRUTINY_SIGNER',
   nsec: 'NSEC',
   nsecFile: 'NSEC_FILE',
   nsecAgeFile: 'NSEC_AGE_FILE',
-  keyring: 'SCRUTINY_KEYRING',
 } as const
+
+/** The keystore namespace every entry of this publisher lives under. */
+export const KEYRING_SERVICE = 'scrutiny-fabric'
 
 function relayUrlFromEnv(env: Env): string {
   const raw = env[ENV.relayUrl]?.trim()
@@ -95,8 +109,17 @@ function relayUrlFromEnv(env: Env): string {
   return url.href.replace(/\/+$/u, '')
 }
 
-function signerUriFromEnv(env: Env): string | undefined {
-  const raw = env[ENV.signerUri]?.trim()
+/** An npub or a 64-char pubkey: the identity a keystore entry must hold. */
+const NPUB = /^npub1[qpzry9x8gf2tvdw0s3jn54khce6mua7l]{58}$/u
+
+/**
+ * `SCRUTINY_SIGNER` is one question with one answer, spelled as a URI so the backends stay
+ * symmetric: `bunker://` is NIP-46's own form, and `keyring://<service>/<npub>` names an identity
+ * in the platform keystore. The account is the npub because in Nostr the identity IS the pubkey —
+ * and because it lets the loader prove the stored key is the one you meant.
+ */
+function signerFromEnv(env: Env): SignerPlan | undefined {
+  const raw = env[ENV.signer]?.trim()
   if (raw === undefined || raw === '') return undefined
 
   let url: URL
@@ -104,28 +127,53 @@ function signerUriFromEnv(env: Env): string | undefined {
     url = new URL(raw)
   } catch {
     throw new ConfigError(
-      ENV.signerUri,
-      'not an absolute URL — expected bunker://<signer-pubkey>?relay=wss://… (NIP-46)',
+      ENV.signer,
+      'not a URI — expected bunker://<signer-pubkey>?relay=wss://… or keyring://<service>/npub1…',
     )
   }
-  if (url.protocol !== 'bunker:') {
-    throw new ConfigError(
-      ENV.signerUri,
-      `must be a bunker:// URI (NIP-46) — got ${url.protocol}//; nostrconnect:// is the client-initiated flow and has no place in server config`,
-    )
+
+  if (url.protocol === 'bunker:') return { kind: 'bunker', uri: raw }
+
+  if (url.protocol === 'keyring:') {
+    // keyring://<service>/<npub> — URL parses the authority as host and the rest as pathname.
+    const account = url.pathname.replace(/^\/+/, '')
+    if (url.hostname === '' || account === '') {
+      throw new ConfigError(
+        ENV.signer,
+        'keyring:// needs a service and an identity — expected keyring://scrutiny-fabric/npub1… or keyring://scrutiny-fabric/<64-hex pubkey>',
+      )
+    }
+    if (!NPUB.test(account) && !HEX_KEY.test(account)) {
+      throw new ConfigError(
+        ENV.signer,
+        'the keyring account must be the identity it holds (npub1… or 64-char hex pubkey), not a label — the loader refuses a key that derives to a different pubkey',
+      )
+    }
+    return { kind: 'keyring', service: url.hostname, account }
   }
-  return raw
+
+  throw new ConfigError(
+    ENV.signer,
+    `unsupported scheme ${url.protocol}// — use bunker:// (NIP-46 signer daemon) or keyring:// (platform keystore); nostrconnect:// is the client-initiated flow and has no place in server config`,
+  )
 }
 
-function classifyDevKey(
+function classifyLocalKey(
   material: string,
-  source: 'NSEC' | 'NSEC_FILE' | 'SCRUTINY_KEYRING',
-): DevKey {
-  if (HEX_KEY.test(material)) return { material: material.toLowerCase(), form: 'hex', source }
-  if (NSEC_KEY.test(material)) return { material, form: 'nsec1', source }
+  source: 'env' | 'file' | 'keyring',
+  options: { expectPubkey?: string; variable?: string } = {},
+): LocalKey {
+  const { expectPubkey } = options
+  // The error must name the knob the operator set, not the internal source tag.
+  const variable = options.variable ?? ENV.signer
+  const base = expectPubkey === undefined ? {} : { expectPubkey }
+  if (HEX_KEY.test(material)) {
+    return { material: material.toLowerCase(), form: 'hex', source, ...base }
+  }
+  if (NSEC_KEY.test(material)) return { material, form: 'nsec1', source, ...base }
   // Never the value: this message is displayed and may be quoted by an agent.
   throw new ConfigError(
-    source,
+    variable,
     'must be 64-char hex or a bech32 nsec1… key; fix the value (it is deliberately not echoed here)',
   )
 }
@@ -155,22 +203,20 @@ const osKeyringReader: KeyringReader = (service, account) => {
 }
 
 /**
- * `SCRUTINY_KEYRING=service:account` reads the key from the OS secret store instead of an
- * environment variable or a file. It is the publisher-facing default for the pilot: the secret
- * stops living in a host config that gets copied, committed or pasted into a chat.
+ * `SCRUTINY_SIGNER=keyring://<service>/<npub>` reads the key from the OS secret store under the
+ * identity it claims to hold. It is the publisher-facing default for the pilot: the secret stops
+ * living in a host config that gets copied, committed or pasted into a chat, and the account name
+ * carries the pubkey so a wrong entry is caught at startup instead of publishing under it.
  *
  * It is NOT a custody boundary — Credential Manager / Keychain entries are readable by any
  * process running as the same user, so an agent with a shell can still ask for them. Say that
  * out loud rather than implying more (see the publisher guide).
  */
-function devKeyFromKeyring(env: Env, read: KeyringReader): DevKey | undefined {
-  const spec = env[ENV.keyring]?.trim()
-  if (spec === undefined || spec === '') return undefined
-  const parts = spec.split(/[:/]/u)
-  if (parts.length !== 2 || parts[0] === '' || parts[1] === '') {
-    throw new ConfigError(ENV.keyring, 'must be "service:account", e.g. "scrutiny:publisher"')
-  }
-  const [service, account] = parts as [string, string]
+function keyFromKeyring(
+  plan: Extract<SignerPlan, { kind: 'keyring' }>,
+  read: KeyringReader,
+): LocalKey {
+  const { service, account } = plan
   let secret: string | null
   try {
     secret = read(service, account)
@@ -178,22 +224,26 @@ function devKeyFromKeyring(env: Env, read: KeyringReader): DevKey | undefined {
     const reason = cause instanceof Error ? cause.message : String(cause)
     // The reason names the service/account, never a secret.
     throw new ConfigError(
-      ENV.keyring,
-      `cannot read "${service}"/"${account}" from the OS secret store (${reason}) — create it with the store's own UI or CLI, then restart`,
+      ENV.signer,
+      `cannot read ${service}/${account} from the OS secret store (${reason}) — create it with the store's own UI or CLI, then restart`,
     )
   }
   if (secret === null || secret.trim() === '') {
     throw new ConfigError(
-      ENV.keyring,
-      `"${service}"/"${account}" is not in the OS secret store — add it there, then restart`,
+      ENV.signer,
+      `${service}/${account} is not in the OS secret store — add it under that identity, then restart`,
     )
   }
-  return classifyDevKey(secret.trim(), ENV.keyring)
+  return classifyLocalKey(secret.trim(), 'keyring', {
+    expectPubkey: account,
+    variable: ENV.signer,
+  })
 }
 
-function devKeyFromEnv(env: Env): DevKey | undefined {
+function localKeyFromEnv(env: Env): LocalKey | undefined {
   const direct = env[ENV.nsec]?.trim()
-  if (direct !== undefined && direct !== '') return classifyDevKey(direct, ENV.nsec)
+  if (direct !== undefined && direct !== '')
+    return classifyLocalKey(direct, 'env', { variable: ENV.nsec })
 
   const file = env[ENV.nsecFile]
   if (file !== undefined && file !== '') {
@@ -205,15 +255,14 @@ function devKeyFromEnv(env: Env): DevKey | undefined {
       throw new ConfigError(ENV.nsecFile, `cannot read ${file}: ${reason}`)
     }
     if (raw === '') throw new ConfigError(ENV.nsecFile, `${file} is empty`)
-    return classifyDevKey(raw, ENV.nsecFile)
+    return classifyLocalKey(raw, 'file', { variable: ENV.nsecFile })
   }
 
   // Mirror parity, loudly: silently ignoring an age file looks like "key not found" later.
   if (env[ENV.nsecAgeFile] !== undefined) {
     throw new ConfigError(
       ENV.nsecAgeFile,
-      'age-encrypted keys are unsupported — use SCRUTINY_SIGNER_URI (bunker://…) for the pilot, ' +
-        'or NSEC / NSEC_FILE for dev',
+      'age-encrypted keys are unsupported — use SCRUTINY_SIGNER (keyring://… or bunker://…) for the pilot, or NSEC / NSEC_FILE for tests',
     )
   }
   return undefined
@@ -227,16 +276,18 @@ export function loadConfig(
   env: Env = process.env,
   readKeyring: KeyringReader = osKeyringReader,
 ): ServerConfig {
-  const signerUri = signerUriFromEnv(env)
+  const signer = signerFromEnv(env)
+  const keyring = signer?.kind === 'keyring' ? signer : undefined
+
+  if (signer?.kind === 'bunker') {
+    // A signer daemon holds the key; local material must not be read at all, so an unrelated
+    // stale NSEC/NSEC_FILE cannot fail startup and no key sits in this process's memory.
+    return { relayUrl: relayUrlFromEnv(env), signer, localKey: undefined }
+  }
+
   return {
     relayUrl: relayUrlFromEnv(env),
-    signerUri,
-    // Bunker mode must not touch local key material at all: an unrelated stale NSEC/NSEC_FILE
-    // must not fail startup (#108 custody), and the key must not sit in memory when a signer
-    // daemon holds it.
-    devKey:
-      signerUri === undefined
-        ? (devKeyFromKeyring(env, readKeyring) ?? devKeyFromEnv(env))
-        : undefined,
+    signer,
+    localKey: keyring === undefined ? localKeyFromEnv(env) : keyFromKeyring(keyring, readKeyring),
   }
 }

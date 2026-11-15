@@ -516,7 +516,7 @@ describe('NIP-46 bunker path', () => {
     const bunker = new FakeBunker()
     bunkers.push(bunker)
     const uri = `bunker://${bunker.remotePubkey}?relay=${encodeURIComponent(RELAY)}`
-    const config = loadConfig({ SCRUTINY_RELAY_URL: RELAY, SCRUTINY_SIGNER_URI: uri })
+    const config = loadConfig({ SCRUTINY_RELAY_URL: RELAY, SCRUTINY_SIGNER: uri })
     const client = new RelayClient({
       relayUrl: RELAY,
       signer: {

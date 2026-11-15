@@ -113,7 +113,7 @@ describe('status', () => {
     const text = textOf(result)
     expect(result.isError).toBeFalsy()
     expect(text).toContain(`relay: ${DEFAULT_RELAY_URL}`)
-    expect(text).toContain('signer: none — set SCRUTINY_KEYRING')
+    expect(text).toContain('signer: none — set SCRUTINY_SIGNER')
     expect(text).toContain('connected: no')
     expect(text).not.toContain('pubkey:')
   })
@@ -122,7 +122,7 @@ describe('status', () => {
     const result = await call(await connect(loadConfig({ NSEC: HEX_KEY })), 'status', {})
     const text = textOf(result)
     expect(text).toContain(`pubkey: ${HEX_PUBKEY}`)
-    expect(text).toContain('signer: dev key (NSEC)')
+    expect(text).toContain('signer: local env key')
     expect(text).not.toContain(HEX_KEY)
   })
 })
@@ -154,7 +154,7 @@ describe('publishing tools', () => {
     const result = await call(await connect(), 'publish_product', PRODUCT_ARGS)
     expect(result.isError).toBe(true)
     expect(textOf(result)).toContain('no signer configured')
-    expect(textOf(result)).toContain('SCRUTINY_SIGNER_URI')
+    expect(textOf(result)).toContain('SCRUTINY_SIGNER')
   })
 
   it('rejects a free-form content argument on the wire', async () => {
