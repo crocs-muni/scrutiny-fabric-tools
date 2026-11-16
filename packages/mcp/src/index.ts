@@ -16,3 +16,4 @@ export {
 export { planHash } from './plan/hash.js'
 export type { Plan } from './plan/schema.js'
 export type { OpenQuestion, OpenQuestionCode, Refusal } from './refusal.js'
+export type { SignerPort } from './signer/signer.js'

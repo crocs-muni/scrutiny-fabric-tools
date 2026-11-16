@@ -16,6 +16,9 @@
       "default": "./dist/index.js"
     }
   },
+  "bin": {
+    "scrutiny-fabric-mcp": "./dist/bin.js"
+  },
   "files": ["dist", "src"],
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
@@ -23,13 +26,18 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@napi-rs/keyring": "2.1.2",
+    "@noble/ciphers": "2.4.0",
+    "@noble/curves": "2.4.0",
     "@noble/hashes": "2.4.0",
     "@scrutiny-fabric/core": "workspace:*",
+    "@scure/base": "2.4.0",
     "zod": "4.6.7"
   },
   "devDependencies": {
     "@types/node": "^22",
     "fast-check": "^4.10.2",
+    "nostr-tools": "2.25.2",
     "typescript": "^5.8",
     "vitest": "^5.0.5"
   }
