@@ -297,11 +297,13 @@ describe('the time box (spec §6.3)', () => {
     const relay = primary(['ok', 'hang'])
     const journal = await Journal.open(ROOT(), PLAN_HASH)
     const start = Date.now()
+    // A frozen clock: the deadline is reached only by the 100 ms wait on the hanging ack, never by
+    // slow journal fsyncs before it (a real clock made this flaky on Windows CI).
     const out = await run({
       journal,
       primary: relay.transport,
-      clock: Date.now,
-      deadline: Date.now() + 100,
+      clock: () => 0,
+      deadline: 100,
     })
     expect(Date.now() - start).toBeLessThan(2000)
     expect(out.outcome).toBe('partial')
