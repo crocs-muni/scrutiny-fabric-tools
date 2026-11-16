@@ -361,6 +361,9 @@ Flow: approval (§7) → run (§8) → output:
       "blobs": [ { "x": "…", "url": "…", "state": "uploaded|present|verified" } ] }
   ],
   "progress": { "done": 12, "total": 25 },   // events acked by the primary
+  "next_step": "Call publish_plan again now with the same plan_id and plan_hash; …",
+  "approval_summary": "…" | null,  // chat fallback (§7): the summary to show, verbatim
+  "approval_code": "3F9AC1" | null, // chat fallback: the code the user replies with
   "refusal": Refusal | null,        // why the run stopped, if it did
   "resume": "Call publish_plan again with the same plan_hash to continue." | null
 }
@@ -658,7 +661,8 @@ Channels:
 
 | Situation | Channel |
 |---|---|
-| Unknown tool, arguments fail the input schema | JSON-RPC error |
+| Unknown tool | JSON-RPC error |
+| Arguments fail the input schema | `isError: true` with the SDK's message and no `structuredContent` (MCP TypeScript SDK 1.32 reports input validation this way) |
 | A plan that is invalid but can be drafted | `draft_plan` result, `findings[]` |
 | A refused `publish_plan` (not ready, hash changed, declined) | `isError: true` with `structuredContent.refusal` |
 | A stopped run | Result with `outcome: "stopped"` and `refusal` |

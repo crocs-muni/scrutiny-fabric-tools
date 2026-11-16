@@ -26,6 +26,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@modelcontextprotocol/sdk": "1.32.2",
     "@napi-rs/keyring": "2.1.2",
     "@noble/ciphers": "2.4.0",
     "@noble/curves": "2.4.0",

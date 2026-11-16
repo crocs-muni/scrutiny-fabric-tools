@@ -65,7 +65,7 @@ export function oversizedTagValues(event: TemplateEvent): number[] {
  * Prefixes seen in the spec §9 baseline and in mirror practice. The registry is open (IR-4), so an
  * unknown prefix is a non-blocking question, never a refusal.
  */
-const KNOWN_INDEXER_PREFIXES: readonly string[] = [
+export const KNOWN_INDEXER_PREFIXES: readonly string[] = [
   'cve',
   'cwe',
   'cpe',
