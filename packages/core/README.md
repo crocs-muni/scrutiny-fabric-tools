@@ -1,4 +1,4 @@
-# @scrutiny-fabric/core
+# @crocs-muni/scrutiny-fabric
 
 Reference implementation of the [SCRUTINY Fabric protocol](https://github.com/crocs-muni/scrutiny-fabric), spec v0.8.1.
 
@@ -7,7 +7,7 @@ The package parses and validates SCRUTINY events, applies patch payloads, builds
 ## Install
 
 ```bash
-npm install @scrutiny-fabric/core
+npm install @crocs-muni/scrutiny-fabric
 ```
 
 Node 22 or later. ESM only; there is no CommonJS build. `diff` is the only runtime dependency.
@@ -15,7 +15,7 @@ Node 22 or later. ESM only; there is no CommonJS build. `diff` is the only runti
 ## What it does
 
 ```ts
-import { validateEvent } from '@scrutiny-fabric/core'
+import { validateEvent } from '@crocs-muni/scrutiny-fabric'
 
 const verdict = validateEvent(event)
 // → { status: 'valid' | 'invalid' | 'pending' | 'not-scrutiny', issues: Issue[], ... }
@@ -26,7 +26,7 @@ Each `Issue` cites the Appendix F rule it comes from, with the rule's layer and 
 The four statuses say different things. `not-scrutiny` means the event has no fabric tag, so the specification does not apply to it. `pending` means the verdict depends on an event that has not arrived yet; the `awaiting` list names the ids that would settle it.
 
 ```ts
-import { imetaArtifacts, eventsById, patchesReferencing } from '@scrutiny-fabric/core'
+import { imetaArtifacts, eventsById, patchesReferencing } from '@crocs-muni/scrutiny-fabric'
 
 imetaArtifacts(event)           // NIP-92 imeta tags → artifact refs (url, sha256, size, …)
 eventsById(['<id>', '<id>'])    // relay filter for the §8.2 by-id hop

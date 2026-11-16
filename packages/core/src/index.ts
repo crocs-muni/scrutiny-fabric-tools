@@ -1,5 +1,5 @@
 /**
- * `@scrutiny-fabric/core` — reference implementation of the SCRUTINY Fabric protocol.
+ * `@crocs-muni/scrutiny-fabric` — reference implementation of the SCRUTINY Fabric protocol.
  *
  * Target specification: **v0.8.1** (`scrutiny-v0.8.1`), 142 normative rules.
  *

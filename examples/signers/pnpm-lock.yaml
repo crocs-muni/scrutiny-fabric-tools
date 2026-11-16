@@ -15,7 +15,7 @@ importers:
         specifier: ^2.0.1
         version: 2.4.0
     devDependencies:
-      '@scrutiny-fabric/core':
+      '@crocs-muni/scrutiny-fabric':
         specifier: file:../../packages/core
         version: file:../../packages/core
       '@types/node':
@@ -35,7 +35,7 @@ packages:
     resolution: {integrity: sha512-X5XaVWZIBCT7HHZGm5I7ZQXDwLG+bGXuSrMQAW+7Zvl87h1kmc1ZB1VSRJcpUfoUrGQp4Fkoxm5kZ+Ms+aW+eA==}
     engines: {node: '>= 20.19.0'}
 
-  '@scrutiny-fabric/core@file:../../packages/core':
+  '@crocs-muni/scrutiny-fabric@file:../../packages/core':
     resolution: {directory: ../../packages/core, type: directory}
     engines: {node: '>=22'}
 
@@ -62,7 +62,7 @@ snapshots:
 
   '@noble/hashes@2.4.0': {}
 
-  '@scrutiny-fabric/core@file:../../packages/core':
+  '@crocs-muni/scrutiny-fabric@file:../../packages/core':
     dependencies:
       diff: 9.0.0
 
