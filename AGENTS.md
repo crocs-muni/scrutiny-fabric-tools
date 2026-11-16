@@ -9,13 +9,14 @@ This file is the rulebook (how to work); the board has the state.
 | What | Where |
 |---|---|
 | Implementation (15 modules) | `packages/core/src/` |
-| Project skill (deep invariants, recurring traps) | `.claude/skills/scrutiny-protocol/` — **read before touching `packages/core`** |
-| Architecture decisions (ADR, append-only) | `docs/DECISIONS-2026-07-27.md` — §6 carries corrections, docs doctrine (C14), and build-order rationale (C15) |
+| Project skills (deep invariants, recurring traps) | `.agents/skills/` — `scrutiny-protocol/` is **required reading before touching `packages/core`**. `.claude/skills` is a symlink to it (Windows: see ADR-0002) |
+| Architecture decisions (ADRs, append-only, one per file) | `docs/adr/` — index in `docs/adr/README.md`. ADR-0001 is the core baseline (D1–D45, C1–C16) |
+| Design specs (how a component should work) | `docs/specs/` — status header Draft → Accepted → Implemented |
+| Investigations (research and audit reports, frozen) | `investigations/<topic>/REPORT.md` |
 | Module-ownership table (generated) | `docs/COVERAGE.md` — `pnpm ownership:gen` |
 | Protocol spec (read-only from here) | `crocs-muni/scrutiny-fabric/docs/protocol-spec.md` |
 | Spec-feedback findings (F1–F17) | Issues on `crocs-muni/scrutiny-fabric` (label `spec-feedback`) |
-| Design-reference mini-specs (archived) | Issues on this repo (label `design-reference`) |
-| Audit evidence (archived) | Issues on this repo (label `audit-evidence`) |
+| Older design-reference mini-specs and audit evidence (archived, closed) | Issues on this repo (labels `design-reference`, `audit-evidence`) — no new ones; see ADR-0002 |
 | Generated rules registry | `tools/rules.json` → `packages/core/src/rules.ts` — **never hand-edit** |
-| Board | GitHub Issues in this repo |
+| Board | GitHub Issues in this repo — work tracking only |
 | Campaign status | GitHub Milestone `Quality audit — 2026-08-08 (Steps 0–9)` |
