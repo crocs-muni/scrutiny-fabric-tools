@@ -7,7 +7,7 @@
     // so dist does not exist yet on a clean checkout. tsconfig.build.json drops this mapping and
     // compiles against the built core, exactly as a consumer of the published package would.
     "paths": {
-      "@scrutiny-fabric/core": ["../core/src/index.ts"]
+      "@crocs-muni/scrutiny-fabric": ["../core/src/index.ts"]
     }
   },
   "include": ["src/**/*.ts", "test/**/*.ts", "vitest.config.ts"]

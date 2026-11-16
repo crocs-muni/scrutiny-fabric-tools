@@ -7,7 +7,7 @@
  * §18 step 3.
  */
 
-import { buildBinding, buildMetadata, buildProduct } from '@scrutiny-fabric/core'
+import { buildBinding, buildMetadata, buildProduct } from '@crocs-muni/scrutiny-fabric'
 import {
   type Card,
   bindingContent,
