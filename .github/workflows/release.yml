@@ -1,0 +1,76 @@
+name: release
+
+# Publishes @crocs-muni/scrutiny-fabric from a version tag.
+#
+# Trigger: a tag of the form `@crocs-muni/scrutiny-fabric@0.1.0` (the changesets tag format).
+# Tags are created by a human publisher after the version PR merges:
+#
+#   pnpm changeset tag        # in the working tree on main (the version PR bumped versions)
+#   git push origin '@crocs-muni/scrutiny-fabric@*'
+#
+# `changeset version` (which runs inside the version PR) never tags; only `changeset tag`
+# or `changeset publish` create the `<name>@<version>` tags, and `changeset publish` is
+# deliberately not used: with OIDC configured, its `_authToken` injection bypasses the npm
+# CLI's own OIDC exchange and the registry PUT fails E404 (changesets/changesets#1914).
+# Plain `pnpm publish` lets the CLI do the exchange itself.
+#
+# No NPM_TOKEN: publishing uses npm trusted publishing (OIDC) — the npm registry holds a
+# trusted-publisher entry for THIS workflow in THIS repo (Settings → Trusted publishing on
+# the package page), and `id-token: write` below is what lets GitHub mint the token npm
+# validates. Provenance is automatic for OIDC publishes from public repos (npm ≥11.5.1);
+# `pnpm install --frozen-lockfile` is what makes the attestation verifiable.
+#
+# The FIRST publish of the package (which creates it) cannot go through OIDC — it is done
+# once manually by an org member with 2FA. Everything after this runs on tags.
+
+on:
+  push:
+    tags:
+      - '@crocs-muni/scrutiny-fabric@*'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write # required for OIDC → npm trusted publishing
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+
+      # No caching here: zizmor's cache-poisoning audit rejects package-manager caches in
+      # jobs triggered by tag pushes (this workflow). `package-manager-cache: false` is the
+      # explicit opt-out (setup-node v5+ enables it by default). The install is ~1 min
+      # uncached; the publish gate (`pnpm verify`) dwarfs that.
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '22'
+          package-manager-cache: false
+
+      - run: pnpm install --frozen-lockfile
+
+      # The same documented gate CI runs on every PR — a tag publishes only what passes
+      # lint, typecheck, rules:check, build, attw, and test on ubuntu.
+      - name: Verify
+        run: pnpm verify
+
+      # Node 22 on ubuntu-latest ships npm 10; npm CLI >= 11.5.1 is required for trusted
+      # publishing. Not a lockfile-managed install (it upgrades the global CLI that pnpm
+      # delegates to), hence the audit suppression.
+      - run: npm i -g npm@11 # zizmor: ignore[adhoc-packages]
+
+      # Publishes packages/core (the only non-private workspace package). `publishConfig`
+      # already sets access:public, so no `--access` flag; `latest` is the default dist-tag.
+      # `--no-git-checks`: tag checkouts are detached HEADs, which pnpm's publish-branch
+      # check rejects (ERR_PNPM_GIT_UNKNOWN_BRANCH); the tag itself is the version proof.
+      - run: pnpm publish --filter @crocs-muni/scrutiny-fabric --no-git-checks

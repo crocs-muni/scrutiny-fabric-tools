@@ -5,7 +5,7 @@
  * (`OK true` or `OK false`) is returned at once and never retried here.
  */
 
-import type { NostrEvent } from '@scrutiny-fabric/core'
+import type { NostrEvent } from '@crocs-muni/scrutiny-fabric'
 import type { SignerPort } from '../signer/signer.js'
 import { type PublishReply, RelayConnection, RelayError, type RelayTimeouts } from './socket.js'
 

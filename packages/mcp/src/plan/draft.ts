@@ -6,7 +6,7 @@
  * and lets `profile.missing` take an already published profile into account.
  */
 
-import { buildBinding, buildMetadata, buildProduct } from '@scrutiny-fabric/core'
+import { buildBinding, buildMetadata, buildProduct } from '@crocs-muni/scrutiny-fabric'
 import { blobUrl } from '../artifacts/blossom.js'
 import type { UrlCheck } from '../artifacts/url.js'
 import {

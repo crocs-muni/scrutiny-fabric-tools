@@ -1,4 +1,4 @@
-# @scrutiny-fabric/core
+# @crocs-muni/scrutiny-fabric
 
 ## 0.1.0
 
