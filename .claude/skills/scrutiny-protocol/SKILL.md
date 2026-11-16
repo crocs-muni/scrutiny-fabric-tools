@@ -1,6 +1,6 @@
 ---
 name: scrutiny-protocol
-description: Working rules for implementing @scrutiny-fabric/core, the TypeScript reference implementation of the SCRUTINY Fabric protocol. Use whenever editing anything under packages/core, citing a protocol rule ID (TAG-1, BD-3, T1, DEL-5, …), touching tools/rules.json or rules.ts, reading or amending the protocol spec, or planning a phase of the implementation plan. Covers the hard architectural invariants, the traps that killed two previous implementations, and the rule-citation discipline.
+description: Working rules for implementing @crocs-muni/scrutiny-fabric, the TypeScript reference implementation of the SCRUTINY Fabric protocol. Use whenever editing anything under packages/core, citing a protocol rule ID (TAG-1, BD-3, T1, DEL-5, …), touching tools/rules.json or rules.ts, reading or amending the protocol spec, or planning a phase of the implementation plan. Covers the hard architectural invariants, the traps that killed two previous implementations, and the rule-citation discipline.
 license: MIT
 metadata:
   spec-version: "0.8.1"

@@ -862,3 +862,18 @@ Two previous implementations died of protocol drift, not bad code — one target
 the spec reached v0.5.9, with a version constant in a form the spec no longer recognised, and nothing
 in CI ever complained. The countermeasure is generated, CI-enforced rule coverage and a board
 protocol (AGENTS.md) that makes status visible and citation-stable.
+
+**C17 (2026-11-15) — npm org `crocs-muni`, flagship renamed `@crocs-muni/scrutiny-fabric`.**
+
+D3 (2026-07-27) chose the `@scrutiny-fabric` scope on the atproto model. Superseded 2026-11-15:
+the npm org was created under the lab name `crocs-muni` (owner: petrs42, lab process with a
+second owner), which on the public registry fixes the scope to `@crocs-muni`. The flagship package
+renames accordingly: `@scrutiny-fabric/core` → `@crocs-muni/scrutiny-fabric` (the full protocol
+name in the package part; `@crocs-muni/core` reads meaningless, `@crocs-muni/fabric` is
+unsearchable and collides with Microsoft Fabric in every npm search result). Rationale accepted
+despite D3's atproto precedent: the lab stays home of record (governance not expected to shift
+off-lab), and the lab name in the scope is the citation credit for a university protocol.
+`@scrutiny-fabric/mirror` keeps its name (private, never published). The `Symbol.for`
+protocol-brand identifiers (`@scrutiny-fabric/trust|storage|transport`) keep the protocol brand —
+they are not package names. Publishing: first publish manual (org member + 2FA), thereafter
+GitHub Actions trusted publishing (OIDC) from a tag-triggered workflow; no long-lived npm token.
