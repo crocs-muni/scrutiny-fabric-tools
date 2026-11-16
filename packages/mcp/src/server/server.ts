@@ -97,6 +97,11 @@ export function createServer(deps: ServerDeps): McpServer {
   )
   const approvalChannel = (): 'elicitation' | 'chat' =>
     server.server.getClientCapabilities()?.elicitation === undefined ? 'chat' : 'elicitation'
+  /**
+   * `root\0plan_hash` of plans whose approval dialog was cancelled or went unanswered (spec §7):
+   * only for these does an elicitation host accept an `approval_code`.
+   */
+  const chatOffered = new Set<string>()
 
   async function pubkeyOrNull(): Promise<string | null> {
     try {
@@ -309,34 +314,48 @@ export function createServer(deps: ServerDeps): McpServer {
         planPath: planPath(args.root, args.plan_hash),
         published,
       })
-      if (approvalChannel() === 'elicitation') {
+      const code = approvalCode(args.plan_hash)
+      const askInChat = (r: Refusal) =>
+        refuse(r, { approval_summary: summary, approval_code: code, next_step: NEXT_STEP.approval })
+      const offer = `${args.root}\0${args.plan_hash}`
+      if (approvalChannel() === 'elicitation' && !chatOffered.has(offer)) {
         const decision = await elicit(summary, deadline - deps.clock())
-        if (decision !== 'approve') {
+        if (decision === 'decline') {
           return refuse(
             refusal(
               'approval.declined',
               'approval',
-              `the user did not approve (${decision})`,
+              'the user declined',
               'Nothing was signed. Revise the plan with the user if needed.',
+            ),
+          )
+        }
+        if (decision !== 'approve') {
+          // Spec §7: a dialog the host cancelled or never answered is not a decision; fall back to chat.
+          chatOffered.add(offer)
+          return askInChat(
+            refusal(
+              'approval.required',
+              'approval',
+              `the approval dialog got no decision (${decision})`,
+              NEXT_STEP.approval,
             ),
           )
         }
         approval = await journal.recordApproval(args.plan_hash, 'elicitation', Date.now())
       } else {
-        const code = approvalCode(args.plan_hash)
         if (args.approval_code === undefined) {
-          return refuse(
+          return askInChat(
             refusal(
               'approval.required',
               'approval',
               'the user has not approved this plan yet',
               NEXT_STEP.approval,
             ),
-            { approval_summary: summary, approval_code: code, next_step: NEXT_STEP.approval },
           )
         }
         if (args.approval_code.trim().toUpperCase() !== code) {
-          return refuse(
+          return askInChat(
             refusal(
               'approval.wrong_code',
               'approval',
@@ -344,7 +363,6 @@ export function createServer(deps: ServerDeps): McpServer {
               NEXT_STEP.approval,
               'approval_code',
             ),
-            { approval_summary: summary, approval_code: code, next_step: NEXT_STEP.approval },
           )
         }
         approval = await journal.recordApproval(args.plan_hash, 'chat', Date.now())
@@ -410,8 +428,11 @@ export function createServer(deps: ServerDeps): McpServer {
     }
   }
 
-  /** Spec §7.1: the form; anything but accept + approve is a refusal. */
-  async function elicit(summary: string, timeoutMs: number): Promise<string> {
+  /** Spec §7.1: the form. Only accept + approve approves; only an explicit decline declines. */
+  async function elicit(
+    summary: string,
+    timeoutMs: number,
+  ): Promise<'approve' | 'decline' | 'cancel' | 'no response' | 'no time left in this call'> {
     if (timeoutMs <= 0) return 'no time left in this call'
     try {
       const result = await server.server.elicitInput(

@@ -183,7 +183,9 @@ the npub you sent the relay operator. Otherwise `signer.fix` says what to do.
 3. `publish_plan` asks for your approval of that exact plan (its hash):
    - in hosts with MCP form dialogs (elicitation), as an approve/decline dialog;
    - otherwise in the chat: the agent shows you a summary and a six-character code, and you reply
-     with the code to approve.
+     with the code to approve. This also happens when a host announces dialogs but cancels the
+     dialog or never shows it (reported for Claude Desktop chat and Cowork). Declining the dialog
+     stops there, with no code offered.
 4. The server signs and publishes in a fixed order, reads each event back from the relay, and
    records progress in `.scrutiny/` inside your folder, so an interrupted run resumes without
    duplicates. `verify` re-checks published events at any time.

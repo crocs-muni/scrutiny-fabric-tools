@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | **Status** | Draft |
-| **Date** | 2026-11-16 (rev. 4: package `@crocs-muni/scrutiny-fabric-mcp`, §13; host snippets in the package README) |
+| **Date** | 2026-11-16 (rev. 5: chat fallback after a cancelled or unanswered approval dialog, §7; rev. 4: package `@crocs-muni/scrutiny-fabric-mcp`, §13; host snippets in the package README) |
 | **Components** | `packages/mcp` (new, rewritten), `relay/` (Blossom endpoint) |
 | **Decisions** | [ADR-0003](../adr/0003-mcp-plan-based-publishing.md) |
 | **Supersedes** | Design in #108; prototype PRs #116–#121 |
@@ -455,7 +455,23 @@ has been obtained through one of these channels, chosen in this order:
 | Order | Channel | When | Mechanism |
 |---|---|---|---|
 | 1 | **Elicitation** | The client declares the `elicitation` capability | During the call, the server sends an `elicitation/create` request (form mode) with the summary (§7.1) |
-| 2 | **Chat fallback** | No elicitation capability (e.g. Claude Desktop) | `publish_plan` returns `approval_required` with the rendered summary and a 6-character `approval_code` derived from `plan_hash`. The agent shows the summary and code to the user, and calls `publish_plan` again with `approval_code` once the user replies with it |
+| 2 | **Chat fallback** | No elicitation capability (e.g. omp), **or** the elicitation request ended in `cancel`, timed out, or had no time left in the call (§7.1) | `publish_plan` returns `approval.required` with the rendered summary and a 6-character `approval_code` derived from `plan_hash`. The agent shows the summary and code to the user, and calls `publish_plan` again with `approval_code` once the user replies with it |
+
+**Hosts that declare elicitation but do not render it.** As of 2026-11, Claude Code's documentation
+promises elicitation dialogs only in its interactive terminal and as cards at claude.ai/code and in
+the Desktop app's Code tab. Non-interactive sessions cancel the request. No Anthropic document or
+changelog says that Claude Desktop chat or Cowork render `elicitation/create`. User reports
+(anthropics/claude-code#88901, still open; also #56243, #94450 and #41347) say those surfaces declare
+the capability but never show the form, and the request ends in `cancel` or a timeout (60–180 s).
+The server cannot tell such a host from one where the user dismissed a working dialog. So any
+outcome that is not a decision falls back to the chat code in the same result. Only an explicit
+decline ends approval.
+
+On a client that declares elicitation, `approval_code` is accepted only for a `{root, plan_hash}`
+whose dialog the server has already cancelled or timed out in this server process. Otherwise the
+argument is ignored and the dialog is shown. An agent therefore cannot skip a working dialog by
+computing the code. The record of these fallbacks lives in memory only: after a restart the server
+tries the dialog first again.
 
 **The chat fallback does not by itself satisfy G2's stronger form.** The code is derived from the
 plan hash and returned to the agent, so it proves only that the agent called `publish_plan` twice
@@ -485,8 +501,16 @@ Plan hash: 3f9a…c1
 ```
 
 `requestedSchema`: `{ "decision": enum ["approve", "decline"] }`. Only `action: "accept"` with
-`decision: "approve"` approves. A decline, a cancel or a missing response signs nothing and returns
-`approval.declined`.
+`decision: "approve"` approves. Every other outcome signs nothing:
+
+| Elicitation outcome | Result |
+|---|---|
+| `action: "decline"`, or `accept` with `decision: "decline"` | `approval.declined`. No chat fallback: the user said no |
+| `action: "cancel"`, no response before the call's deadline (§6.3), an error, or no time left in the call | `approval.required` with `approval_summary` and `approval_code`, the same shape as the chat fallback (§7) |
+
+The request's timeout is the time left in the call's 20 s budget. That budget is shorter than the
+pilot hosts' tool-call limits, so the fallback reaches the agent before the host stops waiting for
+the call.
 
 ### 7.2 Recording approval
 
@@ -804,8 +828,10 @@ opencode and omp to 30 s).
    - oversized (`record.budget`, nothing sent);
    - clock skew (`relay.clock_skew`, using the **signer's** clock);
    - author mismatch.
-3. Approval: decline, cancel, missing response, a client without elicitation (chat fallback with a
-   wrong and a right `approval_code`), and an expired approval window. In each refused case the test
+3. Approval: decline (no fallback; an unoffered `approval_code` does not skip the dialog), cancel
+   and missing response (each falls back to the chat code, then a wrong and a right
+   `approval_code`), a client without elicitation (chat fallback with a wrong and a right
+   `approval_code`), and an expired approval window. In each refused case the test
    asserts **zero** signatures and zero relay writes (`/metrics`).
 4. Invariant A, property-tested (fast-check): for any plan and any sequence of per-event relay
    replies, no signed event references an event that has not been acked.

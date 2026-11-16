@@ -43,7 +43,7 @@ interface Out {
   readonly plan_hash?: string
   readonly ready?: boolean
   readonly findings?: readonly { readonly code: string; readonly field: string | null }[]
-  readonly refusal?: { readonly code: string } | null
+  readonly refusal?: { readonly code: string; readonly field: string | null } | null
   readonly approval_code?: string | null
   readonly approval_summary?: string | null
   readonly results?: readonly Record<string, unknown>[]
@@ -248,21 +248,86 @@ describe('approval by elicitation (spec §7.1)', () => {
 
   for (const [name, elicit] of [
     ['decline', async () => ({ action: 'decline' })],
-    ['cancel', async () => ({ action: 'cancel' })],
     [
       'accept without approve',
       async () => ({ action: 'accept', content: { decision: 'decline' } }),
     ],
-    ['no response', () => new Promise<ElicitResult>(() => {})],
   ] as const) {
-    it(`signs and sends nothing on ${name}`, async () => {
+    it(`signs and sends nothing on ${name}, and offers no chat fallback`, async () => {
       const h = await harness({ elicit: elicit as Elicit, budgetMs: 400 })
       const { root, hash } = await drafted(h)
       const out = await h.call('publish_plan', { root, plan_id: hash, plan_hash: hash })
       expect(out.isError).toBe(true)
-      expect(refusalCode(out)).toBe('approval.declined')
+      expect(out.structuredContent?.refusal).toMatchObject({
+        code: 'approval.declined',
+        field: null,
+      })
+      expect(out.structuredContent?.approval_code).toBeNull()
       expect(h.signer.calls).toStrictEqual([])
       expect(h.writes()).toBe(0)
+
+      // A code the server never offered does not get past the dialog: it asks again.
+      const again = await h.call('publish_plan', {
+        root,
+        plan_id: hash,
+        plan_hash: hash,
+        approval_code: approvalCode(hash),
+      })
+      expect(refusalCode(again)).toBe('approval.declined')
+      expect(h.elicitations).toHaveLength(2)
+      expect(h.signer.calls).toStrictEqual([])
+      expect(h.writes()).toBe(0)
+    })
+  }
+
+  // Hosts that declare elicitation but cancel it or never render it (spec §7, e.g. Claude Desktop
+  // chat and Cowork): the same result carries the chat fallback.
+  for (const [name, elicit] of [
+    ['cancel', async () => ({ action: 'cancel' })],
+    ['no response', () => new Promise<ElicitResult>(() => {})],
+  ] as const) {
+    it(`falls back to the chat approval code on ${name}, signing nothing until the code`, async () => {
+      const h = await harness({ elicit: elicit as Elicit, budgetMs: 1500 })
+      const { root, hash } = await drafted(h)
+
+      const first = await h.call('publish_plan', { root, plan_id: hash, plan_hash: hash })
+      expect(first.isError).toBe(true)
+      expect(first.structuredContent?.refusal).toMatchObject({
+        code: 'approval.required',
+        field: null,
+      })
+      expect(first.structuredContent?.approval_code).toBe(approvalCode(hash))
+      expect(first.structuredContent?.approval_summary).toContain(hash)
+      expect(h.signer.calls).toStrictEqual([])
+      expect(h.writes()).toBe(0)
+
+      const wrong = await h.call('publish_plan', {
+        root,
+        plan_id: hash,
+        plan_hash: hash,
+        approval_code: 'ZZZZZZ',
+      })
+      expect(wrong.structuredContent?.refusal).toMatchObject({
+        code: 'approval.wrong_code',
+        field: 'approval_code',
+      })
+      expect(h.signer.calls).toStrictEqual([])
+      expect(h.writes()).toBe(0)
+
+      const right = await h.call('publish_plan', {
+        root,
+        plan_id: hash,
+        plan_hash: hash,
+        approval_code: approvalCode(hash),
+      })
+      expect(right.isError).toBeFalsy()
+      expect(right.structuredContent).toMatchObject({
+        outcome: 'complete',
+        approval: { channel: 'chat' },
+        refusal: null,
+      })
+      expect(h.elicitations).toHaveLength(1)
+      expect(h.writes()).toBe(4)
     })
   }
 

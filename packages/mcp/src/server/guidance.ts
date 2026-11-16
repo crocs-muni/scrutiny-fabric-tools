@@ -26,7 +26,7 @@ export const TOOL_DESCRIPTIONS = {
   publish_plan: [
     'Publish a drafted plan, IRREVERSIBLY: events are signed with the publisher key and become',
     'permanent and public. Pass the plan_id and plan_hash from draft_plan. The user approves the',
-    'plan first: in a dialog the server shows, or, if this host has no dialogs, by replying with',
+    'plan first: in a dialog the server shows, or, if the result carries an approval_code, by replying with',
     'the approval_code after you show them the summary verbatim. Each call works for about 20',
     's; on outcome "partial" call publish_plan again at once with the same arguments.',
   ].join(' '),
