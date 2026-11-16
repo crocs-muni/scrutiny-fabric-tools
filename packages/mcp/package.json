@@ -36,9 +36,11 @@
   },
   "devDependencies": {
     "@types/node": "^22",
+    "@types/ws": "8.18.2",
     "fast-check": "^4.10.2",
     "nostr-tools": "2.25.2",
     "typescript": "^5.8",
-    "vitest": "^5.0.5"
+    "vitest": "^5.0.5",
+    "ws": "8.22.1"
   }
 }
