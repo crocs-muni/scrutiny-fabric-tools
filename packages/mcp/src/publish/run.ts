@@ -94,10 +94,24 @@ function refusal(
   return { code, field: null, problem, fix, source, relay_message: relayMessage }
 }
 
-/** The refs an event's template points at through `@ref:` placeholders. */
+/** A whole `e`-tag value that is a ref placeholder, as §5.3 composes bindings. */
+const PLACEHOLDER_REF = /^@ref:((?:profile|product|metadata):[a-z0-9][a-z0-9._-]{0,63})$/u
+
+/**
+ * The refs an event cites as parents (spec §8.2): the `@ref:` values of its `e` tags. Derived from
+ * the structure, never by scanning prose — a lookalike token in the content is text the user
+ * approved, not a dependency, and treating it as one would skip the event as unacked.
+ */
 function parentsOf(event: TemplateGraph['events'][number]): string[] {
-  const text = [event.content, ...event.tags.flat()].join('\n')
-  return [...new Set([...text.matchAll(PLACEHOLDER)].map((m) => m[1] ?? ''))]
+  const refs = new Set<string>()
+  for (const tag of event.tags) {
+    if (tag[0] !== 'e') continue
+    for (const value of tag) {
+      const ref = PLACEHOLDER_REF.exec(value)?.[1]
+      if (ref !== undefined) refs.add(ref)
+    }
+  }
+  return [...refs]
 }
 
 function resolve(value: string, ids: ReadonlyMap<string, string>): string {
@@ -196,7 +210,10 @@ export async function runPlan(input: RunInput): Promise<RunResult> {
     }
     for (const line of unacked) {
       const found = stored.get(line.event_id)
-      if (found !== undefined && verifySignedEvent(found)) {
+      if (found !== undefined) {
+        // §8.4 step 2: stored ⇒ acked. Byte comparison and the signature check belong to §8.7,
+        // which reports "acked, not verified"; gating the ack on them here would re-sign an event
+        // the relay already holds and publish a second event for one ref.
         await journal.append({
           type: 'record',
           ref: line.ref,
@@ -258,11 +275,19 @@ export async function runPlan(input: RunInput): Promise<RunResult> {
       }
     }
 
+    // §5.4/§8.2: only this event's own parents resolve. A token naming anything else — an
+    // agent-authored lookalike in the prose, an `i` value, an `alt` — stays literal, so the
+    // signed bytes never wander from the bytes whose hash the user approved.
+    const own = new Map<string, string>()
+    for (const parent of parents) {
+      const id = acked.get(parent)
+      if (id !== undefined) own.set(parent, id)
+    }
     const template: UnsignedEvent = {
       kind: event.kind,
       created_at: input.now(),
-      tags: event.tags.map((tag) => tag.map((v) => resolve(v, acked))),
-      content: resolve(event.content, acked),
+      tags: event.tags.map((tag) => tag.map((v) => resolve(v, own))),
+      content: resolve(event.content, own),
     }
     let signed: NostrEvent
     try {

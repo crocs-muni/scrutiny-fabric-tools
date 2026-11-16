@@ -18,6 +18,14 @@ const INDEXER = /^[a-z0-9-]+:[^\r\n]+$/u
 
 const line = (min: number, max: number) =>
   z.string().min(min).max(max).regex(SINGLE_LINE, 'must be a single line')
+/** `@ref:` is server-composed (spec §5.4, §8.2): binding `e` tags and `Refs:` lines only. */
+const PLACEHOLDER_TOKEN = /@ref:/u
+/**
+ * Text that reaches the signed event. It carries no `@ref:` token: one authored by the agent would
+ * be rewritten at signing time, publishing bytes that differ from the approved plan hash.
+ */
+const prose = (min: number, max: number) =>
+  line(min, max).refine((v) => !PLACEHOLDER_TOKEN.test(v), 'must not contain an `@ref:` token')
 const url = (scheme: RegExp) =>
   z
     .string()
@@ -39,20 +47,37 @@ const SUBTYPES = [
 ] as const
 
 const indexed = {
-  headline: line(1, 200),
-  bullets: z.array(line(0, 500)).max(20).default([]),
+  headline: prose(1, 200),
+  bullets: z.array(prose(0, 500)).max(20).default([]),
   links: z.array(url(/^https?:\/\/\S+$/u)).default([]),
-  indexers: z.array(z.string().regex(INDEXER, 'must be `prefix:value`')).min(1),
-  card: z.record(z.string(), z.union([z.string(), z.number()])).default({}),
+  indexers: z
+    .array(
+      z
+        .string()
+        .regex(INDEXER, 'must be `prefix:value`')
+        .refine((v) => !PLACEHOLDER_TOKEN.test(v), 'must not contain an `@ref:` token'),
+    )
+    .min(1),
+  card: z
+    .record(z.string(), z.union([z.string(), z.number()]))
+    .refine(
+      (card) => Object.values(card).every((v) => !PLACEHOLDER_TOKEN.test(String(v))),
+      'must not contain an `@ref:` token',
+    )
+    .default({}),
   sources: z.array(relPath).default([]),
 }
 
 const profileRecord = z.strictObject({
   ref,
   type: z.literal('profile'),
-  name: line(1, 100),
-  display_name: line(1, 100).optional(),
-  about: z.string().max(2000).optional(),
+  name: prose(1, 100),
+  display_name: prose(1, 100).optional(),
+  about: z
+    .string()
+    .max(2000)
+    .refine((v) => !PLACEHOLDER_TOKEN.test(v), 'must not contain an `@ref:` token')
+    .optional(),
   picture: z.strictObject({ path: relPath, url: httpsUrl.optional() }).optional(),
 })
 
@@ -63,11 +88,11 @@ const metadataRecord = z.strictObject({
   type: z.literal('metadata'),
   ...indexed,
   subtype: z.enum(SUBTYPES),
-  identifier: line(1, 200).optional(),
+  identifier: prose(1, 200).optional(),
   artifacts: z
-    .array(z.strictObject({ path: relPath, url: httpsUrl.optional(), alt: line(1, 60) }))
+    .array(z.strictObject({ path: relPath, url: httpsUrl.optional(), alt: prose(1, 60) }))
     .default([]),
-  bind_to: z.array(z.strictObject({ ref, label: line(1, 28) })).default([]),
+  bind_to: z.array(z.strictObject({ ref, label: prose(1, 28) })).default([]),
 })
 
 const planSchema = z.strictObject({

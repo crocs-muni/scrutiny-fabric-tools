@@ -53,6 +53,29 @@ describe('parsePlan', () => {
     ).toStrictEqual(['records[metadata:fi-test].artifacts[0].content'])
   })
 
+  it('rejects an `@ref:` token in agent-authored event text (spec §5.4)', () => {
+    const token = '@ref:product:ex-100'
+    expect(fieldsOf(plan([{ ...PRODUCT, headline: `H ${token}` }]))).toStrictEqual([
+      'records[product:ex-100].headline',
+    ])
+    expect(fieldsOf(plan([{ ...PRODUCT, bullets: [`- ${token}`] }]))).toStrictEqual([
+      'records[product:ex-100].bullets[0]',
+    ])
+    expect(fieldsOf(plan([{ ...PRODUCT, indexers: [`part:${token}`] }]))).toStrictEqual([
+      'records[product:ex-100].indexers[0]',
+    ])
+    expect(fieldsOf(plan([{ ...PRODUCT, card: { ref: token } }]))).toStrictEqual([
+      'records[product:ex-100].card',
+    ])
+    expect(fieldsOf(plan([{ ...METADATA, identifier: token }]))).toStrictEqual([
+      'records[metadata:fi-test].identifier',
+    ])
+    expect(
+      fieldsOf(plan([{ ...METADATA, bind_to: [{ ref: 'product:ex-100', label: token }] }])),
+    ).toStrictEqual(['records[metadata:fi-test].bind_to[0].label'])
+    expect(fieldsOf(plan([{ ...PROFILE, name: token }]))).toStrictEqual(['records[profile:me].name'])
+  })
+
   it('names a record by index when its ref is unusable', () => {
     expect(fieldsOf(plan([{ ...PRODUCT, ref: 'Product:EX' }]))).toStrictEqual(['records[0].ref'])
     expect(fieldsOf(plan([{ ...PRODUCT, ref: 'metadata:ex-100' }]))).toStrictEqual([
