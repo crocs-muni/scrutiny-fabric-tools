@@ -1,5 +1,5 @@
 {
-  "name": "@scrutiny-fabric/core",
+  "name": "@crocs-muni/scrutiny-fabric",
   "version": "0.1.0",
   "description": "Reference implementation of the SCRUTINY Fabric protocol (spec v0.8.1). Sans-IO, crypto-free, ESM-only.",
   "license": "MIT",

@@ -3,7 +3,7 @@
   "changelog": "@changesets/cli/changelog",
   "commit": false,
   "fixed": [],
-  "linked": [["@scrutiny-fabric/*"]],
+  "linked": [["@crocs-muni/*"]],
   "access": "public",
   "baseBranch": "main",
   "updateInternalDependencies": "patch",
