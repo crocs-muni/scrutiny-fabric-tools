@@ -13,9 +13,10 @@ metadata:
 
 Read in this order. Do not skip 2 — it exists to stop you redoing settled work.
 
-1. `docs/DECISIONS-2026-07-27.md` — the architecture decision record. Append-only; if a decision
-   looks wrong, add a correction entry rather than quietly doing something else. §6 carries the
-   build-order rationale and the docs-doctrine decision (C14).
+1. `docs/adr/0001-core-architecture-baseline.md` — the core architecture decision record
+   (D1–D45, C1–C16). Append-only; if a decision looks wrong, write a new ADR in `docs/adr/` that
+   supersedes it rather than quietly doing something else. §6 carries the build-order rationale;
+   C14 (docs doctrine) is superseded by ADR-0002.
 2. `~/scrutiny-fabric/docs/protocol-spec.md` — v0.8.1, 142 rules. The only normative source.
    Appendix F is the flat index.
 3. Spec-feedback findings (F1–F18) are issues on `crocs-muni/scrutiny-fabric` (label
