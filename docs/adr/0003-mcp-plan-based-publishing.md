@@ -76,6 +76,6 @@ single day with any MCP host.
   kind-24242 records enter the event store.
 - `draft_plan` cannot detect a key that is missing from the allowlist (NIP-42 auth succeeds for any
   key). The allowlist is handled during onboarding and reported at publish time.
-- `@scrutiny-fabric/core` must be on npm before the MCP package (publication planned; 404 on 2026-11-16).
+- `@crocs-muni/scrutiny-fabric` must be on npm before the MCP package (publication planned; the registry returned 404 for `@crocs-muni/scrutiny-fabric` on 2026-11-16).
 - The pilot hosts and their MCP versions must be confirmed at the start of the build. A host that
   speaks only 2026-07-28 brings MRTR into v1.

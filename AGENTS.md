@@ -1,6 +1,6 @@
 # AGENTS.md — scrutiny-fabric-tools
 
-@scrutiny-fabric/core — reference implementation of the SCRUTINY Fabric protocol (spec v0.8.0).
+@crocs-muni/scrutiny-fabric — reference implementation of the SCRUTINY Fabric protocol (spec v0.8.0).
 Sans-IO, crypto-free, ESM-only TypeScript; `diff` is the sole runtime dependency.
 This file is the rulebook (how to work); the board has the state.
 
