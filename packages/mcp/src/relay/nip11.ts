@@ -35,12 +35,24 @@ function num(value: unknown): number | undefined {
   return typeof value === 'number' && Number.isFinite(value) ? value : undefined
 }
 
+/** A plain JSON object, or undefined for anything else (`null`, arrays, scalars). */
+function asObject(value: unknown): Record<string, unknown> | undefined {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : undefined
+}
+
+/** The one NIP-11 field this probe reads; the rest of the document is ignored. */
+interface RelayInfo {
+  readonly limitation?: unknown
+}
+
 export async function probeRelay(
   relayUrl: string,
   deps: { readonly fetch: typeof fetch; readonly now: () => number },
 ): Promise<RelayProbe> {
   const base = httpBase(relayUrl)
-  let doc: Record<string, unknown>
+  let info: RelayInfo
   let date: string | null
   try {
     const response = await deps.fetch(`${base}/`, {
@@ -51,10 +63,11 @@ export async function probeRelay(
       return { reachable: false, message: `NIP-11 answered HTTP ${response.status}` }
     date = response.headers.get('date')
     const parsed: unknown = await response.json()
-    if (typeof parsed !== 'object' || parsed === null) {
+    const document = asObject(parsed)
+    if (document === undefined) {
       return { reachable: false, message: 'NIP-11 document is not a JSON object' }
     }
-    doc = parsed as Record<string, unknown>
+    info = document
   } catch (cause) {
     return {
       reachable: false,
@@ -62,11 +75,11 @@ export async function probeRelay(
     }
   }
 
-  const { limitation = {} } = doc as { limitation?: Record<string, unknown> }
-  const { created_at_lower_limit: lower, created_at_upper_limit: upper } = limitation as {
-    created_at_lower_limit?: unknown
-    created_at_upper_limit?: unknown
-  }
+  // NIP-11 nests the limits in an object, but a relay may put `null`, an array or a scalar there.
+  // A malformed document degrades to the defaults; it must never throw out of the probe, or the
+  // draft fails instead of raising the `relay.unreachable` question it owes the user (spec §6.5).
+  const limitation = asObject(info.limitation) ?? {}
+  const { created_at_lower_limit: lower, created_at_upper_limit: upper } = limitation
   const limits: { -readonly [K in keyof RelayLimits]: RelayLimits[K] } = {}
   for (const key of ['max_limit', 'max_event_tags', 'max_message_length'] as const) {
     const value = num(limitation[key])

@@ -174,6 +174,30 @@ describe('a complete run', () => {
     expect(progress).toStrictEqual([1, 2, 3, 4, 5, 6])
   })
 
+  it('resolves only an event’s own parents, leaving a lookalike token literal', async () => {
+    const relay = primary()
+    const base = graph()
+    const lookalike = '@ref:product:unrelated'
+    const out = await run({
+      journal: await Journal.open(ROOT(), PLAN_HASH),
+      primary: relay.transport,
+      graph: {
+        ...base,
+        events: base.events.map((e) =>
+          e.ref === 'metadata:m' ? { ...e, content: `m ${lookalike}` } : e,
+        ),
+      },
+    })
+    expect(out.outcome).toBe('complete')
+    const metadata = relay.sent.find((e) => e.content.startsWith('m '))
+    expect(metadata?.content).toBe(`m ${lookalike}`)
+    const binding = relay.sent.find((e) => e.content.startsWith('l'))
+    const rootId = binding?.tags.find((t) => t[3] === 'root')?.[1] ?? ''
+    const linkId = binding?.tags.find((t) => t[3] === 'link')?.[1] ?? ''
+    expect(binding?.content).toBe(`l\n\nRefs: root ${rootId} link ${linkId}`)
+    expect(binding?.content).not.toContain('@ref:')
+  })
+
   it('reports an event the relay serves altered as acked, not verified', async () => {
     const relay = primary()
     relay.transport.fetchByIds = async (ids) =>
@@ -346,6 +370,35 @@ describe('resume (spec §8.4, §14.1 item 5)', () => {
     expect(
       journal.lines.filter((l) => l.type === 'record' && l.state === 'superseded'),
     ).toHaveLength(1)
+  })
+
+  it('marks a stored event acked even when the relay serves it altered, and never re-signs it', async () => {
+    const relay = primary(['ok', 'stored-no-ack'])
+    const root = ROOT()
+    await run({ journal: await Journal.open(root, PLAN_HASH), primary: relay.transport })
+
+    const stored = relay.transport.fetchByIds
+    relay.transport.fetchByIds = async (ids) =>
+      new Map(
+        [...(await stored(ids))].map(([id, e]) => [
+          id,
+          { ...e, content: `${e.content} (altered)` },
+        ]),
+      )
+    const sentBefore = relay.sent.length
+    const second = await run({
+      journal: await Journal.open(root, PLAN_HASH),
+      primary: relay.transport,
+    })
+
+    expect(second.outcome).toBe('complete')
+    const journal = await Journal.open(root, PLAN_HASH)
+    expect(
+      journal.lines.filter((l) => l.type === 'record' && l.state === 'superseded'),
+    ).toHaveLength(0)
+    // §8.4 step 2: stored ⇒ acked. The altered bytes are §8.7's finding, not a reason to re-sign.
+    expect(relay.sent.filter((e) => e.content === 'product:a')).toHaveLength(1)
+    expect(relay.sent.length - sentBefore).toBe(4)
   })
 
   it('reuses acked ids across calls and never stores two events for one ref', async () => {
