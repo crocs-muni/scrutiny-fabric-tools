@@ -1,15 +1,20 @@
 {
-  "name": "@scrutiny-fabric/mcp",
-  "version": "0.0.0",
-  "private": true,
+  "name": "@crocs-muni/scrutiny-fabric-mcp",
+  "version": "0.1.0",
   "description": "MCP server that turns a publisher's local security files into SCRUTINY Fabric events and publishes them after user approval (docs/specs/mcp-publishing.md).",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/crocs-muni/scrutiny-fabric-tools.git",
+    "directory": "packages/mcp"
+  },
+  "homepage": "https://github.com/crocs-muni/scrutiny-fabric-tools/tree/main/packages/mcp#readme",
+  "bugs": "https://github.com/crocs-muni/scrutiny-fabric-tools/issues",
   "type": "module",
   "sideEffects": false,
   "engines": {
     "node": ">=22"
   },
-  "//private": "Private until spec §18 step 6 (release): the engine is incomplete, and the published package must depend on the published @crocs-muni/scrutiny-fabric, which is not on npm yet (spec §16).",
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
@@ -20,6 +25,9 @@
     "scrutiny-fabric-mcp": "./dist/bin.js"
   },
   "files": ["dist", "src"],
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
     "typecheck": "tsc -p tsconfig.json",

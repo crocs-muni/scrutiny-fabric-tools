@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | **Status** | Draft |
-| **Date** | 2026-11-16 (rev. 3: time-boxed `publish_plan`, §6.3) |
+| **Date** | 2026-11-16 (rev. 4: package `@crocs-muni/scrutiny-fabric-mcp`, §13; host snippets in the package README) |
 | **Components** | `packages/mcp` (new, rewritten), `relay/` (Blossom endpoint) |
 | **Decisions** | [ADR-0003](../adr/0003-mcp-plan-based-publishing.md) |
 | **Supersedes** | Design in #108; prototype PRs #116–#121 |
@@ -293,9 +293,9 @@ Input: `{}`. Output:
 
 ```jsonc
 {
-  "server": { "name": "@scrutiny-fabric/mcp", "version": "0.1.0" },
+  "server": { "name": "@crocs-muni/scrutiny-fabric-mcp", "version": "0.1.0" },
   "signer": { "state": "ready|missing|unavailable", "npub": "npub1…|null",
-              "fix": "run `npx @scrutiny-fabric/mcp@0.1.0 keygen`|null" },
+              "fix": "run `npx @crocs-muni/scrutiny-fabric-mcp@0.1.0 keygen`|null" },
   "protocol": { "mcp": "2025-11-25", "approval_channel": "elicitation|chat" }
 }
 ```
@@ -739,8 +739,12 @@ and are not tied to any pilot publisher.
 
 ### 13.1 Package
 
-- Package `@scrutiny-fabric/mcp`, published to npm. Its `bin` runs the MCP server on stdio when given
+- Package `@crocs-muni/scrutiny-fabric-mcp`, published to npm (the npm org is `crocs-muni`, so the
+  scope is too; ADR-0004). Its `bin` (`scrutiny-fabric-mcp`) runs the MCP server on stdio when given
   no subcommand, and the CLI (§11.1) otherwise.
+- Released from a `@crocs-muni/scrutiny-fabric-mcp@<version>` tag by `.github/workflows/release.yml`,
+  after `pnpm verify` and the e2e of §14.1; the job refuses to publish while the core version it pins
+  is not on npm.
 - Depends on the **published** `@crocs-muni/scrutiny-fabric`, which must be on npm before the MCP package
   is released (§16).
 - Node ≥ 22. Built JS in `dist/`; no `--experimental-strip-types` at runtime.
@@ -755,25 +759,31 @@ and are not tied to any pilot publisher.
 ### 13.2 Host configuration
 
 Host configuration pins the **exact** version, as a defence against a tampered later release (rug
-pull). The README ships a **tested** snippet for each supported host, including the Windows form
-where a host needs it:
+pull). The package README ships a snippet for each supported host (Claude Code, Claude Desktop,
+Codex, opencode, omp, VS Code, Cursor), written from each host's documentation as of 2026-11-16. CI
+tests the command they all run: the e2e starts the built `bin` over stdio and calls `status` with no
+key. Each snippet is checked by hand in its host before the pilot. Plain `npx` works on Windows in
+every host that documents Windows; the `cmd /c` form is the fallback for a host that cannot find
+`npx`:
 
 ```json
 { "mcpServers": { "scrutiny-fabric": {
-    "command": "npx", "args": ["-y", "@scrutiny-fabric/mcp@0.1.0"] } } }
+    "command": "npx", "args": ["-y", "@crocs-muni/scrutiny-fabric-mcp@0.1.0"] } } }
 ```
 
 ```json
 { "mcpServers": { "scrutiny-fabric": {
-    "command": "cmd", "args": ["/c", "npx", "-y", "@scrutiny-fabric/mcp@0.1.0"] } } }
+    "command": "cmd", "args": ["/c", "npx", "-y", "@crocs-muni/scrutiny-fabric-mcp@0.1.0"] } } }
 ```
 
-The README also documents how to raise each host's server-start and tool-call timeouts. The first
-`npx` run downloads the package and the native keyring binary, which can exceed a short start timeout.
+The README also documents how to raise each host's server-start and tool-call timeouts, and tells
+users to warm the `npx` cache once in a terminal. The first `npx` run downloads the package and the
+native keyring binary, which can exceed a short start timeout (Codex defaults to 10 s; Claude Code,
+opencode and omp to 30 s).
 
 ### 13.3 Onboarding (before pilot day)
 
-1. Each publisher runs `npx @scrutiny-fabric/mcp@0.1.0 keygen` on their laptop, stores the
+1. Each publisher runs `npx @crocs-muni/scrutiny-fabric-mcp@0.1.0 keygen` on their laptop, stores the
    `ncryptsec` backup, and sends the npub to the relay operator.
 2. The operator adds every npub to `SCRUTINY_ALLOWED_PUBKEYS` and restarts the relay once, **before**
    the pilot (adding a key is an environment change that needs a restart).

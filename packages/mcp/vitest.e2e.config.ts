@@ -5,7 +5,9 @@ import { defineConfig } from 'vitest/config'
 export default defineConfig({
   resolve: {
     alias: {
-      '@scrutiny-fabric/core': fileURLToPath(new URL('../core/src/index.ts', import.meta.url)),
+      '@crocs-muni/scrutiny-fabric': fileURLToPath(
+        new URL('../core/src/index.ts', import.meta.url),
+      ),
     },
   },
   test: {

@@ -22,7 +22,7 @@
     "ownership:gen": "node tools/gen-ownership.mjs",
     "ownership:check": "node tools/gen-ownership.mjs --check",
     "knip": "knip",
-    "publint": "publint packages/core",
+    "publint": "publint packages/core && publint packages/mcp",
     "api-report:gen": "api-extractor run --local --verbose -c packages/core/api-extractor.json",
     "api-report:check": "api-extractor run -c packages/core/api-extractor.json",
     "size": "size-limit",

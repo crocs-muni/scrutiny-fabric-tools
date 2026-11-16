@@ -9,6 +9,7 @@
 
 import { createRequire } from 'node:module'
 import type { NostrEvent, UnsignedEvent } from '@crocs-muni/scrutiny-fabric'
+import { NPX_SPEC } from '../package.js'
 import type { Refusal } from '../refusal.js'
 import { signEvent } from './event.js'
 import { readIdentity } from './identity.js'
@@ -36,9 +37,7 @@ export class SignerError extends Error {
   }
 }
 
-/** The package version is filled in at release (§18 step 6); the CLI name is stable. */
-const KEYGEN_FIX =
-  'Run `npx @scrutiny-fabric/mcp keygen` in a terminal (or `import` an existing key).'
+const KEYGEN_FIX = `Run \`npx ${NPX_SPEC} keygen\` in a terminal (or \`import\` an existing key).`
 
 function refuse(code: string, problem: string, fix: string): SignerError {
   return new SignerError({ code, field: null, problem, fix, source: 'signer', relay_message: null })
@@ -84,7 +83,7 @@ export class KeystoreSigner implements SignerPort {
       throw refuse(
         'signer.mismatch',
         'the OS keystore entry does not hold a usable key for this identity',
-        "Run `npx @scrutiny-fabric/mcp import` with this identity's key.",
+        `Run \`npx ${NPX_SPEC} import\` with this identity's key.`,
       )
     }
     try {
@@ -92,7 +91,7 @@ export class KeystoreSigner implements SignerPort {
         throw refuse(
           'signer.mismatch',
           'the OS keystore holds a key for a different identity than the identity file',
-          'Run `npx @scrutiny-fabric/mcp import` with the key you mean to publish as.',
+          `Run \`npx ${NPX_SPEC} import\` with the key you mean to publish as.`,
         )
       }
       return signEvent(template, secret)

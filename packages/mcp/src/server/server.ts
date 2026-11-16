@@ -4,7 +4,6 @@
  * nothing about relays or keys beyond the ports in `ServerDeps`.
  */
 
-import { createRequire } from 'node:module'
 import { isAbsolute } from 'node:path'
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import type { RequestHandlerExtra } from '@modelcontextprotocol/sdk/shared/protocol.js'
@@ -16,6 +15,7 @@ import {
 } from '@modelcontextprotocol/sdk/types.js'
 import { z } from 'zod'
 import { approvalCode, renderSummary } from '../approval/summary.js'
+import { PACKAGE_NAME, PACKAGE_VERSION } from '../package.js'
 import { type BlobUpload, type Draft, type DraftNetwork, draftPlan } from '../plan/draft.js'
 import { Journal } from '../publish/journal.js'
 import {
@@ -49,9 +49,8 @@ import {
   verifyOutput,
 } from './schemas.js'
 
-const SERVER_NAME = '@scrutiny-fabric/mcp'
-const VERSION = (createRequire(import.meta.url)('../../package.json') as { version: string })
-  .version
+const SERVER_NAME = PACKAGE_NAME
+const VERSION = PACKAGE_VERSION
 
 type Closable<T> = T & { close(): void }
 
