@@ -8,7 +8,7 @@
 
 import { mkdir, open, readFile } from 'node:fs/promises'
 import { join } from 'node:path'
-import type { NostrEvent } from '@scrutiny-fabric/core'
+import type { NostrEvent } from '@crocs-muni/scrutiny-fabric'
 
 type RecordState = 'signed' | 'acked' | 'verified' | 'rejected' | 'superseded'
 
