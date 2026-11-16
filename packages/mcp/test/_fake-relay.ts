@@ -30,7 +30,10 @@ export interface FakeRelayOptions {
   readonly requireAuth?: boolean
   readonly onEvent?: EventHandler
   /** Decides the reply to an AUTH frame; `undefined` falls through to signature verification. */
-  readonly onAuth?: (event: WireEvent, challenge: string) => { ok: boolean; message: string } | undefined
+  readonly onAuth?: (
+    event: WireEvent,
+    challenge: string,
+  ) => { ok: boolean; message: string } | undefined
   /** Replaces the default REQ handling. */
   readonly onReq?: (subId: string, filters: Record<string, unknown>[], socket: WebSocket) => void
 }
