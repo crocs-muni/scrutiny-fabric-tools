@@ -9,7 +9,7 @@
   "engines": {
     "node": ">=22"
   },
-  "//private": "Private until spec §18 step 6 (release): the engine is incomplete, and the published package must depend on the published @scrutiny-fabric/core, which is not on npm yet (spec §16).",
+  "//private": "Private until spec §18 step 6 (release): the engine is incomplete, and the published package must depend on the published @crocs-muni/scrutiny-fabric, which is not on npm yet (spec §16).",
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
@@ -26,12 +26,12 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@crocs-muni/scrutiny-fabric": "workspace:*",
     "@modelcontextprotocol/sdk": "1.32.2",
     "@napi-rs/keyring": "2.1.2",
     "@noble/ciphers": "2.4.0",
     "@noble/curves": "2.4.0",
     "@noble/hashes": "2.4.0",
-    "@scrutiny-fabric/core": "workspace:*",
     "@scure/base": "2.4.0",
     "zod": "4.6.7"
   },

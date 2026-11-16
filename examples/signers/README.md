@@ -8,7 +8,7 @@ This example shows how to:
 1. **Sign** unsigned event templates (`UnsignedEvent = {kind, created_at, tags, content}`) into full `NostrEvent` objects with `id`, `pubkey`, and `sig`.
 2. **Verify** signed events by recomputing the NIP-01 id and checking the BIP-340 Schnorr signature.
 
-The implementation plugs directly into `createStore({ verify: verifyEvent })` from `@scrutiny-fabric/core`.
+The implementation plugs directly into `createStore({ verify: verifyEvent })` from `@crocs-muni/scrutiny-fabric`.
 
 ## Why this is an example, not a package
 
@@ -21,7 +21,7 @@ Copy this folder out if you want to use it. Do not add it as a dependency.
 ## Install
 
 ```bash
-pnpm add @scrutiny-fabric/core @noble/curves @noble/hashes
+pnpm add @crocs-muni/scrutiny-fabric @noble/curves @noble/hashes
 ```
 
 ## Usage
@@ -30,7 +30,7 @@ pnpm add @scrutiny-fabric/core @noble/curves @noble/hashes
 
 ```ts
 import { createSigner } from './noble-signer.ts'
-import { buildProduct } from '@scrutiny-fabric/core/build.js'
+import { buildProduct } from '@crocs-muni/scrutiny-fabric/build.js'
 
 // Create a signer (generates a random key — for production, inject your own)
 const signer = createSigner()
@@ -51,7 +51,7 @@ console.log('Signed event:', event)
 ### Verifying events in a store
 
 ```ts
-import { createStore } from '@scrutiny-fabric/core/store.js'
+import { createStore } from '@crocs-muni/scrutiny-fabric/store.js'
 import { verifyEvent } from './noble-signer.ts'
 
 const store = createStore({
@@ -102,7 +102,7 @@ Convert a raw secret key to hex string for storage/export.
 
 ## ⚠️ Security warnings
 
-1. **Never put a secret key into core code.** The `@scrutiny-fabric/core` package is crypto-free by design (D12). Keys belong in your application layer, not in protocol logic.
+1. **Never put a secret key into core code.** The `@crocs-muni/scrutiny-fabric` package is crypto-free by design (D12). Keys belong in your application layer, not in protocol logic.
 
 2. **Never commit secret keys to version control.** The example generates ephemeral keys for convenience, but production usage requires secure key storage (environment variables, KMS, HSM, etc.).
 

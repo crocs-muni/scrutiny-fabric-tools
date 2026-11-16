@@ -7,7 +7,7 @@
 import { mkdtempSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import type { NostrEvent } from '@scrutiny-fabric/core'
+import type { NostrEvent } from '@crocs-muni/scrutiny-fabric'
 import fc from 'fast-check'
 import { describe, expect, it } from 'vitest'
 import type { BlobUpload, TemplateGraph } from '../src/plan/draft.js'

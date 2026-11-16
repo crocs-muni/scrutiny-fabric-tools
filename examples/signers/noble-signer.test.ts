@@ -7,11 +7,11 @@
 
 import { strict as assert } from 'node:assert'
 import { before, describe, it } from 'node:test'
+import type { NostrEvent, UnsignedEvent } from '@crocs-muni/scrutiny-fabric/events.js'
+import { serializeForId } from '@crocs-muni/scrutiny-fabric/id.js'
 import { schnorr } from '@noble/curves/secp256k1.js'
 import { sha256 } from '@noble/hashes/sha2.js'
 import { bytesToHex, hexToBytes, utf8ToBytes } from '@noble/hashes/utils.js'
-import type { NostrEvent, UnsignedEvent } from '@scrutiny-fabric/core/events.js'
-import { serializeForId } from '@scrutiny-fabric/core/id.js'
 import { createSigner, generateSecretKey, secretKeyToHex, verifyEvent } from './noble-signer.ts'
 
 describe('noble-signer', () => {

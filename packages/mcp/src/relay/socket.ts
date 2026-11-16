@@ -10,7 +10,7 @@
  *   ids-REQ only the ids it asked for. A timeout is an error, never "absent".
  */
 
-import type { NostrEvent } from '@scrutiny-fabric/core'
+import type { NostrEvent } from '@crocs-muni/scrutiny-fabric'
 import type { SignerPort } from '../signer/signer.js'
 
 export interface RelayTimeouts {

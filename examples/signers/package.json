@@ -9,7 +9,7 @@
   "devDependencies": {
     "@types/node": "^22",
     "typescript": "^5.8",
-    "@scrutiny-fabric/core": "file:../../packages/core"
+    "@crocs-muni/scrutiny-fabric": "file:../../packages/core"
   },
   "scripts": {
     "typecheck": "tsc -p tsconfig.json",
