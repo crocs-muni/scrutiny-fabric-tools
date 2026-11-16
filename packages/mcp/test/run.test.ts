@@ -380,7 +380,10 @@ describe('resume (spec §8.4, §14.1 item 5)', () => {
     const stored = relay.transport.fetchByIds
     relay.transport.fetchByIds = async (ids) =>
       new Map(
-        [...(await stored(ids))].map(([id, e]) => [id, { ...e, content: `${e.content} (altered)` }]),
+        [...(await stored(ids))].map(([id, e]) => [
+          id,
+          { ...e, content: `${e.content} (altered)` },
+        ]),
       )
     const sentBefore = relay.sent.length
     const second = await run({

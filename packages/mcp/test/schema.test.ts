@@ -73,7 +73,9 @@ describe('parsePlan', () => {
     expect(
       fieldsOf(plan([{ ...METADATA, bind_to: [{ ref: 'product:ex-100', label: token }] }])),
     ).toStrictEqual(['records[metadata:fi-test].bind_to[0].label'])
-    expect(fieldsOf(plan([{ ...PROFILE, name: token }]))).toStrictEqual(['records[profile:me].name'])
+    expect(fieldsOf(plan([{ ...PROFILE, name: token }]))).toStrictEqual([
+      'records[profile:me].name',
+    ])
   })
 
   it('names a record by index when its ref is unusable', () => {
