@@ -1,5 +1,5 @@
+import type { NostrEvent, UnsignedEvent } from '@crocs-muni/scrutiny-fabric'
 import { hexToBytes } from '@noble/hashes/utils.js'
-import type { NostrEvent, UnsignedEvent } from '@scrutiny-fabric/core'
 import { signEvent } from '../src/signer/event.js'
 import { publicKeyHex } from '../src/signer/keys.js'
 import type { SignerPort } from '../src/signer/signer.js'

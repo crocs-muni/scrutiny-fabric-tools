@@ -51,8 +51,8 @@ import { readFileSync, writeFileSync } from 'node:fs'
 import { schnorr } from '@noble/curves/secp256k1'
 import { sha256 } from '@noble/hashes/sha256.js'
 import { bytesToHex, hexToBytes, utf8ToBytes } from '@noble/hashes/utils.js'
-import { buildBinding, buildMetadata, buildProduct } from '@scrutiny-fabric/core/build.js'
-import { createStore } from '@scrutiny-fabric/core/store.js'
+import { buildBinding, buildMetadata, buildProduct } from '@crocs-muni/scrutiny-fabric/build.js'
+import { createStore } from '@crocs-muni/scrutiny-fabric/store.js'
 
 const BOOTSTRAP_EPOCH = 1_784_700_000
 const EVENT_SPACING = 10

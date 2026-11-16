@@ -3,10 +3,10 @@
  * `created_at` is the caller's (spec §11.3); this function never reads a clock.
  */
 
+import { type NostrEvent, type UnsignedEvent, computeEventId } from '@crocs-muni/scrutiny-fabric'
 import { schnorr } from '@noble/curves/secp256k1.js'
 import { sha256 } from '@noble/hashes/sha2.js'
 import { bytesToHex, hexToBytes, utf8ToBytes } from '@noble/hashes/utils.js'
-import { type NostrEvent, type UnsignedEvent, computeEventId } from '@scrutiny-fabric/core'
 import { publicKeyHex } from './keys.js'
 
 const sha256Hex = (serialized: string): string => bytesToHex(sha256(utf8ToBytes(serialized)))

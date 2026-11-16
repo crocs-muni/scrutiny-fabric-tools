@@ -11,7 +11,7 @@
  * depends on a rejected event is ever signed.
  */
 
-import type { NostrEvent, UnsignedEvent } from '@scrutiny-fabric/core'
+import type { NostrEvent, UnsignedEvent } from '@crocs-muni/scrutiny-fabric'
 import { BlossomError } from '../artifacts/blossom.js'
 import type { BlobUpload, TemplateGraph } from '../plan/draft.js'
 import type { Refusal } from '../refusal.js'

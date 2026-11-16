@@ -8,7 +8,7 @@
  */
 
 import { createRequire } from 'node:module'
-import type { NostrEvent, UnsignedEvent } from '@scrutiny-fabric/core'
+import type { NostrEvent, UnsignedEvent } from '@crocs-muni/scrutiny-fabric'
 import type { Refusal } from '../refusal.js'
 import { signEvent } from './event.js'
 import { readIdentity } from './identity.js'

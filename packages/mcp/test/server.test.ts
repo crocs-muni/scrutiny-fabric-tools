@@ -7,6 +7,7 @@
 
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
+import type { NostrEvent } from '@crocs-muni/scrutiny-fabric'
 import { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js'
 import {
@@ -14,7 +15,6 @@ import {
   ElicitRequestSchema,
   type ElicitResult,
 } from '@modelcontextprotocol/sdk/types.js'
-import type { NostrEvent } from '@scrutiny-fabric/core'
 import { afterEach, describe, expect, it } from 'vitest'
 import { approvalCode } from '../src/approval/summary.js'
 import type { DraftNetwork } from '../src/plan/draft.js'

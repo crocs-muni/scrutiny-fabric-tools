@@ -3,7 +3,7 @@
  * run on the final composed tag set, after the MCP's appended tags.
  */
 
-import { INDEXER_PREFIX_PATTERN } from '@scrutiny-fabric/core'
+import { INDEXER_PREFIX_PATTERN } from '@crocs-muni/scrutiny-fabric'
 
 /**
  * The relay's indexable-tag ceiling (`relay/internal/relay/relay.go` `maxIndexableTags`). khatru's
