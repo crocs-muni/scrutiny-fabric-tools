@@ -23,3 +23,14 @@ export { liveDraftNetwork } from './relay/network.js'
 export { RelayClient } from './relay/client.js'
 export { type PublishReply, RelayError } from './relay/socket.js'
 export { BlossomError, ensureBlob } from './artifacts/blossom.js'
+export type { BlobUpload } from './plan/draft.js'
+export { Journal } from './publish/journal.js'
+export {
+  CALL_BUDGET_MS,
+  type MirrorTransport,
+  type PrimaryTransport,
+  type RecordResult,
+  type RunInput,
+  type RunResult,
+  runPlan,
+} from './publish/run.js'

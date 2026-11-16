@@ -24,3 +24,17 @@ export function signEvent(template: UnsignedEvent, secret: Uint8Array): NostrEve
   const sig = bytesToHex(schnorr.sign(hexToBytes(id), secret))
   return { id, ...unsigned, sig }
 }
+
+/**
+ * SIG-1: the id recomputes from the event and the signature verifies against it. Never throws:
+ * relay frames are hostile input.
+ */
+export function verifySignedEvent(event: NostrEvent): boolean {
+  try {
+    if (!/^[0-9a-f]{64}$/u.test(event.id) || !/^[0-9a-f]{128}$/u.test(event.sig)) return false
+    if (computeEventId(event, sha256Hex) !== event.id) return false
+    return schnorr.verify(hexToBytes(event.sig), hexToBytes(event.id), hexToBytes(event.pubkey))
+  } catch {
+    return false
+  }
+}

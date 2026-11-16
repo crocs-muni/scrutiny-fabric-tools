@@ -90,6 +90,18 @@ export interface Preview {
   readonly immutable_warning: string
 }
 
+/** A local file the run engine uploads (spec §9.3); not part of the plan hash, `x` is. */
+export interface BlobUpload {
+  /** The event citing the blob. */
+  readonly ref: string
+  readonly x: string
+  readonly size: number
+  readonly m: string
+  readonly ext: string
+  /** Relative to the plan root. */
+  readonly path: string
+}
+
 /** Probe facts are present only when the draft ran with `network` and the relay answered. */
 export interface PreviewRelay {
   readonly url: string
@@ -122,6 +134,8 @@ export type Draft =
       readonly ready: boolean
       readonly preview: Preview
       readonly open_questions: readonly OpenQuestion[]
+      /** Blobs to put on the primary before the event citing them is signed, in event order. */
+      readonly uploads: readonly BlobUpload[]
       readonly findings: readonly []
     }
 
@@ -435,15 +449,15 @@ export async function draftPlan(input: DraftInput): Promise<Draft> {
 
   if (findings.length > 0) return { status: 'invalid', findings }
 
-  const uploads = [...ready.values()].flat().filter((a) => a.via === 'upload')
-  if (uploads.length > 0 && primaryProbe?.reachable === true && !primaryProbe.blossom) {
+  const toUpload = [...ready.values()].flat().filter((a) => a.via === 'upload')
+  if (toUpload.length > 0 && primaryProbe?.reachable === true && !primaryProbe.blossom) {
     global.push(
       question(
         'relay.no_blossom',
         true,
         null,
         'relays[0]',
-        `The primary relay ${primary} does not accept file uploads. Host these ${uploads.length} file(s) yourself and give their URLs, or drop the artifacts?`,
+        `The primary relay ${primary} does not accept file uploads. Host these ${toUpload.length} file(s) yourself and give their URLs, or drop the artifacts?`,
         'Uploaded files are stored on the primary relay; without Blossom there is nowhere to put them.',
         ['give a URL for each file', 'drop the artifacts'],
       ),
@@ -510,9 +524,15 @@ export async function draftPlan(input: DraftInput): Promise<Draft> {
   events.sort(order)
   previews.sort(order)
 
+  const uploads: BlobUpload[] = []
   for (const event of events) {
     const index = plan.records.findIndex((r) => r.ref === event.ref)
-    for (const a of ready.get(index) ?? []) blobOrder.push(a)
+    for (const a of ready.get(index) ?? []) {
+      blobOrder.push(a)
+      if (a.via === 'upload') {
+        uploads.push({ ref: event.ref, x: a.x, size: a.size, m: a.m, ext: a.ext, path: a.path })
+      }
+    }
   }
   const blobs: GraphBlob[] = []
   const seenBlobs = new Set<string>()
@@ -552,6 +572,7 @@ export async function draftPlan(input: DraftInput): Promise<Draft> {
       immutable_warning: IMMUTABLE_WARNING,
     },
     open_questions: openQuestions,
+    uploads,
     findings: [],
   }
 }
