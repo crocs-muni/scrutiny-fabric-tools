@@ -82,6 +82,32 @@ describe('probeRelay (NIP-11 + Blossom presence + clock skew)', () => {
     })
   })
 
+  it('reports a document that is not an object as unreachable', async () => {
+    for (const doc of [null, [], 'relay', 7]) {
+      const { fetch } = fakeFetch(() => Response.json(doc))
+      expect(await probeRelay('wss://r.example', { fetch, now: () => NOW })).toMatchObject({
+        reachable: false,
+      })
+    }
+  })
+
+  it('degrades a malformed limitation to the defaults instead of throwing', async () => {
+    for (const limitation of [null, [1], 'wide', 42]) {
+      const { fetch } = fakeFetch((call) =>
+        call.method === 'GET'
+          ? Response.json({ name: 'test', limitation })
+          : new Response(null, { status: 404 }),
+      )
+      expect(await probeRelay('wss://r.example', { fetch, now: () => NOW })).toStrictEqual({
+        reachable: true,
+        blossom: false,
+        clock_skew_s: null,
+        limits: {},
+        created_at_window: { past_s: 7200, future_s: 900 },
+      })
+    }
+  })
+
   it('reports Blossom absent on 404 or 405, and when HEAD fails', async () => {
     for (const status of [404, 405]) {
       const { fetch } = fakeFetch((call) =>

@@ -2,8 +2,9 @@
  * One WebSocket to one relay: NIP-01 EVENT/OK and REQ, NIP-42 authentication (spec §8.2–§8.3).
  *
  * - Writes authenticate first when the relay has already sent a challenge (khatru sends one on
- *   connect). An `auth-required:` reply triggers one re-authentication and one resend of the same
- *   bytes; a second refusal is returned, not retried.
+ *   connect). An `auth-required:` reply triggers one re-authentication, and one resend of the same
+ *   bytes only when that authentication succeeded; when the relay never challenged or refused the
+ *   AUTH, its reply is the verdict and nothing is resent.
  * - An OK frame resolves a write only when its id is exactly the id that was sent: a forged or
  *   truncated id must never release a child event for signing.
  * - Reads are never authenticated. A REQ accepts only events on its own subscription, and for an
@@ -150,7 +151,10 @@ export class RelayConnection {
       await this.#authenticate()
     const reply = await this.#send(event.id, frame)
     if (reply.ok || !reply.message.startsWith('auth-required:')) return reply
-    await this.#authenticate()
+    // §8.3: re-authenticate once **and** resend. The resend is conditional on the authentication
+    // having succeeded: a relay that never challenged, or that refused the AUTH, gets no second
+    // unauthenticated EVENT — its `auth-required:` reply is the verdict the caller acts on.
+    if (!(await this.#authenticate())) return reply
     return this.#send(event.id, frame)
   }
 
@@ -181,9 +185,9 @@ export class RelayConnection {
     })
   }
 
-  async #authenticate(): Promise<void> {
+  async #authenticate(): Promise<boolean> {
     const challenge = await this.#freshChallenge()
-    if (challenge === null) return
+    if (challenge === null) return false
     const auth = await this.#options.signer.sign({
       kind: 22242,
       created_at: this.#options.now(),
@@ -194,7 +198,9 @@ export class RelayConnection {
       content: '',
     })
     const reply = await this.#send(auth.id, JSON.stringify(['AUTH', auth]))
-    if (reply.ok) this.#authedChallenge = challenge
+    if (!reply.ok) return false
+    this.#authedChallenge = challenge
+    return true
   }
 
   /** A challenge not yet answered: the current one, or the next to arrive within the OK window. */
