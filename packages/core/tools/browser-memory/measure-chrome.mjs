@@ -2,7 +2,7 @@
 /**
  * Headless-Chrome retained-heap measurement for the browser-memory investigation (issue #30).
  *
- * Serves the PUBLISHED ESM build of @scrutiny-fabric/core (packages/core/dist) plus the
+ * Serves the PUBLISHED ESM build of @crocs-muni/scrutiny-fabric (packages/core/dist) plus the
  * `diff` runtime dependency over a loopback HTTP server (an import map resolves `diff` to its
  * own ESM entry — the tab runs the exact files a downstream bundler would ship; nothing is
  * rebundled), launches headless Chrome on a throwaway profile, and drives it over raw CDP via

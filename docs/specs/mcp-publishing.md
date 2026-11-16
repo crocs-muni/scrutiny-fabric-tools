@@ -233,7 +233,7 @@ cannot contain a cycle. The server needs no general graph sort (§8.1).
 ### 5.3 Composition (server-side, deterministic)
 
 For each record the server builds an unsigned template, kind 0 for `profile`, otherwise with the
-`@scrutiny-fabric/core` builders (`buildProduct`, `buildMetadata`, `buildBinding`):
+`@crocs-muni/scrutiny-fabric` builders (`buildProduct`, `buildMetadata`, `buildBinding`):
 
 - **Content** uses rule 8, exactly as the mirror does: headline, blank line, bullets, blank line +
   `Links:`, blank line, one `Record card (JSON): …` line. LF only, no fences, C0 control characters
@@ -737,12 +737,12 @@ and are not tied to any pilot publisher.
 
 - Package `@scrutiny-fabric/mcp`, published to npm. Its `bin` runs the MCP server on stdio when given
   no subcommand, and the CLI (§11.1) otherwise.
-- Depends on the **published** `@scrutiny-fabric/core`, which must be on npm before the MCP package
+- Depends on the **published** `@crocs-muni/scrutiny-fabric`, which must be on npm before the MCP package
   is released (§16).
 - Node ≥ 22. Built JS in `dist/`; no `--experimental-strip-types` at runtime.
 - Runtime dependencies, all pinned exactly:
   - `@modelcontextprotocol/sdk` 1.32.x, the 2025-11-25 protocol line (§7);
-  - `@scrutiny-fabric/core`;
+  - `@crocs-muni/scrutiny-fabric`;
   - `@napi-rs/keyring` (prebuilt binaries for Windows, macOS and Linux);
   - `@noble/curves`, `@noble/hashes`, `@noble/ciphers` (NIP-49 for the `keygen` backup), `@scure/base`;
   - `zod`.
@@ -845,7 +845,7 @@ The 27 gaps listed there are covered by §14.1.
 | Item | Why |
 |---|---|
 | **Pilot hosts and versions.** Name them, and confirm each speaks MCP 2025-11-25 and whether it supports elicitation. If one speaks only 2026-07-28, MRTR (§15) moves into v1 | §7, §13 |
-| `@scrutiny-fabric/core` is published to npm (404 on 2026-11-16; publication planned) | §13.1 |
+| `@crocs-muni/scrutiny-fabric` is published to npm (404 on 2026-11-16; publication planned) | §13.1 |
 | Each host's default tool-call and server-start timeouts, and how to raise them | §6.3, §13.2 |
 | Blossom catch-all routing in the pinned `fiatjaf.com/nostr` version, and how to exempt `/upload` from `Hardened`'s body cap | §9.4 |
 | The deployed relay hostname matches `relay.scrutiny.cloud` in all three places | §9.4 |

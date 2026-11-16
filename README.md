@@ -2,7 +2,7 @@
 
 Tools for the [SCRUTINY Fabric protocol](https://github.com/crocs-muni/scrutiny-fabric): a reference TypeScript implementation, plus examples that port public security datasets to fabric events.
 
-The workspace has one package. `@scrutiny-fabric/core` parses, validates, queries, builds and admits SCRUTINY events. It has no I/O and does no cryptography. You give it an event, it gives you a verdict, a filter or a store view. Relay transport, signing and hashing stay with you.
+The workspace has one package. `@crocs-muni/scrutiny-fabric` parses, validates, queries, builds and admits SCRUTINY events. It has no I/O and does no cryptography. You give it an event, it gives you a verdict, a filter or a store view. Relay transport, signing and hashing stay with you.
 
 ```sh
 pnpm install
@@ -15,7 +15,7 @@ Requires Node 22 or later.
 
 | Package | What it does |
 |---|---|
-| [`@scrutiny-fabric/core`](./packages/core) | Reference implementation of the protocol (spec v0.8.1) |
+| [`@crocs-muni/scrutiny-fabric`](./packages/core) | Reference implementation of the protocol (spec v0.8.1) |
 
 ## Quality
 
