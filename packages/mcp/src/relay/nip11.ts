@@ -42,12 +42,17 @@ function asObject(value: unknown): Record<string, unknown> | undefined {
     : undefined
 }
 
+/** The one NIP-11 field this probe reads; the rest of the document is ignored. */
+interface RelayInfo {
+  readonly limitation?: unknown
+}
+
 export async function probeRelay(
   relayUrl: string,
   deps: { readonly fetch: typeof fetch; readonly now: () => number },
 ): Promise<RelayProbe> {
   const base = httpBase(relayUrl)
-  let doc: Record<string, unknown>
+  let info: RelayInfo
   let date: string | null
   try {
     const response = await deps.fetch(`${base}/`, {
@@ -62,7 +67,7 @@ export async function probeRelay(
     if (document === undefined) {
       return { reachable: false, message: 'NIP-11 document is not a JSON object' }
     }
-    doc = document
+    info = document
   } catch (cause) {
     return {
       reachable: false,
@@ -73,7 +78,7 @@ export async function probeRelay(
   // NIP-11 nests the limits in an object, but a relay may put `null`, an array or a scalar there.
   // A malformed document degrades to the defaults; it must never throw out of the probe, or the
   // draft fails instead of raising the `relay.unreachable` question it owes the user (spec §6.5).
-  const limitation = asObject(doc['limitation']) ?? {}
+  const limitation = asObject(info.limitation) ?? {}
   const { created_at_lower_limit: lower, created_at_upper_limit: upper } = limitation
   const limits: { -readonly [K in keyof RelayLimits]: RelayLimits[K] } = {}
   for (const key of ['max_limit', 'max_event_tags', 'max_message_length'] as const) {
