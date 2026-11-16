@@ -72,11 +72,26 @@ describe('RelayConnection: NIP-42 and EVENT/OK', () => {
     expect(JSON.stringify(second)).toBe(JSON.stringify(first))
   })
 
-  it('does not loop when the relay still says auth-required after re-authenticating', async () => {
+  it('does not resend when the AUTH itself is refused, and returns the auth-required verdict', async () => {
     const r = await relay({
       challengeOnConnect: false,
+      onAuth: () => ({ ok: false, message: 'error: not a publisher' }),
+    })
+    const conn = await connect(r)
+    expect(await conn.publish(sampleEvent())).toStrictEqual({
+      ok: false,
+      message: 'auth-required: writes require authentication',
+    })
+    expect(r.sent('EVENT')).toHaveLength(1)
+  })
+
+  it('resends at most once when a fresh auth-required arrives after a successful re-auth', async () => {
+    let challenges = 0
+    const r = await relay({
+      challengeOnConnect: false,
+      onAuth: () => ({ ok: true, message: '' }),
       onEvent: (_e, { socket }) => {
-        socket.send(JSON.stringify(['AUTH', 'again']))
+        socket.send(JSON.stringify(['AUTH', `again-${++challenges}`]))
         return { ok: false, message: 'auth-required: still no' }
       },
     })

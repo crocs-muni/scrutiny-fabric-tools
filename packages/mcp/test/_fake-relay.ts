@@ -29,6 +29,8 @@ export interface FakeRelayOptions {
   /** Writes need a valid NIP-42 auth first; otherwise `auth-required:` plus a fresh challenge. */
   readonly requireAuth?: boolean
   readonly onEvent?: EventHandler
+  /** Decides the reply to an AUTH frame; `undefined` falls through to signature verification. */
+  readonly onAuth?: (event: WireEvent, challenge: string) => { ok: boolean; message: string } | undefined
   /** Replaces the default REQ handling. */
   readonly onReq?: (subId: string, filters: Record<string, unknown>[], socket: WebSocket) => void
 }
@@ -83,13 +85,22 @@ export class FakeRelay {
       if (type === 'AUTH') {
         const event = frame[1] as WireEvent
         const tag = (name: string) => event.tags.find((t) => t[0] === name)?.[1]
+        const decided = this.#options.onAuth?.(event, challenge)
         const ok =
-          verifyEvent(event) &&
-          event.kind === 22242 &&
-          tag('challenge') === challenge &&
-          tag('relay') === this.url
+          decided?.ok ??
+          (verifyEvent(event) &&
+            event.kind === 22242 &&
+            tag('challenge') === challenge &&
+            tag('relay') === this.url)
         authed ||= ok
-        socket.send(JSON.stringify(['OK', event.id, ok, ok ? '' : 'auth-required: bad auth']))
+        socket.send(
+          JSON.stringify([
+            'OK',
+            event.id,
+            ok,
+            decided?.message ?? (ok ? '' : 'auth-required: bad auth'),
+          ]),
+        )
         return
       }
       if (type === 'EVENT') {
