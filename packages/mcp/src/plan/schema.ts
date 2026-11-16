@@ -25,6 +25,16 @@ const url = (scheme: RegExp) =>
     .refine((v) => URL.canParse(v), 'must be a valid URL')
 
 const httpsUrl = url(/^https:\/\/\S+$/u)
+/** `wss://` anywhere; plain `ws://` only on a loopback host, for a relay run on this machine. */
+const relayUrl = z
+  .string()
+  .refine(
+    (v) =>
+      /^wss?:\/\/\S+$/u.test(v) &&
+      URL.canParse(v) &&
+      (v.startsWith('wss://') || ['127.0.0.1', 'localhost', '[::1]'].includes(new URL(v).hostname)),
+    'must be wss://, or ws:// on a loopback host',
+  )
 const relPath = line(1, 1024)
 const ref = z.string().regex(REF)
 
@@ -72,10 +82,7 @@ const metadataRecord = z.strictObject({
 
 const planSchema = z.strictObject({
   planVersion: z.literal(1),
-  relays: z
-    .array(url(/^wss:\/\/\S+$/u))
-    .max(8)
-    .default([]),
+  relays: z.array(relayUrl).max(8).default([]),
   records: z
     .array(z.discriminatedUnion('type', [profileRecord, productRecord, metadataRecord]))
     .min(1),

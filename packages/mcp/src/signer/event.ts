@@ -38,3 +38,13 @@ export function verifySignedEvent(event: NostrEvent): boolean {
     return false
   }
 }
+
+/**
+ * Byte-identical comparison over the NIP-01 fields, in a fixed order. Not `JSON.stringify` of the
+ * whole object: a relay may return the fields in another key order (khatru does).
+ */
+export function sameEvent(a: NostrEvent, b: NostrEvent): boolean {
+  const fields = (e: NostrEvent) =>
+    JSON.stringify([e.id, e.pubkey, e.created_at, e.kind, e.tags, e.content, e.sig])
+  return fields(a) === fields(b)
+}

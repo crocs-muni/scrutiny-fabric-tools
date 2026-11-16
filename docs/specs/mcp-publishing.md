@@ -212,7 +212,7 @@ through symlinks are refused. The server writes its state to `<root>/.scrutiny/`
 
 | Field | Rules |
 |---|---|
-| `relays` | 1..8 `wss://` URLs. Missing or empty gives open question `relay.missing` |
+| `relays` | 1..8 `wss://` URLs; plain `ws://` only on a loopback host (a relay on this machine, as in the e2e of §14.1). Missing or empty gives open question `relay.missing` |
 | `ref` | `^(profile\|product\|metadata):[a-z0-9][a-z0-9._-]{0,63}$`, unique |
 | `profile` | At most one per plan |
 | `headline` | 1..200 chars, single line |

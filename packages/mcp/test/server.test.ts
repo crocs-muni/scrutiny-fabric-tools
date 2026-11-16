@@ -363,6 +363,18 @@ describe('verify (spec §6.4)', () => {
     const h = await harness({ elicit: approve })
     const { root, hash } = await drafted(h)
     await h.call('publish_plan', { root, plan_id: hash, plan_hash: hash })
+    // A relay may return the fields in another key order (khatru does); the bytes are the same.
+    for (const [id, e] of h.stored) {
+      h.stored.set(id, {
+        sig: e.sig,
+        content: e.content,
+        tags: e.tags,
+        kind: e.kind,
+        created_at: e.created_at,
+        pubkey: e.pubkey,
+        id: e.id,
+      })
+    }
     const out = await h.call('verify', { root, plan_hash: hash })
     const results = out.structuredContent?.results ?? []
     expect(results).toHaveLength(4)

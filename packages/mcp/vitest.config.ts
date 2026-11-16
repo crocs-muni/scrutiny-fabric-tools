@@ -1,5 +1,5 @@
 import { fileURLToPath } from 'node:url'
-import { defineConfig } from 'vitest/config'
+import { configDefaults, defineConfig } from 'vitest/config'
 
 export default defineConfig({
   resolve: {
@@ -10,5 +10,7 @@ export default defineConfig({
   },
   test: {
     include: ['test/**/*.test.ts'],
+    // The real-relay e2e needs Go and runs on its own (`pnpm e2e`, vitest.e2e.config.ts).
+    exclude: [...configDefaults.exclude, 'test/e2e/**'],
   },
 })

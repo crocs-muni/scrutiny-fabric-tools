@@ -10,17 +10,24 @@ import { RelayClient } from '../relay/client.js'
 import { liveDraftNetwork } from '../relay/network.js'
 import { RelayConnection } from '../relay/socket.js'
 import { identityPath } from '../signer/identity.js'
-import { KeystoreSigner, osKeystore, osKeystoreAvailable, signerStatus } from '../signer/signer.js'
+import {
+  KeystoreSigner,
+  type SignerPort,
+  osKeystore,
+  osKeystoreAvailable,
+  signerStatus,
+} from '../signer/signer.js'
 import type { ServerDeps } from './server.js'
 
-export function liveDeps(): ServerDeps {
-  const identity = identityPath(process.platform, process.env, homedir())
-  const signer = new KeystoreSigner({ identityPath: identity, store: osKeystore })
-  const now = () => Math.floor(Date.now() / 1000)
+/**
+ * The network ports over a given signer and clock. Split from `liveDeps` so the real-relay e2e
+ * (spec §14.1) runs the production network path with an injected test signer.
+ */
+export function relayDeps(
+  signer: SignerPort,
+  now: () => number,
+): Pick<ServerDeps, 'network' | 'primary' | 'mirror' | 'uploadBlob'> {
   return {
-    signer,
-    signerStatus: () =>
-      signerStatus({ identityPath: identity, keystoreAvailable: osKeystoreAvailable }),
     network: liveDraftNetwork({ fetch: globalThis.fetch, signer, now }),
     primary: (url) => new RelayClient({ url, signer, now }),
     // Mirrors get one attempt per event and no resends (spec §8.6).
@@ -48,6 +55,18 @@ export function liveDeps(): ServerDeps {
         now,
         fetch: globalThis.fetch,
       }),
+  }
+}
+
+export function liveDeps(): ServerDeps {
+  const identity = identityPath(process.platform, process.env, homedir())
+  const signer = new KeystoreSigner({ identityPath: identity, store: osKeystore })
+  const now = () => Math.floor(Date.now() / 1000)
+  return {
+    signer,
+    signerStatus: () =>
+      signerStatus({ identityPath: identity, keystoreAvailable: osKeystoreAvailable }),
+    ...relayDeps(signer, now),
     now,
     clock: Date.now,
   }

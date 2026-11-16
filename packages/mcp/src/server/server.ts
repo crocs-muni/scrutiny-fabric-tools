@@ -25,7 +25,7 @@ import {
   runPlan,
 } from '../publish/run.js'
 import type { Refusal } from '../refusal.js'
-import { verifySignedEvent } from '../signer/event.js'
+import { sameEvent, verifySignedEvent } from '../signer/event.js'
 import { npubEncode } from '../signer/keys.js'
 import type { SignerPort, SignerStatus } from '../signer/signer.js'
 import {
@@ -496,7 +496,7 @@ export function createServer(deps: ServerDeps): McpServer {
                 byte_identical:
                   event === undefined || journalled === undefined
                     ? null
-                    : JSON.stringify(event) === JSON.stringify(journalled),
+                    : sameEvent(event, journalled),
               })
             }
           }

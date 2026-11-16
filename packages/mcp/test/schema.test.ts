@@ -155,6 +155,12 @@ describe('parsePlan', () => {
     expect(fieldsOf(plan([PRODUCT], relays(8)))).toStrictEqual([])
     expect(fieldsOf(plan([PRODUCT], relays(9)))).toStrictEqual(['relays'])
     expect(fieldsOf(plan([PRODUCT], ['ws://r.example']))).toStrictEqual(['relays[0]'])
+    expect(fieldsOf(plan([PRODUCT], ['https://r.example']))).toStrictEqual(['relays[0]'])
+    // Plain ws:// only for a relay on this machine.
+    for (const local of ['ws://127.0.0.1:3334', 'ws://localhost:3334', 'ws://[::1]:3334']) {
+      expect(fieldsOf(plan([PRODUCT], [local]))).toStrictEqual([])
+    }
+    expect(fieldsOf(plan([PRODUCT], ['ws://127.0.0.2:3334']))).toStrictEqual(['relays[0]'])
     expect(fieldsOf(plan([PRODUCT], ['wss://r.example', 'wss://r.example/']))).toStrictEqual([
       'relays[1]',
     ])
