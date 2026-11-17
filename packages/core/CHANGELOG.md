@@ -1,5 +1,17 @@
 # @crocs-muni/scrutiny-fabric
 
+## 0.1.1
+
+### Patch Changes
+
+- bf4c0f5: Dev-toolchain security bumps only; no API or runtime change: vitest 4.1.12 (fixes @vitest/mocker advisories), root `pnpm.overrides` floored to `vite` 6.4.5 / `zod` >=4.6.6 / `fast-uri` >=3.1.9 for the stryker and api-extractor dev chains, and the signers example moves to @noble v2 (v2 export names + `randomSecretKey`).
+- f192189: Make the legacy version-tag map an internal implementation detail and lint-fix imports across the workspace. No public API change.
+- bee48f5: Renamed from `@scrutiny-fabric/core`: the npm org is created under the lab name
+  `crocs-muni`, which on the public registry fixes the scope to `@crocs-muni`.
+  The full protocol name moves to the package part (ADR-0004). No API change; imports
+  change from `@scrutiny-fabric/core/*` to `@crocs-muni/scrutiny-fabric/*`.
+- 25e7e37: Dev-toolchain bumps only; no API or runtime change: vitest 5.0.5 (which retires the `vite` 6.4.5 exact-pin override — vitest 5 declares a proper vite range that resolves patched versions without it), nostr-tools 2.25.2 (cross-check oracle here, runtime in mirror), fast-check 4.10.2.
+
 ## 0.1.0
 
 ### Minor Changes

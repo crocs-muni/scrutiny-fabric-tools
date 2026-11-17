@@ -124,12 +124,19 @@ jobs:
   # on the merged PR, and that re-run checks out a worktree sitting on main, where
   # `git branch -f main` aborts with "used by worktree" — hence the same post-merge guard as
   # `verify`: skip edited re-runs unless the base branch itself moved.
+  #
+  # Release PRs are skipped by title (`chore(release): x.y.z`): they *consume* every pending
+  # changeset, so `changeset status` necessarily reports "changed but no changesets found" and
+  # the gate would fail the one PR whose whole job is releasing. Every other PR still needs one.
+  # A title is a visible, reviewable bypass — unlike `changeset add --empty`, which would leave
+  # an empty bullet in the next changelog.
   changesets:
     name: changeset presence
     if: >-
       github.event_name == 'pull_request' &&
       (github.event.action != 'edited' ||
-       github.event.changes.base != null)
+       github.event.changes.base != null) &&
+      !startsWith(github.event.pull_request.title, 'chore(release)')
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
