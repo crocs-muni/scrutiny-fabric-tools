@@ -12,7 +12,11 @@ name: release
 # or `changeset publish` create the `<name>@<version>` tags, and `changeset publish` is
 # deliberately not used: with OIDC configured, its `_authToken` injection bypasses the npm
 # CLI's own OIDC exchange and the registry PUT fails E404 (changesets/changesets#1914).
-# Plain `pnpm publish` lets the CLI do the exchange itself.
+# Plain `npm publish` lets the CLI do the exchange itself.
+#
+# No `workflow_dispatch`: a release is a tag push. Dispatching after a release would
+# re-attempt an already-published version (E409), and a failed tag run can be re-run from
+# its own run page, which keeps the tag ref.
 #
 # No NPM_TOKEN: publishing uses npm trusted publishing (OIDC) — the npm registry holds a
 # trusted-publisher entry for THIS workflow in THIS repo (Settings → Trusted publishing on
@@ -27,7 +31,6 @@ on:
   push:
     tags:
       - '@crocs-muni/scrutiny-fabric@*'
-  workflow_dispatch:
 
 permissions:
   contents: read
@@ -65,12 +68,27 @@ jobs:
         run: pnpm verify
 
       # Node 22 on ubuntu-latest ships npm 10; npm CLI >= 11.5.1 is required for trusted
-      # publishing. Not a lockfile-managed install (it upgrades the global CLI that pnpm
-      # delegates to), hence the audit suppression.
+      # publishing. Not a lockfile-managed install (upgrades the global CLI), hence the
+      # audit suppression.
       - run: npm i -g npm@11 # zizmor: ignore[adhoc-packages]
 
-      # Publishes packages/core (the only non-private workspace package). `publishConfig`
-      # already sets access:public, so no `--access` flag; `latest` is the default dist-tag.
-      # `--no-git-checks`: tag checkouts are detached HEADs, which pnpm's publish-branch
-      # check rejects (ERR_PNPM_GIT_UNKNOWN_BRANCH); the tag itself is the version proof.
-      - run: pnpm publish --filter @crocs-muni/scrutiny-fabric --no-git-checks
+      # A tag that disagrees with the manifest would otherwise publish whatever the manifest
+      # says (or fail E409 mid-PUT). Fail before touching the registry instead.
+      - name: Tag matches manifest
+        run: |
+          version="${GITHUB_REF_NAME##*@}"
+          manifest="$(node -p "require('./packages/core/package.json').version")"
+          if [ "$version" != "$manifest" ]; then
+            echo "::error::tag says $version, packages/core/package.json says $manifest"
+            exit 1
+          fi
+
+      # Plain `npm publish`, not `pnpm publish`: the npm CLI is the path npm documents and
+      # tests for OIDC trusted publishing. pnpm's publish adds its own git-branch check
+      # (tag checkouts are detached HEADs → ERR_PNPM_GIT_UNKNOWN_BRANCH) and its own config
+      # handling; neither is wanted here. `publishConfig.access: public` is already in the
+      # manifest, provenance is automatic under OIDC, and there is no workspace protocol
+      # dependency to rewrite.
+      - name: Publish
+        working-directory: packages/core
+        run: npm publish
