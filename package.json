@@ -28,7 +28,7 @@
     "size": "size-limit",
     "audit": "pnpm audit --prod",
     "changeset:check": "changeset status --since=main",
-    "verify": "pnpm lint && pnpm typecheck && pnpm rules:check && pnpm ownership:check && pnpm knip && pnpm build && pnpm publint && pnpm api-report:check && pnpm attw && pnpm size && pnpm audit && pnpm test"
+    "verify": "pnpm lint && pnpm typecheck && pnpm rules:check && pnpm ownership:check && pnpm knip && pnpm build && pnpm publint && pnpm api-report:check && pnpm attw && pnpm size && pnpm run audit && pnpm test"
   },
   "devDependencies": {
     "@biomejs/biome": "1.9.4",
