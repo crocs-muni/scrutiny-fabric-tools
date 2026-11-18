@@ -260,6 +260,8 @@ export async function runPlan(input: RunInput): Promise<RunResult> {
       if (input.clock() >= input.deadline) return result('partial')
       try {
         const blob = await input.uploadBlob(upload)
+        // §7/§8: an upload can outlast the cancel; stop before this event is signed and published.
+        if (input.signal?.aborted) return result('stopped', cancelled())
         records.get(event.ref)?.blobs.push({ x: upload.x, url: blob.url, state: blob.state })
         uploaded.add(upload.x)
         input.onProgress?.(acked.size, total)
@@ -361,6 +363,8 @@ export async function runPlan(input: RunInput): Promise<RunResult> {
     const signed = id === undefined ? undefined : journal.signedEvent(id)
     if (signed === undefined) continue
     for (const [url, mirror] of input.mirrors) {
+      // §7/§8: a mirror write is the next write after the cancel; stop before it.
+      if (input.signal?.aborted) return result('stopped', cancelled())
       if (input.clock() >= input.deadline) return result('partial')
       let reply: PublishReply
       try {
