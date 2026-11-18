@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | **Status** | Draft |
-| **Date** | 2026-11-16 (rev. 2, after review) |
+| **Date** | 2026-11-16 (rev. 3: time-boxed `publish_plan`, §6.3) |
 | **Components** | `packages/mcp` (new, rewritten), `relay/` (Blossom endpoint) |
 | **Decisions** | [ADR-0003](../adr/0003-mcp-plan-based-publishing.md) |
 | **Supersedes** | Design in #108; prototype PRs #116–#121 |
@@ -354,23 +354,45 @@ Flow: approval (§7) → run (§8) → output:
   "approval": { "channel": "elicitation|chat", "at": "<iso8601>", "valid_until": "<iso8601>" },
   "outcome": "complete|partial|stopped",
   "records": [
-    { "ref": "product:ex-100", "event_id": "<hex>|null", "state": "verified|acked|rejected|skipped",
+    { "ref": "product:ex-100", "event_id": "<hex>|null",
+      "state": "verified|acked|pending|rejected|skipped",
       "ack": { "ok": true, "message": "" },
       "mirrors": { "wss://…": { "ok": true, "message": "" } },
       "blobs": [ { "x": "…", "url": "…", "state": "uploaded|present|verified" } ] }
   ],
+  "progress": { "done": 12, "total": 25 },   // events acked by the primary
+  "next_step": "Call publish_plan again now with the same plan_id and plan_hash; …",
+  "approval_summary": "…" | null,  // chat fallback (§7): the summary to show, verbatim
+  "approval_code": "3F9AC1" | null, // chat fallback: the code the user replies with
   "refusal": Refusal | null,        // why the run stopped, if it did
   "resume": "Call publish_plan again with the same plan_hash to continue." | null
 }
 ```
 
-**Long runs and host time limits.** Hosts may end a tool call after a fixed time. To stay within it:
+`pending` is an event not yet acked: not signed yet, or signed and waiting for its ack, which the
+next call settles (§8.4). `skipped` is an event that will not be sent in this run because an event
+it depends on was rejected.
 
-- The server sends `notifications/progress` (when the client supplied a `progressToken`) after each
-  blob upload and each acked event, with `progress` = events done and `total` = events in the plan.
-- The README documents the per-host tool-timeout settings for the supported hosts.
-- If the call is cut off, the journal is intact. Calling `publish_plan` again with the same
-  `plan_hash` resumes, and does not ask for approval again inside the approval window (§7.3).
+**Long runs and host time limits.** Hosts end a tool call after a fixed time, and several pilot
+hosts use 30–60 s that a user cannot always raise (omp 30 s; Codex 60 s; Claude Desktop 60 s for
+servers added locally). Progress notifications do not reliably extend that time, and no pilot host
+implements MCP Tasks (§15). So `publish_plan` is **time-boxed**; each call does a bounded slice of
+the run and the agent calls again:
+
+- **Deadline.** Each call works against a fixed deadline, 20 s after the call began. The approval
+  dialog counts against it: if approval used the time, the call records the approval and returns.
+- **At the deadline** no further event is signed and no retry back-off is started. An event already
+  sent but not yet acked stays `signed` in the journal and is settled by the next call (§8.4). An
+  upload in flight runs to completion; uploads are idempotent by hash.
+- **Result.** The call returns `outcome: "partial"` with `progress`, `resume` and a `next_step`
+  telling the agent to call `publish_plan` again at once with the same `plan_hash`, without asking
+  the user again: the approval stays valid for its window (§7.3).
+- **Progress.** The server also sends `notifications/progress` (when the client supplied a
+  `progressToken`) after each blob upload and each acked event, with `progress` = events done and
+  `total` = events in the plan. Hosts that honour it may show it; nothing depends on it.
+- **Cut off anyway.** If the host ends the call before the deadline (for example a large upload
+  under a 30 s limit), the journal is intact and the next call resumes the same way. The README
+  documents each host's timeout settings for large files.
 - On `notifications/cancelled`, the server finishes the event in flight (or abandons an upload in
   flight), writes the journal, and returns `outcome: "stopped"`.
 
@@ -498,7 +520,7 @@ For each event, the server:
 3. Stamps `created_at = now()`, from the signer's own clock (the audit found the prototype checking a
    different clock from the one it signed with).
 4. Signs it and writes the signed event to the journal (`state: signed`) **before** sending.
-5. Sends it to the primary and waits for `OK` (15 s).
+5. Sends it to the primary and waits for `OK` (15 s), or until the call's deadline (§6.3).
 
 **Invariant A: a child is signed only after every parent it references has an `OK true` from the
 primary.** As a result, an event that has not been acked has no signed descendants.
@@ -639,7 +661,8 @@ Channels:
 
 | Situation | Channel |
 |---|---|
-| Unknown tool, arguments fail the input schema | JSON-RPC error |
+| Unknown tool | JSON-RPC error |
+| Arguments fail the input schema | `isError: true` with the SDK's message and no `structuredContent` (MCP TypeScript SDK 1.32 reports input validation this way) |
 | A plan that is invalid but can be drafted | `draft_plan` result, `findings[]` |
 | A refused `publish_plan` (not ready, hash changed, declined) | `isError: true` with `structuredContent.refusal` |
 | A stopped run | Result with `outcome: "stopped"` and `refusal` |
@@ -725,7 +748,7 @@ and are not tied to any pilot publisher.
   - `@modelcontextprotocol/sdk` 1.32.x, the 2025-11-25 protocol line (§7);
   - `@crocs-muni/scrutiny-fabric`;
   - `@napi-rs/keyring` (prebuilt binaries for Windows, macOS and Linux);
-  - `@noble/curves`, `@noble/hashes`, `@scure/base`;
+  - `@noble/curves`, `@noble/hashes`, `@noble/ciphers` (NIP-49 for the `keygen` backup), `@scure/base`;
   - `zod`.
 - No `nostr-tools` (as in core D12: `@noble` only).
 
@@ -809,6 +832,7 @@ The 27 gaps listed there are covered by §14.1.
 |---|---|
 | Patches and retractions | Plan records `{type: "patch", target: <event id>, after}` and `{type: "retract", target, reason}`. The server reads the target's tip from the relay, computes the diff with `buildPatch`, refuses if the tip moves before signing, and sends retractions last |
 | Deduplication across runs | `draft_plan` queries the primary for this author's `scrutiny-*` events and matches records by indexer set and `identifier`. Each record is classified `new`, `unchanged`, `changed` (→ patch) or `conflict` (→ new root + retract), shown in the preview, with the user able to override |
+| MCP Tasks (2025-11-25 experimental; an extension in 2026-07-28) | `publish_plan` declares `execution.taskSupport: "optional"` and runs the whole plan as one task the host polls, replacing the time box of §6.3. Adopt once pilot hosts implement Tasks; Claude Code closed its requests as not planned (anthropics/claude-code#52137, #18617) |
 | MRTR approval (MCP 2026-07-28) | `InputRequiredResult` with an `elicitation/create` input request; `requestState` integrity-protected (HMAC over `{plan_hash, pubkey, issued_at, nonce}`, TTL, single-use nonce). Needed once pilot hosts speak only 2026-07-28 |
 | Allowlist check at draft time | A read-only relay endpoint reporting whether a pubkey may write, so `draft_plan` can raise `relay.not_allowed` before approval |
 | Keystore-less Linux | An `ncryptsec` file plus an `unlock` command that holds the decrypted key for a session |
