@@ -295,4 +295,22 @@ describe('RelayClient: reconnect and resend (spec §8.3)', () => {
     expect(r.sent('EVENT')).toHaveLength(4)
     expect(delays).toStrictEqual([1000, 4000, 10000])
   })
+
+  it('refuses an already-aborted publish without sending an EVENT', async () => {
+    const r = await relay()
+    const client = new RelayClient({
+      url: r.url,
+      signer: testSigner(),
+      now: () => NOW,
+      timeouts: FAST,
+      sleep: noSleep,
+    })
+    connections.push(client)
+    const controller = new AbortController()
+    controller.abort()
+    await expect(client.publish(sampleEvent(), controller.signal)).rejects.toBeInstanceOf(
+      RelayError,
+    )
+    expect(r.sent('EVENT')).toHaveLength(0)
+  })
 })

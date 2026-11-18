@@ -24,8 +24,11 @@ import type { Journal, RecordLine } from './journal.js'
 export const CALL_BUDGET_MS = 20_000
 
 export interface PrimaryTransport {
-  /** Throws `RelayError` when no verdict arrived (after the client's own resends). */
-  publish(event: NostrEvent): Promise<PublishReply>
+  /**
+   * Throws `RelayError` when no verdict arrived (after the client's own resends). Aborting `signal`
+   * stops the resends: a run that returned `partial` leaves nothing writing to the relay.
+   */
+  publish(event: NostrEvent, signal?: AbortSignal): Promise<PublishReply>
   fetchByIds(ids: readonly string[]): Promise<Map<string, NostrEvent>>
 }
 
@@ -125,15 +128,23 @@ function isoNow(): string {
 type Waited<T> = { readonly kind: 'value'; readonly value: T } | { readonly kind: 'deadline' }
 
 /**
- * Starts `start()` and waits for it until the deadline, measured before it starts. A promise still
- * pending at the deadline is left to settle on its own.
+ * Starts `start(signal)` and waits for it until the deadline, measured before it starts. Work still
+ * pending at the deadline is aborted, so what the call started — the client's resends above all —
+ * does not outlive the call. A success is never aborted.
  */
-function untilDeadline<T>(start: () => Promise<T>, input: RunInput): Promise<Waited<T>> {
+function untilDeadline<T>(
+  start: (signal: AbortSignal) => Promise<T>,
+  input: RunInput,
+): Promise<Waited<T>> {
   const remaining = input.deadline - input.clock()
   if (remaining <= 0) return Promise.resolve({ kind: 'deadline' })
-  const promise = start()
+  const controller = new AbortController()
+  const promise = start(controller.signal)
   return new Promise((resolveWait, rejectWait) => {
-    const timer = setTimeout(() => resolveWait({ kind: 'deadline' }), remaining)
+    const timer = setTimeout(() => {
+      controller.abort()
+      resolveWait({ kind: 'deadline' })
+    }, remaining)
     promise.then(
       (value: T) => {
         clearTimeout(timer)
@@ -234,7 +245,7 @@ export async function runPlan(input: RunInput): Promise<RunResult> {
   const uploaded = new Set<string>()
   for (const event of graph.events) {
     if (acked.has(event.ref)) continue
-    if (input.signal?.aborted === true) return result('stopped', cancelled())
+    if (input.signal?.aborted) return result('stopped', cancelled())
     if (input.clock() >= input.deadline) return result('partial')
 
     const parents = parentsOf(event)
@@ -301,7 +312,7 @@ export async function runPlan(input: RunInput): Promise<RunResult> {
 
     let waited: Waited<PublishReply>
     try {
-      waited = await untilDeadline(() => input.primary.publish(signed), input)
+      waited = await untilDeadline((signal) => input.primary.publish(signed, signal), input)
     } catch (cause) {
       return result(
         'stopped',

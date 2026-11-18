@@ -21,6 +21,33 @@ export interface RelayClientOptions {
 
 const realSleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms))
 
+/**
+ * The back-off delay, cut short when `signal` aborts: an abort while waiting out the last 10 s must
+ * not hold the caller. The caller stops on the next attempt, when it sees the abort.
+ */
+function sleepUntilAborted(
+  ms: number,
+  signal: AbortSignal | undefined,
+  sleep: (ms: number) => Promise<void>,
+): Promise<void> {
+  if (signal === undefined) return sleep(ms)
+  if (signal.aborted) return Promise.resolve()
+  return new Promise<void>((resolveWait, rejectWait) => {
+    const onAbort = () => resolveWait()
+    signal.addEventListener('abort', onAbort, { once: true })
+    sleep(ms).then(
+      () => {
+        signal.removeEventListener('abort', onAbort)
+        resolveWait()
+      },
+      (cause: unknown) => {
+        signal.removeEventListener('abort', onAbort)
+        rejectWait(cause)
+      },
+    )
+  })
+}
+
 export class RelayClient {
   readonly #options: RelayClientOptions
   #connection: Promise<RelayConnection> | null = null
@@ -29,16 +56,19 @@ export class RelayClient {
     this.#options = options
   }
 
-  async publish(event: NostrEvent): Promise<PublishReply> {
+  /** Resends the same bytes at most three times; an aborted `signal` stops the resends at once. */
+  async publish(event: NostrEvent, signal?: AbortSignal): Promise<PublishReply> {
     const sleep = this.#options.sleep ?? realSleep
     for (let attempt = 0; ; attempt++) {
+      if (signal?.aborted === true) throw new RelayError('closed', 'the publish was aborted')
       try {
         return await (await this.#connect()).publish(event)
       } catch (cause) {
+        if (signal?.aborted === true) throw cause
         const delay = RESEND_DELAYS_MS[attempt]
         if (!(cause instanceof RelayError) || !cause.retryable || delay === undefined) throw cause
         this.#drop()
-        await sleep(delay)
+        await sleepUntilAborted(delay, signal, sleep)
       }
     }
   }

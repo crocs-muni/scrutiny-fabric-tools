@@ -63,14 +63,17 @@ type Reply = 'ok' | 'reject' | 'lost' | 'stored-no-ack' | 'hang'
  * - `stored-no-ack`: stored, but the ack never arrives (RelayError);
  * - `hang`: never answers.
  * `confirmed` holds ids the engine has been told are stored (OK true, or found by REQ).
+ * `signals` records the abort signal each publish was given, in call order.
  */
 function primary(script: Reply[] = []) {
   const stored = new Map<string, NostrEvent>()
   const confirmed = new Set<string>()
   const sent: NostrEvent[] = []
+  const signals: (AbortSignal | undefined)[] = []
   const transport: PrimaryTransport = {
-    async publish(event) {
+    async publish(event, signal) {
       sent.push(event)
+      signals.push(signal)
       const reply = script.shift() ?? 'ok'
       if (reply === 'hang') return new Promise<PublishReply>(() => {})
       if (reply === 'lost') throw new RelayError('timeout', 'no OK')
@@ -93,7 +96,7 @@ function primary(script: Reply[] = []) {
       return out
     },
   }
-  return { transport, stored, confirmed, sent }
+  return { transport, stored, confirmed, sent, signals }
 }
 
 /** A signer that asserts invariant A at the moment of every signature. */
@@ -117,9 +120,9 @@ function guardedSigner(confirmed: ReadonlySet<string>) {
 function ticking(t: PrimaryTransport, step: () => void): PrimaryTransport {
   return {
     ...t,
-    publish: async (e) => {
+    publish: async (e, signal) => {
       step()
-      return t.publish(e)
+      return t.publish(e, signal)
     },
   }
 }
@@ -332,6 +335,19 @@ describe('the time box (spec §6.3)', () => {
     expect(Date.now() - start).toBeLessThan(2000)
     expect(out.outcome).toBe('partial')
     expect(journal.latest().get('product:a')?.state).toBe('signed')
+  })
+
+  it('aborts the publish still in flight, so a partial run stops writing to the relay', async () => {
+    const relay = primary(['hang'])
+    const out = await run({
+      journal: await Journal.open(ROOT(), PLAN_HASH),
+      primary: relay.transport,
+      clock: () => 0,
+      deadline: 50,
+    })
+    expect(out.outcome).toBe('partial')
+    expect(relay.signals).toHaveLength(1)
+    expect(relay.signals[0]?.aborted).toBe(true)
   })
 })
 
