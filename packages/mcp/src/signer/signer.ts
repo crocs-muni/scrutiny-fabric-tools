@@ -37,7 +37,7 @@ export class SignerError extends Error {
   }
 }
 
-const KEYGEN_FIX = `Run \`npx ${NPX_SPEC} keygen\` in a terminal (or \`import\` an existing key).`
+const KEYGEN_FIX = `Run \`npx ${NPX_SPEC} keygen\` (or \`import\` an existing key).`
 
 function refuse(code: string, problem: string, fix: string): SignerError {
   return new SignerError({ code, field: null, problem, fix, source: 'signer', relay_message: null })

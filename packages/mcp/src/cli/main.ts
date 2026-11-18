@@ -1,7 +1,8 @@
 /**
- * Key-management CLI (spec §11.1): `keygen`, `import`, `whoami`. It runs in a terminal, never
- * through the agent. The key is never accepted as a command-line argument (shell history) and never
- * printed; `keygen` prints only the NIP-49 backup and the npub.
+ * Key-management CLI (spec §11.1): `keygen`, `import`, `whoami`. It never runs as an agent tool;
+ * the secret is never accepted as a command-line argument (shell history) and never printed. Where
+ * input is needed, a hidden TTY prompt and piped stdin are both accepted, so a script can drive it:
+ * `keygen` prints only the NIP-49 backup and the npub.
  */
 
 import { bytesToHex } from '@noble/hashes/utils.js'
@@ -39,6 +40,7 @@ const USAGE = [
   'Usage: scrutiny-fabric-mcp <command>',
   '',
   '  keygen   Create a publisher key in the OS keystore and print its encrypted backup',
+  '           (asks for the backup password twice, or reads one line from stdin when piped)',
   '  import   Store an existing key (hex, nsec1… or ncryptsec1…), read from a hidden prompt or stdin',
   '  whoami   Print the publisher npub',
 ].join('\n')
@@ -105,13 +107,7 @@ async function keygen(io: CliIo, deps: CliDeps): Promise<number> {
       'A publisher key already exists in the OS keystore; keygen never overwrites it. Run `whoami` to see it.',
     )
   }
-  if (!io.stdinIsTTY) throw new CliError('keygen needs a terminal to ask for the backup password.')
-
-  const password = await io.promptHidden('Backup password: ')
-  const again = await io.promptHidden('Repeat backup password: ')
-  if (password === '')
-    throw new CliError('The backup password must not be empty. Nothing was stored.')
-  if (password !== again) throw new CliError('The passwords differ. Nothing was stored.')
+  const password = await backupPassword(io)
 
   const secret = (deps.randomSecret ?? randomSecretKey)()
   try {
@@ -131,6 +127,30 @@ async function keygen(io: CliIo, deps: CliDeps): Promise<number> {
   } finally {
     secret.fill(0)
   }
+}
+
+/**
+ * The NIP-49 backup password: a hidden TTY prompt typed twice, or exactly one stdin line when
+ * stdin is not a terminal, so a script or an agent can run `keygen` without one. The password is
+ * never echoed, never an argument (shell history) and never stored by this process.
+ */
+async function backupPassword(io: CliIo): Promise<string> {
+  if (!io.stdinIsTTY) {
+    const piped = (await io.readStdin()).replace(/\r?\n$/u, '')
+    if (piped === '')
+      throw new CliError('The backup password on stdin was empty. Nothing was stored.')
+    if (piped.includes('\n') || piped.includes('\r'))
+      throw new CliError(
+        'Piped input must be exactly one backup password line. Nothing was stored.',
+      )
+    return piped
+  }
+  const password = await io.promptHidden('Backup password: ')
+  const again = await io.promptHidden('Repeat backup password: ')
+  if (password === '')
+    throw new CliError('The backup password must not be empty. Nothing was stored.')
+  if (password !== again) throw new CliError('The passwords differ. Nothing was stored.')
+  return password
 }
 
 async function importKey(io: CliIo, deps: CliDeps): Promise<number> {

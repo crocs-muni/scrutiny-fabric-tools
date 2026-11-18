@@ -253,7 +253,7 @@ export async function draftPlan(input: DraftInput): Promise<Draft> {
         true,
         null,
         null,
-        'No signing key is set up. Run `keygen` (or `import`) in a terminal, then draft again.',
+        'No signing key is set up. Run `keygen` (or `import`), then draft again.',
         'Events are signed with the publisher key held in the OS keystore; the agent never handles it.',
       ),
     )

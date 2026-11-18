@@ -14,7 +14,7 @@ export const TOOL_DESCRIPTIONS = {
   status: [
     'Report this server, the publisher identity (npub) and the approval channel.',
     'Call it first. It never reads the signing key. If signer.state is not "ready", tell the user',
-    'to run the `fix` command in a terminal; never handle a key yourself.',
+    'to run the `fix` command themselves; never handle a key yourself.',
   ].join(' '),
   draft_plan: [
     'Turn a publication plan (inline `plan`, or `path` to a plan file under `root`) into a preview',

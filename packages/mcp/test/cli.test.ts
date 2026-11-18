@@ -131,10 +131,26 @@ describe('keygen', () => {
     }
   })
 
-  it('needs a terminal for the backup password', async () => {
-    const h = harness({ tty: false })
-    expect(await h.run(['keygen'])).toBe(1)
-    expect(h.store.writes).toBe(0)
+  it('reads the backup password from piped stdin when there is no terminal', async () => {
+    secretsToCheck = [HEX_KEY, NSEC]
+    const h = harness({ tty: false, stdin: 'piped pw\n' })
+    expect(await h.run(['keygen'])).toBe(0)
+    expect(h.store.value).toBe(HEX_KEY)
+    expect(h.prompts).toStrictEqual([])
+    const printed = h.out.join('\n')
+    const backup = /ncryptsec1[0-9a-z]+/u.exec(printed)?.[0] ?? ''
+    expect(Buffer.from(await decryptNcryptsec(backup, 'piped pw')).toString('hex')).toBe(HEX_KEY)
+    expect((await readIdentity(h.identityPath))?.pubkey).toBe(HEX_PUBKEY)
+  })
+
+  it('stores nothing when the piped password is empty or more than one line', async () => {
+    secretsToCheck = [HEX_KEY]
+    for (const stdin of ['', '\n', 'one\ntwo\n', 'one\rtwo']) {
+      const h = harness({ tty: false, stdin })
+      expect(await h.run(['keygen'])).toBe(1)
+      expect(h.store.writes).toBe(0)
+      expect(await readIdentity(h.identityPath)).toBeNull()
+    }
   })
 })
 

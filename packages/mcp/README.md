@@ -21,6 +21,16 @@ npx @crocs-muni/scrutiny-fabric-mcp@0.1.0 keygen
 - an **ncryptsec** backup (the key encrypted with a password you choose): store it, with the
   password, somewhere safe.
 
+In a terminal it asks for the backup password twice, with no echo. With no terminal it reads
+**exactly one** line from stdin instead, so a script or an agent can create the key and keep the
+password it generated:
+
+```bash
+printf '%s\n' "$BACKUP_PASSWORD" | npx @crocs-muni/scrutiny-fabric-mcp@0.1.0 keygen
+```
+
+Either way the password is never an argument (shell history) and the key itself is never printed.
+
 `import` loads an existing key instead (it prompts for it; never pass a key as an argument), and
 `whoami` prints the npub in use.
 
