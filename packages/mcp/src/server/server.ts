@@ -18,6 +18,7 @@ import { approvalCode, renderSummary } from '../approval/summary.js'
 import { PACKAGE_NAME, PACKAGE_VERSION } from '../package.js'
 import { type BlobUpload, type Draft, type DraftNetwork, draftPlan } from '../plan/draft.js'
 import { Journal } from '../publish/journal.js'
+import { withRunLock } from '../publish/lock.js'
 import {
   CALL_BUDGET_MS,
   type MirrorTransport,
@@ -240,7 +241,7 @@ export function createServer(deps: ServerDeps): McpServer {
         openWorldHint: true,
       },
     },
-    async (args, extra) => publish(args, extra),
+    async (args, extra) => withRunLock(args.root, args.plan_hash, () => publish(args, extra)),
   )
 
   async function publish(
