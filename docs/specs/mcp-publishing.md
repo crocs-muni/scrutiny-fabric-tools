@@ -703,11 +703,13 @@ brittle tests that asserted prose).
 
 ### 11.1 CLI
 
-The package's binary has key-management subcommands. They run in a terminal, never through the agent:
+The package's binary has key-management subcommands. They never run as an agent tool, and the agent
+never handles a key; where input is needed they take it from a hidden TTY prompt or from stdin, so a
+script can drive them:
 
 | Command | Behaviour |
 |---|---|
-| `keygen` | Generates a secp256k1 key with `@noble/curves` and stores it in the OS keystore (§11.2). Then it **requires** a backup password (TTY, no echo, typed twice) and prints the NIP-49 `ncryptsec1…` backup, followed by the npub. It refuses to overwrite an existing key |
+| `keygen` | Generates a secp256k1 key with `@noble/curves` and stores it in the OS keystore (§11.2). Then it **requires** a backup password — typed twice at a hidden TTY prompt, or **exactly one** stdin line when stdin is not a terminal — and prints the NIP-49 `ncryptsec1…` backup, followed by the npub. It refuses to overwrite an existing key, and an empty or multi-line piped password stores nothing |
 | `import` | Reads a key from a hidden TTY prompt or from stdin (for `nak key generate \| … import`): hex, `nsec1…` or `ncryptsec1…` (prompts for its password). It never accepts the key as a command-line argument, which would leave it in shell history |
 | `whoami` | Prints the npub. Never prints the secret |
 
