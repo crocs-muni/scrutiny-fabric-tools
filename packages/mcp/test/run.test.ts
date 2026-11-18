@@ -553,6 +553,61 @@ describe('cancel (spec §6.3)', () => {
     expect(next.outcome).toBe('complete')
     expect(relay.stored.size).toBe(6)
   })
+
+  it('stops before signing when a cancel arrives during a blob upload', async () => {
+    const controller = new AbortController()
+    const relay = primary()
+    const signer = testSigner()
+    const out = await run({
+      journal: await Journal.open(ROOT(), PLAN_HASH),
+      primary: relay.transport,
+      signer,
+      signal: controller.signal,
+      uploads: [
+        {
+          ref: 'profile:me',
+          x: 'c'.repeat(64),
+          size: 3,
+          m: 'text/plain',
+          ext: '.txt',
+          path: 'avatar.txt',
+        },
+      ],
+      uploadBlob: async (u) => {
+        controller.abort()
+        return { state: 'uploaded', url: `https://blossom.example/${u.x}${u.ext}` }
+      },
+    })
+    expect(out.outcome).toBe('stopped')
+    expect(out.refusal?.code).toBe('run.cancelled')
+    expect(signer.calls).toHaveLength(0)
+    expect(relay.sent).toHaveLength(0)
+  })
+
+  it('stops before the next mirror write when a cancel arrives during one', async () => {
+    const controller = new AbortController()
+    const relay = primary()
+    const written: string[] = []
+    const mirror: MirrorTransport = {
+      publish: async (e) => {
+        written.push(e.id)
+        controller.abort()
+        return { ok: true, message: '' }
+      },
+    }
+    const out = await run({
+      journal: await Journal.open(ROOT(), PLAN_HASH),
+      primary: relay.transport,
+      signal: controller.signal,
+      mirrors: new Map([['wss://m1.example', mirror]]),
+    })
+    expect(out.outcome).toBe('stopped')
+    expect(out.refusal?.code).toBe('run.cancelled')
+    expect(written).toHaveLength(1)
+    expect(
+      out.records.filter((r) => Object.keys(r.mirrors).length > 0).map((r) => r.ref),
+    ).toStrictEqual(['profile:me'])
+  })
 })
 
 describe('journal', () => {
