@@ -98,8 +98,8 @@ export function createServer(deps: ServerDeps): McpServer {
   const approvalChannel = (): 'elicitation' | 'chat' =>
     server.server.getClientCapabilities()?.elicitation === undefined ? 'chat' : 'elicitation'
   /**
-   * `root\0plan_hash` of plans whose approval dialog was cancelled or went unanswered (spec §7):
-   * only for these does an elicitation host accept an `approval_code`.
+   * `root\0plan_hash` of plans whose summary and approval code this process has returned (spec §7):
+   * only for these is an `approval_code` accepted, on any channel.
    */
   const chatOffered = new Set<string>()
 
@@ -315,9 +315,15 @@ export function createServer(deps: ServerDeps): McpServer {
         published,
       })
       const code = approvalCode(args.plan_hash)
-      const askInChat = (r: Refusal) =>
-        refuse(r, { approval_summary: summary, approval_code: code, next_step: NEXT_STEP.approval })
       const offer = `${args.root}\0${args.plan_hash}`
+      const askInChat = (r: Refusal) => {
+        chatOffered.add(offer)
+        return refuse(r, {
+          approval_summary: summary,
+          approval_code: code,
+          next_step: NEXT_STEP.approval,
+        })
+      }
       if (approvalChannel() === 'elicitation' && !chatOffered.has(offer)) {
         const decision = await elicit(summary, deadline - deps.clock())
         if (decision === 'decline') {
@@ -344,7 +350,8 @@ export function createServer(deps: ServerDeps): McpServer {
         }
         approval = await journal.recordApproval(args.plan_hash, 'elicitation', Date.now())
       } else {
-        if (args.approval_code === undefined) {
+        // Spec §7: accept the code only for an offer this process already returned.
+        if (args.approval_code === undefined || !chatOffered.has(offer)) {
           return askInChat(
             refusal(
               'approval.required',

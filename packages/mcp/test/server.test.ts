@@ -357,6 +357,36 @@ describe('approval by elicitation (spec §7.1)', () => {
 })
 
 describe('chat fallback (spec §7)', () => {
+  it('ignores a code it has not offered yet, and publishes on the call after the offer', async () => {
+    const h = await harness()
+    const { root, hash } = await drafted(h)
+
+    // A chat-only host that computes the code itself must still be shown the summary first.
+    const early = await h.call('publish_plan', {
+      root,
+      plan_id: hash,
+      plan_hash: hash,
+      approval_code: approvalCode(hash),
+    })
+    expect(early.isError).toBe(true)
+    expect(refusalCode(early)).toBe('approval.required')
+    expect(early.structuredContent?.approval_code).toBe(approvalCode(hash))
+    expect(early.structuredContent?.approval_summary).toContain(hash)
+    expect(h.signer.calls).toStrictEqual([])
+    expect(h.writes()).toBe(0)
+
+    const right = await h.call('publish_plan', {
+      root,
+      plan_id: hash,
+      plan_hash: hash,
+      approval_code: approvalCode(hash),
+    })
+    expect(right.structuredContent).toMatchObject({
+      outcome: 'complete',
+      approval: { channel: 'chat' },
+    })
+  })
+
   it('returns the summary and a code, refuses a wrong code, and publishes with the right one', async () => {
     const h = await harness()
     const { root, hash } = await drafted(h)

@@ -470,8 +470,10 @@ decline ends approval.
 On a client that declares elicitation, `approval_code` is accepted only for a `{root, plan_hash}`
 whose dialog the server has already cancelled or timed out in this server process. Otherwise the
 argument is ignored and the dialog is shown. An agent therefore cannot skip a working dialog by
-computing the code. The record of these fallbacks lives in memory only: after a restart the server
-tries the dialog first again.
+computing the code. The same rule holds for a client without elicitation: the code is accepted only
+for a `{root, plan_hash}` whose summary and code this server process already returned, so a computed
+code does not skip the offer. The record of these offers lives in memory only: after a restart the
+server tries the dialog first again.
 
 **The chat fallback does not by itself satisfy G2's stronger form.** The code is derived from the
 plan hash and returned to the agent, so it proves only that the agent called `publish_plan` twice
