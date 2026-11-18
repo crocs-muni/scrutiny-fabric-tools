@@ -44,10 +44,16 @@ function journalPath(root: string, planHash: string): string {
 export class Journal {
   readonly #path: string
   readonly #lines: JournalLine[]
+  /**
+   * The file ends in a partial line: `open` skipped it, so the next `append` must start a new line
+   * before its record, or the two would fuse into one unparsable line.
+   */
+  #needsSeparator: boolean
 
-  private constructor(path: string, lines: JournalLine[]) {
+  private constructor(path: string, lines: JournalLine[], needsSeparator: boolean) {
     this.#path = path
     this.#lines = lines
+    this.#needsSeparator = needsSeparator
   }
 
   static async open(root: string, planHash: string): Promise<Journal> {
@@ -67,7 +73,7 @@ export class Journal {
         // A torn line from a crash mid-write.
       }
     }
-    return new Journal(path, lines)
+    return new Journal(path, lines, text !== '' && !text.endsWith('\n'))
   }
 
   get lines(): readonly JournalLine[] {
@@ -76,13 +82,15 @@ export class Journal {
 
   async append(line: JournalLine): Promise<void> {
     await mkdir(join(this.#path, '..'), { recursive: true })
+    const payload = `${this.#needsSeparator ? '\n' : ''}${JSON.stringify(line)}\n`
     const handle = await open(this.#path, 'a')
     try {
-      await handle.write(`${JSON.stringify(line)}\n`)
+      await handle.write(payload)
       await handle.sync()
     } finally {
       await handle.close()
     }
+    this.#needsSeparator = false
     this.#lines.push(line)
   }
 
