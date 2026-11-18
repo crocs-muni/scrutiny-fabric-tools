@@ -313,4 +313,38 @@ describe('RelayClient: reconnect and resend (spec §8.3)', () => {
     )
     expect(r.sent('EVENT')).toHaveLength(0)
   })
+
+  it('stops the resends when the client is closed during the back-off', async () => {
+    const r = await relay({ onEvent: () => 'close' })
+    const client = new RelayClient({
+      url: r.url,
+      signer: testSigner(),
+      now: () => NOW,
+      timeouts: FAST,
+      sleep: async () => {
+        client.close()
+      },
+    })
+    connections.push(client)
+    await expect(client.publish(sampleEvent())).rejects.toBeInstanceOf(RelayError)
+    expect(r.sent('EVENT')).toHaveLength(1)
+    expect(r.sockets).toBe(1)
+  })
+
+  it('refuses to dial a closed client without sending an EVENT', async () => {
+    const r = await relay()
+    const client = new RelayClient({
+      url: r.url,
+      signer: testSigner(),
+      now: () => NOW,
+      timeouts: FAST,
+      sleep: noSleep,
+    })
+    connections.push(client)
+    client.close()
+    client.close()
+    await expect(client.publish(sampleEvent())).rejects.toBeInstanceOf(RelayError)
+    expect(r.sockets).toBe(0)
+    expect(r.sent('EVENT')).toHaveLength(0)
+  })
 })
