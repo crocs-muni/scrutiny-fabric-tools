@@ -115,9 +115,9 @@ export type LostFact =
 
 /**
  * Facts missing from the prose (everything but the card line), matched casefolded and, failing
- * that, with every non-alphanumeric removed. Card scalars shorter than 4 characters are not
- * checked. The spec says every card scalar, so numbers are checked as their decimal spelling; the
- * mirror only ever emitted string facts.
+ * that, with every non-alphanumeric removed. Every card scalar is checked, however short, unless
+ * `isExempt` says the prose legitimately omits it. The spec says every card scalar, so numbers are
+ * checked as their decimal spelling; the mirror only ever emitted string facts.
  */
 export function lostFacts(
   fields: IndexedFields & { readonly indexers: readonly string[] },
@@ -138,7 +138,7 @@ export function lostFacts(
   const lost: LostFact[] = []
   for (const [key, raw] of Object.entries(fields.card)) {
     const value = String(raw)
-    if (value.length < 4 || isExempt(value, null) || present(value)) continue
+    if (isExempt(value, null) || present(value)) continue
     lost.push({ from: 'card', key, value })
   }
   fields.indexers.forEach((raw, index) => {

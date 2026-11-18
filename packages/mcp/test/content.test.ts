@@ -110,18 +110,38 @@ describe('rule 2a check (reports; never rewrites prose)', () => {
     ).toStrictEqual([])
   })
 
-  it('checks numbers too, under the same 4-character floor', () => {
+  it('checks numbers too, as their decimal spelling', () => {
     expect(prose('H', { size: 3, year: 2026 }, [])).toStrictEqual([
+      { from: 'card', key: 'size', value: '3' },
       { from: 'card', key: 'year', value: '2026' },
     ])
   })
 
-  it('exempts short scalars, long hex, type strings, the jcver-lte cohort and «-marked values', () => {
+  it('checks a two- or three-character code the prose omits, and passes one it mentions', () => {
+    expect(prose('Example Corp secure element', { lab: 'LLE', rev: 'B2' }, [])).toStrictEqual([
+      { from: 'card', key: 'lab', value: 'LLE' },
+      { from: 'card', key: 'rev', value: 'B2' },
+    ])
+    expect(
+      prose('Example Corp LLE rev B2 secure element', { lab: 'LLE', rev: 'B2' }, []),
+    ).toStrictEqual([])
+  })
+
+  it('checks a short numeric scalar, and passes one the headline spells out', () => {
+    expect(prose('Example Corp secure element', { fips: 140, eal: 6 }, [])).toStrictEqual([
+      { from: 'card', key: 'fips', value: '140' },
+      { from: 'card', key: 'eal', value: '6' },
+    ])
+    expect(
+      prose('Example Corp FIPS 140 EAL 6 secure element', { fips: 140, eal: 6 }, []),
+    ).toStrictEqual([])
+  })
+
+  it('still exempts long hex, type strings, the jcver-lte cohort and «-marked values', () => {
     expect(
       prose(
         'H',
         {
-          short: 'abc',
           hash: 'a'.repeat(64),
           type: 'example-datasheet@1',
           marked: '«template»',
@@ -129,6 +149,12 @@ describe('rule 2a check (reports; never rewrites prose)', () => {
         ['jcver-lte:3.0.5'],
       ),
     ).toStrictEqual([])
+  })
+
+  it('does not exempt a short scalar: only isExempt can excuse an omission', () => {
+    expect(prose('H', { short: 'abc' }, [])).toStrictEqual([
+      { from: 'card', key: 'short', value: 'abc' },
+    ])
   })
 
   it('does not count the record card line itself as prose', () => {
