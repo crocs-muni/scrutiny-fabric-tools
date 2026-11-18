@@ -1,6 +1,6 @@
 {
   "name": "@crocs-muni/scrutiny-fabric-mcp",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "MCP server that turns a publisher's local security files into SCRUTINY Fabric events and publishes them after user approval (docs/specs/mcp-publishing.md).",
   "license": "MIT",
   "repository": {
