@@ -46,6 +46,11 @@ interface Out {
   readonly refusal?: { readonly code: string; readonly field: string | null } | null
   readonly approval_code?: string | null
   readonly approval_summary?: string | null
+  readonly records?: readonly {
+    readonly ref: string
+    readonly event_id: string | null
+    readonly state: string
+  }[]
   readonly results?: readonly Record<string, unknown>[]
 }
 
@@ -353,6 +358,35 @@ describe('approval by elicitation (spec §7.1)', () => {
     await h.call('publish_plan', { root, plan_id: hash, plan_hash: hash })
     expect(h.elicitations).toHaveLength(2)
     expect(h.elicitations[1]?.message).toContain('4 of 4 already published')
+  })
+})
+
+describe('concurrent publish_plan calls (spec §3: one cooperating publisher per machine)', () => {
+  it('serialises two concurrent publish_plan calls for one plan hash', async () => {
+    const h = await harness({ elicit: approve })
+    const { root, hash } = await drafted(h)
+    const args = { root, plan_id: hash, plan_hash: hash }
+    const [first, second] = await Promise.all([
+      h.call('publish_plan', args),
+      h.call('publish_plan', args),
+    ])
+    expect(first.isError).toBeFalsy()
+    expect(second.isError).toBeFalsy()
+    // One relay event per ref: the second call opens the journal the first one closed.
+    expect(h.stored.size).toBe(4)
+    const idsPerRef = new Map<string, Set<string>>()
+    for (const out of [first, second]) {
+      for (const record of out.structuredContent?.records ?? []) {
+        if (record.event_id === null) continue
+        const seen = idsPerRef.get(record.ref) ?? new Set<string>()
+        seen.add(record.event_id)
+        idsPerRef.set(record.ref, seen)
+      }
+    }
+    expect(idsPerRef.size).toBe(4)
+    for (const ids of idsPerRef.values()) expect(ids.size).toBe(1)
+    // Not 8: a ref is signed by one call only.
+    expect(h.signer.calls).toHaveLength(4)
   })
 })
 
