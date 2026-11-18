@@ -1,12 +1,17 @@
 name: release
 
-# Publishes @crocs-muni/scrutiny-fabric from a version tag.
+# Publishes one package from its version tag: @crocs-muni/scrutiny-fabric (core) or
+# @crocs-muni/scrutiny-fabric-mcp. The tag names the package.
 #
-# Trigger: a tag of the form `@crocs-muni/scrutiny-fabric@0.1.0` (the changesets tag format).
+# Trigger: a tag of the form `@crocs-muni/scrutiny-fabric@0.1.1` or
+# `@crocs-muni/scrutiny-fabric-mcp@0.1.0` (the changesets tag format).
 # Tags are created by a human publisher after the version PR merges:
 #
 #   pnpm changeset tag        # in the working tree on main (the version PR bumped versions)
-#   git push origin '@crocs-muni/scrutiny-fabric@*'
+#   git push origin '@crocs-muni/scrutiny-fabric@*' '@crocs-muni/scrutiny-fabric-mcp@*'
+#
+# The MCP package depends on core by `workspace:*`, which `pnpm pack` pins to core's current
+# version; that version must already be on npm, so core's tag goes first (the job checks).
 #
 # `changeset version` (which runs inside the version PR) never tags; only `changeset tag`
 # or `changeset publish` create the `<name>@<version>` tags, and `changeset publish` is
@@ -24,13 +29,14 @@ name: release
 # validates. Provenance is automatic for OIDC publishes from public repos (npm ≥11.5.1);
 # `pnpm install --frozen-lockfile` is what makes the attestation verifiable.
 #
-# The FIRST publish of the package (which creates it) cannot go through OIDC — it is done
+# The FIRST publish of each package (which creates it) cannot go through OIDC — it is done
 # once manually by an org member with 2FA. Everything after this runs on tags.
 
 on:
   push:
     tags:
       - '@crocs-muni/scrutiny-fabric@*'
+      - '@crocs-muni/scrutiny-fabric-mcp@*'
 
 permissions:
   contents: read
@@ -48,6 +54,35 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+
+      # The tag names the package and its version. A tag that disagrees with the manifest would
+      # otherwise publish whatever the manifest says (or fail E409 mid-PUT), so fail here,
+      # before any install and before touching the registry.
+      - name: Package from tag
+        id: pkg
+        env:
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          version="${REF_NAME##*@}"
+          name="${REF_NAME%@*}"
+          case "$name" in
+            @crocs-muni/scrutiny-fabric) dir=packages/core ;;
+            @crocs-muni/scrutiny-fabric-mcp) dir=packages/mcp ;;
+            *) echo "::error::unknown package in tag $REF_NAME"; exit 1 ;;
+          esac
+          manifest="$(node -p "require('./$dir/package.json').version")"
+          if [ "$version" != "$manifest" ]; then
+            echo "::error::tag says $version, $dir/package.json says $manifest"
+            exit 1
+          fi
+          echo "name=$name" >> "$GITHUB_OUTPUT"
+
+      # Go builds the relay for the MCP real-relay e2e below.
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        if: steps.pkg.outputs.name == '@crocs-muni/scrutiny-fabric-mcp'
+        with:
+          go-version-file: relay/go.mod
+          cache: false
 
       - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
 
@@ -67,28 +102,44 @@ jobs:
       - name: Verify
         run: pnpm verify
 
+      # The MCP package against the real relay, and its built bin over stdio (spec §14.1).
+      - name: MCP e2e
+        if: steps.pkg.outputs.name == '@crocs-muni/scrutiny-fabric-mcp'
+        run: pnpm -C packages/mcp run e2e
+
       # Node 22 on ubuntu-latest ships npm 10; npm CLI >= 11.5.1 is required for trusted
       # publishing. Not a lockfile-managed install (upgrades the global CLI), hence the
       # audit suppression.
       - run: npm i -g npm@11 # zizmor: ignore[adhoc-packages]
 
-      # A tag that disagrees with the manifest would otherwise publish whatever the manifest
-      # says (or fail E409 mid-PUT). Fail before touching the registry instead.
-      - name: Tag matches manifest
+      # The MCP package's `workspace:*` dependency becomes core's current version at pack
+      # time; publishing it before that core version exists on npm would ship a package that
+      # cannot be installed.
+      - name: Core version is on npm
+        if: steps.pkg.outputs.name == '@crocs-muni/scrutiny-fabric-mcp'
         run: |
-          version="${GITHUB_REF_NAME##*@}"
-          manifest="$(node -p "require('./packages/core/package.json').version")"
-          if [ "$version" != "$manifest" ]; then
-            echo "::error::tag says $version, packages/core/package.json says $manifest"
-            exit 1
-          fi
+          core="$(node -p "require('./packages/core/package.json').version")"
+          npm view "@crocs-muni/scrutiny-fabric@$core" version
 
       # Plain `npm publish`, not `pnpm publish`: the npm CLI is the path npm documents and
       # tests for OIDC trusted publishing. pnpm's publish adds its own git-branch check
       # (tag checkouts are detached HEADs → ERR_PNPM_GIT_UNKNOWN_BRANCH) and its own config
       # handling; neither is wanted here. `publishConfig.access: public` is already in the
-      # manifest, provenance is automatic under OIDC, and there is no workspace protocol
+      # manifest, provenance is automatic under OIDC, and core has no workspace-protocol
       # dependency to rewrite.
-      - name: Publish
+      - name: Publish core
+        if: steps.pkg.outputs.name == '@crocs-muni/scrutiny-fabric'
         working-directory: packages/core
         run: npm publish
+
+      # The MCP package does have one (`workspace:*` on core), which only `pnpm pack` rewrites.
+      # So pnpm builds the tarball and the npm CLI publishes it, keeping the OIDC exchange in
+      # npm. `--ignore-scripts` keeps the publish itself from running any lifecycle script.
+      - name: Publish MCP
+        if: steps.pkg.outputs.name == '@crocs-muni/scrutiny-fabric-mcp'
+        env:
+          PACK_DIR: ${{ runner.temp }}/pack
+        run: |
+          mkdir -p "$PACK_DIR"
+          pnpm -C packages/mcp pack --pack-destination "$PACK_DIR"
+          npm publish --ignore-scripts "$PACK_DIR"/crocs-muni-scrutiny-fabric-mcp-*.tgz

@@ -1,5 +1,5 @@
 /**
- * @scrutiny-fabric/mcp engine (spec docs/specs/mcp-publishing.md §4). Step 1 of §18: the pure draft
+ * @crocs-muni/scrutiny-fabric-mcp engine (spec docs/specs/mcp-publishing.md §4). Step 1 of §18: the pure draft
  * step. The MCP server and the CLI are thin adapters added in later steps.
  */
 

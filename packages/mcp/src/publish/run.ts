@@ -16,7 +16,7 @@ import { BlossomError } from '../artifacts/blossom.js'
 import type { BlobUpload, TemplateGraph } from '../plan/draft.js'
 import type { Refusal } from '../refusal.js'
 import type { PublishReply } from '../relay/socket.js'
-import { verifySignedEvent } from '../signer/event.js'
+import { sameEvent, verifySignedEvent } from '../signer/event.js'
 import { SignerError, type SignerPort } from '../signer/signer.js'
 import type { Journal, RecordLine } from './journal.js'
 
@@ -116,13 +116,6 @@ function parentsOf(event: TemplateGraph['events'][number]): string[] {
 
 function resolve(value: string, ids: ReadonlyMap<string, string>): string {
   return value.replace(PLACEHOLDER, (whole, ref: string) => ids.get(ref) ?? whole)
-}
-
-/** Byte-identical comparison over the NIP-01 fields, in a fixed order. */
-function sameEvent(a: NostrEvent, b: NostrEvent): boolean {
-  const fields = (e: NostrEvent) =>
-    JSON.stringify([e.id, e.pubkey, e.created_at, e.kind, e.tags, e.content, e.sig])
-  return fields(a) === fields(b)
 }
 
 function isoNow(): string {

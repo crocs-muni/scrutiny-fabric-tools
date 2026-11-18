@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | **Status** | Draft |
-| **Date** | 2026-11-16 (rev. 3: time-boxed `publish_plan`, §6.3) |
+| **Date** | 2026-11-16 (rev. 5: chat fallback after a cancelled or unanswered approval dialog, §7; rev. 4: package `@crocs-muni/scrutiny-fabric-mcp`, §13; host snippets in the package README) |
 | **Components** | `packages/mcp` (new, rewritten), `relay/` (Blossom endpoint) |
 | **Decisions** | [ADR-0003](../adr/0003-mcp-plan-based-publishing.md) |
 | **Supersedes** | Design in #108; prototype PRs #116–#121 |
@@ -212,7 +212,7 @@ through symlinks are refused. The server writes its state to `<root>/.scrutiny/`
 
 | Field | Rules |
 |---|---|
-| `relays` | 1..8 `wss://` URLs. Missing or empty gives open question `relay.missing` |
+| `relays` | 1..8 `wss://` URLs; plain `ws://` only on a loopback host (a relay on this machine, as in the e2e of §14.1). Missing or empty gives open question `relay.missing` |
 | `ref` | `^(profile\|product\|metadata):[a-z0-9][a-z0-9._-]{0,63}$`, unique |
 | `profile` | At most one per plan |
 | `headline` | 1..200 chars, single line |
@@ -293,9 +293,9 @@ Input: `{}`. Output:
 
 ```jsonc
 {
-  "server": { "name": "@scrutiny-fabric/mcp", "version": "0.1.0" },
+  "server": { "name": "@crocs-muni/scrutiny-fabric-mcp", "version": "0.1.0" },
   "signer": { "state": "ready|missing|unavailable", "npub": "npub1…|null",
-              "fix": "run `npx @scrutiny-fabric/mcp@0.1.0 keygen`|null" },
+              "fix": "run `npx @crocs-muni/scrutiny-fabric-mcp@0.1.0 keygen`|null" },
   "protocol": { "mcp": "2025-11-25", "approval_channel": "elicitation|chat" }
 }
 ```
@@ -455,7 +455,23 @@ has been obtained through one of these channels, chosen in this order:
 | Order | Channel | When | Mechanism |
 |---|---|---|---|
 | 1 | **Elicitation** | The client declares the `elicitation` capability | During the call, the server sends an `elicitation/create` request (form mode) with the summary (§7.1) |
-| 2 | **Chat fallback** | No elicitation capability (e.g. Claude Desktop) | `publish_plan` returns `approval_required` with the rendered summary and a 6-character `approval_code` derived from `plan_hash`. The agent shows the summary and code to the user, and calls `publish_plan` again with `approval_code` once the user replies with it |
+| 2 | **Chat fallback** | No elicitation capability (e.g. omp), **or** the elicitation request ended in `cancel`, timed out, or had no time left in the call (§7.1) | `publish_plan` returns `approval.required` with the rendered summary and a 6-character `approval_code` derived from `plan_hash`. The agent shows the summary and code to the user, and calls `publish_plan` again with `approval_code` once the user replies with it |
+
+**Hosts that declare elicitation but do not render it.** As of 2026-11, Claude Code's documentation
+promises elicitation dialogs only in its interactive terminal and as cards at claude.ai/code and in
+the Desktop app's Code tab. Non-interactive sessions cancel the request. No Anthropic document or
+changelog says that Claude Desktop chat or Cowork render `elicitation/create`. User reports
+(anthropics/claude-code#88901, still open; also #56243, #94450 and #41347) say those surfaces declare
+the capability but never show the form, and the request ends in `cancel` or a timeout (60–180 s).
+The server cannot tell such a host from one where the user dismissed a working dialog. So any
+outcome that is not a decision falls back to the chat code in the same result. Only an explicit
+decline ends approval.
+
+On a client that declares elicitation, `approval_code` is accepted only for a `{root, plan_hash}`
+whose dialog the server has already cancelled or timed out in this server process. Otherwise the
+argument is ignored and the dialog is shown. An agent therefore cannot skip a working dialog by
+computing the code. The record of these fallbacks lives in memory only: after a restart the server
+tries the dialog first again.
 
 **The chat fallback does not by itself satisfy G2's stronger form.** The code is derived from the
 plan hash and returned to the agent, so it proves only that the agent called `publish_plan` twice
@@ -485,8 +501,16 @@ Plan hash: 3f9a…c1
 ```
 
 `requestedSchema`: `{ "decision": enum ["approve", "decline"] }`. Only `action: "accept"` with
-`decision: "approve"` approves. A decline, a cancel or a missing response signs nothing and returns
-`approval.declined`.
+`decision: "approve"` approves. Every other outcome signs nothing:
+
+| Elicitation outcome | Result |
+|---|---|
+| `action: "decline"`, or `accept` with `decision: "decline"` | `approval.declined`. No chat fallback: the user said no |
+| `action: "cancel"`, no response before the call's deadline (§6.3), an error, or no time left in the call | `approval.required` with `approval_summary` and `approval_code`, the same shape as the chat fallback (§7) |
+
+The request's timeout is the time left in the call's 20 s budget. That budget is shorter than the
+pilot hosts' tool-call limits, so the fallback reaches the agent before the host stops waiting for
+the call.
 
 ### 7.2 Recording approval
 
@@ -739,8 +763,12 @@ and are not tied to any pilot publisher.
 
 ### 13.1 Package
 
-- Package `@scrutiny-fabric/mcp`, published to npm. Its `bin` runs the MCP server on stdio when given
+- Package `@crocs-muni/scrutiny-fabric-mcp`, published to npm (the npm org is `crocs-muni`, so the
+  scope is too; ADR-0004). Its `bin` (`scrutiny-fabric-mcp`) runs the MCP server on stdio when given
   no subcommand, and the CLI (§11.1) otherwise.
+- Released from a `@crocs-muni/scrutiny-fabric-mcp@<version>` tag by `.github/workflows/release.yml`,
+  after `pnpm verify` and the e2e of §14.1; the job refuses to publish while the core version it pins
+  is not on npm.
 - Depends on the **published** `@crocs-muni/scrutiny-fabric`, which must be on npm before the MCP package
   is released (§16).
 - Node ≥ 22. Built JS in `dist/`; no `--experimental-strip-types` at runtime.
@@ -755,25 +783,31 @@ and are not tied to any pilot publisher.
 ### 13.2 Host configuration
 
 Host configuration pins the **exact** version, as a defence against a tampered later release (rug
-pull). The README ships a **tested** snippet for each supported host, including the Windows form
-where a host needs it:
+pull). The package README ships a snippet for each supported host (Claude Code, Claude Desktop,
+Codex, opencode, omp, VS Code, Cursor), written from each host's documentation as of 2026-11-16. CI
+tests the command they all run: the e2e starts the built `bin` over stdio and calls `status` with no
+key. Each snippet is checked by hand in its host before the pilot. Plain `npx` works on Windows in
+every host that documents Windows; the `cmd /c` form is the fallback for a host that cannot find
+`npx`:
 
 ```json
 { "mcpServers": { "scrutiny-fabric": {
-    "command": "npx", "args": ["-y", "@scrutiny-fabric/mcp@0.1.0"] } } }
+    "command": "npx", "args": ["-y", "@crocs-muni/scrutiny-fabric-mcp@0.1.0"] } } }
 ```
 
 ```json
 { "mcpServers": { "scrutiny-fabric": {
-    "command": "cmd", "args": ["/c", "npx", "-y", "@scrutiny-fabric/mcp@0.1.0"] } } }
+    "command": "cmd", "args": ["/c", "npx", "-y", "@crocs-muni/scrutiny-fabric-mcp@0.1.0"] } } }
 ```
 
-The README also documents how to raise each host's server-start and tool-call timeouts. The first
-`npx` run downloads the package and the native keyring binary, which can exceed a short start timeout.
+The README also documents how to raise each host's server-start and tool-call timeouts, and tells
+users to warm the `npx` cache once in a terminal. The first `npx` run downloads the package and the
+native keyring binary, which can exceed a short start timeout (Codex defaults to 10 s; Claude Code,
+opencode and omp to 30 s).
 
 ### 13.3 Onboarding (before pilot day)
 
-1. Each publisher runs `npx @scrutiny-fabric/mcp@0.1.0 keygen` on their laptop, stores the
+1. Each publisher runs `npx @crocs-muni/scrutiny-fabric-mcp@0.1.0 keygen` on their laptop, stores the
    `ncryptsec` backup, and sends the npub to the relay operator.
 2. The operator adds every npub to `SCRUTINY_ALLOWED_PUBKEYS` and restarts the relay once, **before**
    the pilot (adding a key is an environment change that needs a restart).
@@ -794,8 +828,10 @@ The README also documents how to raise each host's server-start and tool-call ti
    - oversized (`record.budget`, nothing sent);
    - clock skew (`relay.clock_skew`, using the **signer's** clock);
    - author mismatch.
-3. Approval: decline, cancel, missing response, a client without elicitation (chat fallback with a
-   wrong and a right `approval_code`), and an expired approval window. In each refused case the test
+3. Approval: decline (no fallback; an unoffered `approval_code` does not skip the dialog), cancel
+   and missing response (each falls back to the chat code, then a wrong and a right
+   `approval_code`), a client without elicitation (chat fallback with a wrong and a right
+   `approval_code`), and an expired approval window. In each refused case the test
    asserts **zero** signatures and zero relay writes (`/metrics`).
 4. Invariant A, property-tested (fast-check): for any plan and any sequence of per-event relay
    replies, no signed event references an event that has not been acked.

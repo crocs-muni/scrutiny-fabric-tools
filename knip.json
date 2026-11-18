@@ -39,7 +39,8 @@
       "vitest": false,
       "entry": ["src/index.ts", "src/bin.ts", "test/**/*.ts"],
       "project": ["src/**/*.ts", "test/**/*.ts"],
-      "ignoreDependencies": ["@napi-rs/keyring"]
+      "ignoreDependencies": ["@napi-rs/keyring"],
+      "ignoreBinaries": ["go"]
     }
   }
 }
