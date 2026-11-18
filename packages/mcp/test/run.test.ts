@@ -438,6 +438,30 @@ describe('resume (spec §8.4, §14.1 item 5)', () => {
     expect(relay.stored.size).toBe(6)
   })
 
+  it('gives up on the resume read at the deadline instead of hanging', async () => {
+    const relay = primary(['ok', 'stored-no-ack'])
+    const root = ROOT()
+    const first = await run({
+      journal: await Journal.open(root, PLAN_HASH),
+      primary: relay.transport,
+    })
+    expect(first.outcome).toBe('stopped')
+
+    relay.transport.fetchByIds = async () => new Promise<Map<string, NostrEvent>>(() => {})
+    const start = Date.now()
+    const out = await run({
+      journal: await Journal.open(root, PLAN_HASH),
+      primary: relay.transport,
+      // A frozen clock: the 50 ms wait on the read is what reaches the deadline, never slow journal
+      // fsyncs before it.
+      clock: () => 0,
+      deadline: 50,
+    })
+    expect(Date.now() - start).toBeLessThan(2000)
+    expect(out.outcome).toBe('partial')
+    expect(out.resume).not.toBeNull()
+  })
+
   it('stops, without signing, when the relay cannot be asked about un-acked events', async () => {
     const relay = primary(['ok', 'stored-no-ack'])
     const root = ROOT()
@@ -528,6 +552,33 @@ describe('mirrors (spec §8.6)', () => {
       'wss://m2.example': { ok: false, message: 'invalid: too old' },
       'wss://m3.example': { ok: false, message: 'connect failed' },
     })
+  })
+
+  it('stops waiting for a mirror at the deadline and aborts the write still in flight', async () => {
+    let ms = 0
+    const relay = primary()
+    let signal: AbortSignal | undefined
+    const hanging: MirrorTransport = {
+      publish: async (_event, s) => {
+        signal = s
+        return new Promise<PublishReply>(() => {})
+      },
+    }
+    const start = Date.now()
+    const out = await run({
+      journal: await Journal.open(ROOT(), PLAN_HASH),
+      primary: ticking(relay.transport, () => {
+        ms += 10
+      }),
+      mirrors: new Map([['wss://m1.example', hanging]]),
+      clock: () => ms,
+      // The six primary publishes advance the clock to 60; the mirror then has 50 ms.
+      deadline: 110,
+    })
+    expect(Date.now() - start).toBeLessThan(2000)
+    expect(out.outcome).toBe('partial')
+    expect(out.resume).not.toBeNull()
+    expect(signal?.aborted).toBe(true)
   })
 })
 
