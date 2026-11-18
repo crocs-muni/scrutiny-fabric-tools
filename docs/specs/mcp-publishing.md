@@ -293,9 +293,9 @@ Input: `{}`. Output:
 
 ```jsonc
 {
-  "server": { "name": "@crocs-muni/scrutiny-fabric-mcp", "version": "0.1.0" },
+  "server": { "name": "@crocs-muni/scrutiny-fabric-mcp", "version": "0.2.0" },
   "signer": { "state": "ready|missing|unavailable", "npub": "npub1…|null",
-              "fix": "run `npx @crocs-muni/scrutiny-fabric-mcp@0.1.0 keygen`|null" },
+              "fix": "run `npx @crocs-muni/scrutiny-fabric-mcp@0.2.0 keygen`|null" },
   "protocol": { "mcp": "2025-11-25", "approval_channel": "elicitation|chat" }
 }
 ```
@@ -812,12 +812,12 @@ every host that documents Windows; the `cmd /c` form is the fallback for a host 
 
 ```json
 { "mcpServers": { "scrutiny-fabric": {
-    "command": "npx", "args": ["-y", "@crocs-muni/scrutiny-fabric-mcp@0.1.0"] } } }
+    "command": "npx", "args": ["-y", "@crocs-muni/scrutiny-fabric-mcp@0.2.0"] } } }
 ```
 
 ```json
 { "mcpServers": { "scrutiny-fabric": {
-    "command": "cmd", "args": ["/c", "npx", "-y", "@crocs-muni/scrutiny-fabric-mcp@0.1.0"] } } }
+    "command": "cmd", "args": ["/c", "npx", "-y", "@crocs-muni/scrutiny-fabric-mcp@0.2.0"] } } }
 ```
 
 The README also documents how to raise each host's server-start and tool-call timeouts, and tells
@@ -827,7 +827,7 @@ opencode and omp to 30 s).
 
 ### 13.3 Onboarding (before pilot day)
 
-1. Each publisher runs `npx @crocs-muni/scrutiny-fabric-mcp@0.1.0 keygen` on their laptop, stores the
+1. Each publisher runs `npx @crocs-muni/scrutiny-fabric-mcp@0.2.0 keygen` on their laptop, stores the
    `ncryptsec` backup, and sends the npub to the relay operator.
 2. The operator adds every npub to `SCRUTINY_ALLOWED_PUBKEYS` and restarts the relay once, **before**
    the pilot (adding a key is an environment change that needs a restart).

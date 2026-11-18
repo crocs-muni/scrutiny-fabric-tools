@@ -12,7 +12,7 @@ host's configuration.
 ## 1. Create your key (once per laptop)
 
 ```bash
-npx @crocs-muni/scrutiny-fabric-mcp@0.1.0 keygen
+npx @crocs-muni/scrutiny-fabric-mcp@0.2.0 keygen
 ```
 
 `keygen` stores the key in the OS keystore and prints two things:
@@ -26,7 +26,7 @@ In a terminal it asks for the backup password twice, with no echo. With no termi
 password it generated:
 
 ```bash
-printf '%s\n' "$BACKUP_PASSWORD" | npx @crocs-muni/scrutiny-fabric-mcp@0.1.0 keygen
+printf '%s\n' "$BACKUP_PASSWORD" | npx @crocs-muni/scrutiny-fabric-mcp@0.2.0 keygen
 ```
 
 Either way the password is never an argument (shell history) and the key itself is never printed.
@@ -41,7 +41,7 @@ than a host's default server-start timeout. Run the server once in a terminal, w
 silent (it is waiting for a host on stdin), then press Ctrl+C:
 
 ```bash
-npx -y @crocs-muni/scrutiny-fabric-mcp@0.1.0
+npx -y @crocs-muni/scrutiny-fabric-mcp@0.2.0
 ```
 
 ## 3. Add the server to your host
@@ -55,12 +55,12 @@ the next call, so this is margin).
 
 On Windows, plain `npx` works in every host below that documents Windows. If a host reports that
 it cannot find `npx` (`ENOENT`), use `"command": "cmd"` with `"args": ["/c", "npx", "-y",
-"@crocs-muni/scrutiny-fabric-mcp@0.1.0"]` instead.
+"@crocs-muni/scrutiny-fabric-mcp@0.2.0"]` instead.
 
 ### Claude Code
 
 ```bash
-claude mcp add --scope user scrutiny-fabric -- npx -y @crocs-muni/scrutiny-fabric-mcp@0.1.0
+claude mcp add --scope user scrutiny-fabric -- npx -y @crocs-muni/scrutiny-fabric-mcp@0.2.0
 ```
 
 or, shared with a project, in `.mcp.json`:
@@ -70,7 +70,7 @@ or, shared with a project, in `.mcp.json`:
   "mcpServers": {
     "scrutiny-fabric": {
       "command": "npx",
-      "args": ["-y", "@crocs-muni/scrutiny-fabric-mcp@0.1.0"],
+      "args": ["-y", "@crocs-muni/scrutiny-fabric-mcp@0.2.0"],
       "timeout": 120000
     }
   }
@@ -91,7 +91,7 @@ Settings → Developer → Edit Config opens `claude_desktop_config.json`
   "mcpServers": {
     "scrutiny-fabric": {
       "command": "npx",
-      "args": ["-y", "@crocs-muni/scrutiny-fabric-mcp@0.1.0"]
+      "args": ["-y", "@crocs-muni/scrutiny-fabric-mcp@0.2.0"]
     }
   }
 }
@@ -107,12 +107,12 @@ All three read `~/.codex/config.toml` (`%USERPROFILE%\.codex\config.toml` on Win
 ```toml
 [mcp_servers.scrutiny-fabric]
 command = "npx"
-args = ["-y", "@crocs-muni/scrutiny-fabric-mcp@0.1.0"]
+args = ["-y", "@crocs-muni/scrutiny-fabric-mcp@0.2.0"]
 startup_timeout_sec = 120   # default 10: too short for a cold npx start
 tool_timeout_sec = 120      # default 60
 ```
 
-`codex mcp add scrutiny-fabric -- npx -y @crocs-muni/scrutiny-fabric-mcp@0.1.0` adds the first
+`codex mcp add scrutiny-fabric -- npx -y @crocs-muni/scrutiny-fabric-mcp@0.2.0` adds the first
 three lines; add the timeouts by hand. The approval dialog needs `approval_policy` to let MCP
 elicitations through: `"never"` declines them, and so does a granular policy without
 `mcp_elicitations = true`.
@@ -128,7 +128,7 @@ In `opencode.json` (project) or `~/.config/opencode/opencode.json` (global):
     "servers": {
       "scrutiny-fabric": {
         "type": "local",
-        "command": ["npx", "-y", "@crocs-muni/scrutiny-fabric-mcp@0.1.0"],
+        "command": ["npx", "-y", "@crocs-muni/scrutiny-fabric-mcp@0.2.0"],
         "timeout": { "startup": 120000, "execution": 120000 }
       }
     }
@@ -150,7 +150,7 @@ In `~/.omp/agent/mcp.json` (user) or `.omp/mcp.json` (project); omp also reads a
     "scrutiny-fabric": {
       "type": "stdio",
       "command": "npx",
-      "args": ["-y", "@crocs-muni/scrutiny-fabric-mcp@0.1.0"],
+      "args": ["-y", "@crocs-muni/scrutiny-fabric-mcp@0.2.0"],
       "timeout": 120000
     }
   }
@@ -171,7 +171,7 @@ Both take the same `mcpServers` shape, in `~/.copilot/mcp-config.json` (VS Code)
     "scrutiny-fabric": {
       "type": "stdio",
       "command": "npx",
-      "args": ["-y", "@crocs-muni/scrutiny-fabric-mcp@0.1.0"]
+      "args": ["-y", "@crocs-muni/scrutiny-fabric-mcp@0.2.0"]
     }
   }
 }
