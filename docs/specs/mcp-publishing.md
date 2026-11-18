@@ -617,10 +617,17 @@ type `m` and the URL extension come from a fixed **extension map**, with no cont
 | `.txt` | `text/plain` |
 | `.csv` | `text/csv` |
 | `.md` | `text/markdown` |
+| `.html` | `text/html` |
 | `.zip` | `application/zip` |
 | `.png`, `.jpg`/`.jpeg`, `.svg` | `image/png`, `image/jpeg`, `image/svg+xml` (for `picture` only) |
 
 Any other extension raises `artifact.type`. Files over 50 MB raise `artifact.too_large`.
+
+`.html` is active content: `khatru` sniffs a blob's bytes when serving it (§9.4, "MIME policy is
+client-side"), so a published page is delivered as `text/html` from the relay's own origin and a
+browser executes it. A publisher **MUST NOT** publish HTML they did not author, and **SHOULD** keep
+it self-contained: the relay serves the file by hash, not the directory it came from, so relative
+links and assets will not resolve.
 
 ### 9.2 Publisher-hosted URL (`{path, url}`)
 
