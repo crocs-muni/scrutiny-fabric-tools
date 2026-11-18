@@ -391,7 +391,7 @@ export async function draftPlan(input: DraftInput): Promise<Draft> {
           `\`${use.path}\` has a file type that cannot be published here. Convert it, or drop it?`,
           use.use === 'picture'
             ? 'A profile picture must be .png, .jpg, .jpeg or .svg.'
-            : 'Artifacts must be .pdf, .json, .txt, .csv, .md or .zip; the type is fixed by extension.',
+            : 'Artifacts must be .pdf, .json, .txt, .csv, .md, .html or .zip; the type is fixed by extension.',
         )
         continue
       }

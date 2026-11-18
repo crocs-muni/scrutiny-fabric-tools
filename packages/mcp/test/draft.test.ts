@@ -325,6 +325,40 @@ describe('open questions', () => {
     ])
   })
 
+  it('accepts an .html artifact as text/html and keeps it out of profile pictures', async () => {
+    const meta = {
+      ...METADATA,
+      artifacts: [{ path: 'reports/dashboard.html', alt: 'Dashboard (HTML)' }],
+    }
+    const d = drafted(
+      await draft([PROFILE, PRODUCT, meta], {
+        files: { 'reports/dashboard.html': '<!doctype html>' },
+      }),
+    )
+    const x = sha256('<!doctype html>')
+    expect(d.graph.events.find((e) => e.ref === 'metadata:fi-test')?.tags).toContainEqual([
+      'imeta',
+      `url https://relay.example/${x}.html`,
+      'm text/html',
+      `x ${x}`,
+      'size 15',
+      'alt Dashboard (HTML)',
+    ])
+    expect(d.graph.blobs).toStrictEqual([{ x, size: 15, m: 'text/html', via: 'upload' }])
+
+    const picture = { ...PROFILE, picture: { path: 'reports/dashboard.html' } }
+    const refused = await draft([picture, PRODUCT, METADATA], {
+      files: { 'reports/dashboard.html': '<!doctype html>' },
+    })
+    expect(questions(refused)).toStrictEqual([
+      {
+        code: 'artifact.type',
+        field: 'records[profile:me].picture.path',
+        blocking: true,
+      },
+    ])
+  })
+
   it('artifact.too_large blocks a file over 50 MB and passes one at exactly 50 MB', async () => {
     const root = makeRoot(FILES)
     for (const [name, size] of [

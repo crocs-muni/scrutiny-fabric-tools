@@ -19,6 +19,7 @@ const DOCUMENT_TYPES: Readonly<Record<string, string>> = {
   '.txt': 'text/plain',
   '.csv': 'text/csv',
   '.md': 'text/markdown',
+  '.html': 'text/html',
   '.zip': 'application/zip',
 }
 const IMAGE_TYPES: Readonly<Record<string, string>> = {
