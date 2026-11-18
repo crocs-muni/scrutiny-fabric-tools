@@ -100,6 +100,10 @@ export const publishOutput = z.object({
       ref: z.string(),
       event_id: z.string().nullable(),
       state: z.enum(['verified', 'acked', 'pending', 'rejected', 'skipped']),
+      /** The signed content, with `@ref:` tokens resolved for every parent that has an id. */
+      content: z.string(),
+      /** The `i` tag values, `prefix:value`: what indexers and Lens search on. */
+      indexers: z.array(z.string()),
       ack: replySchema.nullable(),
       mirrors: z.record(z.string(), replySchema),
       blobs: z.array(
