@@ -53,4 +53,4 @@ examples/*-port/events.ndjson
 dist-release/
 
 # root-level scratch artifacts
-artifacts/
+/artifacts/

@@ -1,13 +1,14 @@
 /**
  * The engine's draft step (spec §5–§6.2, §6.5): schema → local files → composition → preflight →
- * open questions → plan hash. No network, no signing; the only I/O is reading files under `root`.
- *
- * Relay-probe questions (`relay.unreachable`, `relay.no_blossom`, `relay.clock_skew`,
- * `artifact.url_mismatch`) and "profile already published" are added with the relay client in
- * §18 step 3.
+ * open questions → plan hash. Nothing is signed. Without `network` the only I/O is reading files
+ * under `root`; with it, the relays are probed and publisher URLs downloaded (reads only), which
+ * adds `relay.unreachable`, `relay.no_blossom`, `relay.clock_skew` and `artifact.url_mismatch`,
+ * and lets `profile.missing` take an already published profile into account.
  */
 
 import { buildBinding, buildMetadata, buildProduct } from '@crocs-muni/scrutiny-fabric'
+import { blobUrl } from '../artifacts/blossom.js'
+import type { UrlCheck } from '../artifacts/url.js'
 import {
   type Card,
   bindingContent,
@@ -32,6 +33,7 @@ import {
   type Refusal,
   schemaRefusal,
 } from '../refusal.js'
+import type { RelayLimits, RelayProbe } from '../relay/nip11.js'
 import { type FileFacts, MAX_ARTIFACT_BYTES, fileFacts, mediaType } from './files.js'
 import { planHash } from './hash.js'
 import {
@@ -84,9 +86,30 @@ export interface Preview {
     readonly content: string
   }[]
   readonly graph: readonly { readonly from: string; readonly to: string; readonly label: string }[]
-  readonly relays: readonly { readonly url: string; readonly role: 'primary' | 'mirror' }[]
+  readonly relays: readonly PreviewRelay[]
   readonly immutable_warning: string
 }
+
+/** Probe facts are present only when the draft ran with `network` and the relay answered. */
+export interface PreviewRelay {
+  readonly url: string
+  readonly role: 'primary' | 'mirror'
+  readonly reachable?: boolean
+  readonly blossom?: boolean
+  readonly clock_skew_s?: number | null
+  readonly limits?: RelayLimits
+}
+
+/** Network reads `draft_plan` may do (spec §6 table: NIP-11, `HEAD /upload`, URL downloads). */
+export interface DraftNetwork {
+  probeRelay(url: string): Promise<RelayProbe>
+  verifyUrl(url: string, x: string): Promise<UrlCheck>
+  /** Whether a kind-0 profile by `pubkey` is on `relay`; null when that could not be asked. */
+  profilePublished(relay: string, pubkey: string): Promise<boolean | null>
+}
+
+/** Over this much clock difference the preview warns, even inside the relay's window. */
+const CLOCK_WARN_S = 60
 
 export type Draft =
   | { readonly status: 'invalid'; readonly findings: readonly Refusal[] }
@@ -108,6 +131,8 @@ export interface DraftInput {
   readonly plan: unknown
   /** The signer identity (hex) at draft time, from the non-secret identity file; null when none. */
   readonly pubkey: string | null
+  /** Omitted: an offline draft (no relay or URL questions). */
+  readonly network?: DraftNetwork
 }
 
 const GROUP_ORDER: Readonly<Record<EventType, number>> = {
@@ -185,7 +210,6 @@ export async function draftPlan(input: DraftInput): Promise<Draft> {
   const { plan } = parsed
 
   const primary = plan.relays[0]
-  const primaryHost = primary === undefined ? undefined : new URL(primary).host
   const refCount = new Map<string, number>()
   for (const r of plan.records) refCount.set(r.ref, (refCount.get(r.ref) ?? 0) + 1)
   const products = new Set(plan.records.filter((r) => r.type === 'product').map((r) => r.ref))
@@ -220,7 +244,57 @@ export async function draftPlan(input: DraftInput): Promise<Draft> {
       ),
     )
   }
-  if (!plan.records.some((r) => r.type === 'profile')) {
+  const probes = new Map<string, RelayProbe>()
+  if (input.network !== undefined) {
+    const network = input.network
+    const results = await Promise.all(plan.relays.map((url) => network.probeRelay(url)))
+    plan.relays.forEach((url, i) => {
+      const probe = results[i]
+      if (probe !== undefined) probes.set(url, probe)
+    })
+  }
+  const primaryProbe = primary === undefined ? undefined : probes.get(primary)
+  if (primaryProbe?.reachable === false) {
+    global.push(
+      question(
+        'relay.unreachable',
+        true,
+        null,
+        'relays[0]',
+        `The primary relay ${primary} did not answer (${primaryProbe.message}). Check the URL, or choose another primary?`,
+        'The primary relay gates publishing and hosts uploaded files.',
+      ),
+    )
+  }
+  if (primaryProbe?.reachable === true && primaryProbe.clock_skew_s !== null) {
+    const skew = primaryProbe.clock_skew_s
+    const { past_s, future_s } = primaryProbe.created_at_window
+    const outside = skew > future_s || -skew > past_s
+    if (outside || Math.abs(skew) > CLOCK_WARN_S) {
+      global.push(
+        question(
+          'relay.clock_skew',
+          outside,
+          null,
+          'relays[0]',
+          `This computer's clock is ${Math.abs(skew)} s ${skew > 0 ? 'ahead of' : 'behind'} the relay. Turn on automatic time sync and draft again?`,
+          outside
+            ? 'Events are stamped with this clock; the relay would reject them as outside its time window.'
+            : 'Events are stamped with this clock; a large difference risks rejection.',
+        ),
+      )
+    }
+  }
+
+  const hasProfileRecord = plan.records.some((r) => r.type === 'profile')
+  const profileOnRelay =
+    hasProfileRecord ||
+    input.network === undefined ||
+    primary === undefined ||
+    input.pubkey === null
+      ? null
+      : await input.network.profilePublished(primary, input.pubkey)
+  if (!hasProfileRecord && profileOnRelay !== true) {
     global.push(
       question(
         'profile.missing',
@@ -310,9 +384,24 @@ export async function draftPlan(input: DraftInput): Promise<Draft> {
       const facts = await fileFacts(input.root, use.path, true)
       if (fileProblem(facts, use.field, use.path, findings, ask)) continue
       if (facts.kind !== 'ok') continue
+      if (use.url !== undefined && input.network !== undefined) {
+        const check = await input.network.verifyUrl(use.url, facts.x)
+        if (check.kind !== 'match') {
+          ask(
+            'artifact.url_mismatch',
+            true,
+            use.field.replace(/\.path$/u, '.url'),
+            check.kind === 'mismatch'
+              ? `${use.url} serves different bytes from \`${use.path}\`. Fix the URL, or upload the local file instead?`
+              : `${use.url} could not be checked (${check.message}). Fix the URL, or upload the local file instead?`,
+            'A cited URL must serve exactly the local file; its hash is published and permanent.',
+          )
+          continue
+        }
+      }
       const url =
         use.url ??
-        (primaryHost === undefined ? undefined : `https://${primaryHost}/${facts.x}${media.ext}`)
+        (primary === undefined ? undefined : blobUrl(primary, { x: facts.x, ext: media.ext }))
       if (url === undefined) continue
       const list = ready.get(index) ?? []
       list.push({
@@ -345,6 +434,21 @@ export async function draftPlan(input: DraftInput): Promise<Draft> {
   }
 
   if (findings.length > 0) return { status: 'invalid', findings }
+
+  const uploads = [...ready.values()].flat().filter((a) => a.via === 'upload')
+  if (uploads.length > 0 && primaryProbe?.reachable === true && !primaryProbe.blossom) {
+    global.push(
+      question(
+        'relay.no_blossom',
+        true,
+        null,
+        'relays[0]',
+        `The primary relay ${primary} does not accept file uploads. Host these ${uploads.length} file(s) yourself and give their URLs, or drop the artifacts?`,
+        'Uploaded files are stored on the primary relay; without Blossom there is nowhere to put them.',
+        ['give a URL for each file', 'drop the artifacts'],
+      ),
+    )
+  }
 
   // Composition.
   const events: (GraphEvent & { readonly type: EventType })[] = []
@@ -444,11 +548,25 @@ export async function draftPlan(input: DraftInput): Promise<Draft> {
       counts,
       records: previews,
       graph: edges.sort((a, b) => (a.from + a.to < b.from + b.to ? -1 : 1)),
-      relays: plan.relays.map((url, i) => ({ url, role: i === 0 ? 'primary' : 'mirror' })),
+      relays: plan.relays.map((url, i) => previewRelay(url, i === 0, probes.get(url))),
       immutable_warning: IMMUTABLE_WARNING,
     },
     open_questions: openQuestions,
     findings: [],
+  }
+}
+
+function previewRelay(url: string, primary: boolean, probe: RelayProbe | undefined): PreviewRelay {
+  const role = primary ? 'primary' : 'mirror'
+  if (probe === undefined) return { url, role }
+  if (!probe.reachable) return { url, role, reachable: false }
+  return {
+    url,
+    role,
+    reachable: true,
+    blossom: probe.blossom,
+    clock_skew_s: probe.clock_skew_s,
+    limits: probe.limits,
   }
 }
 

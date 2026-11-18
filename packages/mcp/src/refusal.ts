@@ -27,13 +27,12 @@ export interface OpenQuestion {
   readonly options: readonly string[]
 }
 
-/**
- * Step 1 raises the codes it can decide from the plan, the files and the signer identity. The
- * relay-probe codes of §6.5 (`relay.unreachable`, `relay.no_blossom`, `relay.clock_skew`,
- * `artifact.url_mismatch`) arrive with the relay client (§18 step 3).
- */
+/** Every code of spec §6.5. */
 export type OpenQuestionCode =
   | 'relay.missing'
+  | 'relay.unreachable'
+  | 'relay.no_blossom'
+  | 'relay.clock_skew'
   | 'signer.missing'
   | 'record.no_product'
   | 'record.dangling_ref'
@@ -43,6 +42,7 @@ export type OpenQuestionCode =
   | 'record.indexer_prefix_unknown'
   | 'record.no_source'
   | 'artifact.missing_file'
+  | 'artifact.url_mismatch'
   | 'artifact.too_large'
   | 'artifact.type'
   | 'profile.missing'

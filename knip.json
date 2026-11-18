@@ -37,8 +37,9 @@
     },
     "packages/mcp": {
       "vitest": false,
-      "entry": ["src/index.ts", "test/**/*.ts"],
-      "project": ["src/**/*.ts", "test/**/*.ts"]
+      "entry": ["src/index.ts", "src/bin.ts", "test/**/*.ts"],
+      "project": ["src/**/*.ts", "test/**/*.ts"],
+      "ignoreDependencies": ["@napi-rs/keyring"]
     }
   }
 }
