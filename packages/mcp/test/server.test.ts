@@ -50,6 +50,8 @@ interface Out {
     readonly ref: string
     readonly event_id: string | null
     readonly state: string
+    readonly content?: string
+    readonly indexers?: readonly string[]
   }[]
   readonly results?: readonly Record<string, unknown>[]
 }
@@ -129,7 +131,11 @@ async function harness(opts: { elicit?: Elicit; budgetMs?: number } = {}) {
       onprogress === undefined ? {} : { onprogress },
     )
     outputs.push(JSON.stringify(result))
-    return result as { isError?: boolean; structuredContent?: Out }
+    return result as {
+      isError?: boolean
+      structuredContent?: Out
+      content?: readonly { readonly type: string; readonly text?: string }[]
+    }
   }
   return { client, call, signer, stored, writes: () => writes, elicitations }
 }
@@ -249,6 +255,30 @@ describe('approval by elicitation (spec §7.1)', () => {
     expect(message).toContain(hash)
     expect(h.stored.size).toBe(4)
     expect(progress.at(-1)).toBe(4)
+  })
+
+  it('reports the published content and the Lens query for each indexer', async () => {
+    const h = await harness({ elicit: approve })
+    const { root, hash } = await drafted(h)
+    const out = await h.call('publish_plan', { root, plan_id: hash, plan_hash: hash })
+    const text = out.content?.find((part) => part.type === 'text')?.text ?? ''
+
+    expect(text).toContain('complete: 4 of 4 events published')
+    expect(text).toContain('Published content:')
+    expect(text).toContain('EX-100 fault-injection evaluation EX-FI-2026-01')
+    expect(text).toContain('- Laser fault injection on the boot ROM')
+    expect(text).toContain('Find them in SCRUTINY Lens (https://lens.scrutiny.cloud)')
+    expect(text).toContain('test:EX-FI-2026-01')
+    // §5.3: a binding's `Refs:` line carries ids, never the approved template's placeholders.
+    expect(text).not.toContain('@ref:')
+
+    const records = out.structuredContent?.records ?? []
+    const metadata = records.find((r) => r.ref === 'metadata:fi-test')
+    expect(metadata?.indexers).toStrictEqual(['part:EX-100', 'test:EX-FI-2026-01'])
+    expect(metadata?.content?.startsWith('EX-100 fault-injection evaluation EX-FI-2026-01')).toBe(
+      true,
+    )
+    expect(records.find((r) => r.ref.startsWith('binding:'))?.content).not.toContain('@ref:')
   })
 
   for (const [name, elicit] of [

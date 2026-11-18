@@ -71,6 +71,10 @@ export interface RecordResult {
   readonly ref: string
   event_id: string | null
   state: RecordState
+  /** The event content, with `@ref:` tokens resolved for every parent that has an id (§5.3). */
+  content: string
+  /** The `i` tag values, `prefix:value`: what indexers and Lens search on. */
+  readonly indexers: readonly string[]
   ack: PublishReply | null
   readonly mirrors: Record<string, PublishReply>
   readonly blobs: {
@@ -165,10 +169,20 @@ function untilDeadline<T>(
 export async function runPlan(input: RunInput): Promise<RunResult> {
   const { graph, journal } = input
   const total = graph.events.length
+  const templates = new Map(graph.events.map((event) => [event.ref, event] as const))
   const records = new Map<string, RecordResult>(
     graph.events.map((e) => [
       e.ref,
-      { ref: e.ref, event_id: null, state: 'pending', ack: null, mirrors: {}, blobs: [] },
+      {
+        ref: e.ref,
+        event_id: null,
+        state: 'pending',
+        content: e.content,
+        indexers: e.tags.filter((tag) => tag[0] === 'i').map((tag) => tag[1] ?? ''),
+        ack: null,
+        mirrors: {},
+        blobs: [],
+      },
     ]),
   )
   /** ref → id of its event acked by the primary. */
@@ -181,7 +195,12 @@ export async function runPlan(input: RunInput): Promise<RunResult> {
     resumable = outcome !== 'complete',
   ): RunResult => ({
     outcome,
-    records: [...records.values()],
+    // §5.3: placeholders resolve against ids known now, so a resumed run reports what it published
+    // rather than the template it approved.
+    records: [...records.values()].map((record) => ({
+      ...record,
+      content: resolve(templates.get(record.ref)?.content ?? record.content, acked),
+    })),
     progress: { done: acked.size, total },
     refusal: stop,
     resume: resumable ? RESUME : null,

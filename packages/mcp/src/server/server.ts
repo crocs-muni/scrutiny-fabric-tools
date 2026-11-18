@@ -23,6 +23,7 @@ import {
   CALL_BUDGET_MS,
   type MirrorTransport,
   type PrimaryTransport,
+  type RunResult,
   runPlan,
 } from '../publish/run.js'
 import type { Refusal } from '../refusal.js'
@@ -32,6 +33,7 @@ import type { SignerPort, SignerStatus } from '../signer/signer.js'
 import {
   GUIDE_URI,
   INSTRUCTIONS,
+  LENS_URL,
   NEXT_STEP,
   PUBLISHER_GUIDE,
   TOOL_DESCRIPTIONS,
@@ -52,6 +54,32 @@ import {
 
 const SERVER_NAME = PACKAGE_NAME
 const VERSION = PACKAGE_VERSION
+
+/**
+ * What the caller sees after a run (spec §6.3): the content that is now public, and, for every
+ * record carrying an indexer, the value to search for in Lens — the `i` tag, `prefix:value`.
+ */
+function publishedText(run: RunResult): string {
+  const head = `${run.outcome}: ${run.progress.done} of ${run.progress.total} events published${run.refusal === null ? '' : `; ${run.refusal.code}`}`
+  const live = run.records.filter((r) => r.state === 'verified' || r.state === 'acked')
+  if (live.length === 0) return head
+  const lines = [head, '', 'Published content:']
+  for (const record of live) {
+    lines.push(
+      `- ${record.ref}${record.event_id === null ? '' : ` ${record.event_id}`} (${record.state})`,
+    )
+    for (const line of record.content.split('\n')) lines.push(`  ${line}`)
+  }
+  const findable = live.filter((r) => r.indexers.length > 0)
+  if (findable.length > 0) {
+    lines.push(
+      '',
+      `Find them in SCRUTINY Lens (${LENS_URL}) by searching an indexer value: the event's \`i\` tag, written \`prefix:value\`, matched exactly.`,
+      ...findable.map((r) => `  ${r.ref} -> ${r.indexers.join('  |  ')}`),
+    )
+  }
+  return lines.join('\n')
+}
 
 type Closable<T> = T & { close(): void }
 
@@ -418,16 +446,19 @@ export function createServer(deps: ServerDeps): McpServer {
       const out = base({
         approval: { channel: approval.channel, at: approval.at, valid_until: approval.valid_until },
         outcome: run.outcome,
-        records: run.records.map((r) => ({ ...r, blobs: [...r.blobs], mirrors: { ...r.mirrors } })),
+        records: run.records.map((r) => ({
+          ...r,
+          indexers: [...r.indexers],
+          blobs: [...r.blobs],
+          mirrors: { ...r.mirrors },
+        })),
         progress: run.progress,
         refusal: run.refusal,
         resume: run.resume,
         next_step: NEXT_STEP[run.outcome],
       })
       return {
-        content: text(
-          `${run.outcome}: ${run.progress.done} of ${run.progress.total} events published${run.refusal === null ? '' : `; ${run.refusal.code}`}`,
-        ),
+        content: text(publishedText(run)),
         structuredContent: out,
       }
     } finally {

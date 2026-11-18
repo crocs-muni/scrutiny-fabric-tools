@@ -356,6 +356,7 @@ Flow: approval (§7) → run (§8) → output:
   "records": [
     { "ref": "product:ex-100", "event_id": "<hex>|null",
       "state": "verified|acked|pending|rejected|skipped",
+      "content": "…", "indexers": ["vendor:example-corp", "part:EX-100"],
       "ack": { "ok": true, "message": "" },
       "mirrors": { "wss://…": { "ok": true, "message": "" } },
       "blobs": [ { "x": "…", "url": "…", "state": "uploaded|present|verified" } ] }
@@ -372,6 +373,14 @@ Flow: approval (§7) → run (§8) → output:
 `pending` is an event not yet acked: not signed yet, or signed and waiting for its ack, which the
 next call settles (§8.4). `skipped` is an event that will not be sent in this run because an event
 it depends on was rejected.
+
+Each record also carries the signed `content` (§5.3) — `@ref:` placeholders resolved for every
+parent that has an id — and its `indexers`, the event's `i` tag values. The result's text repeats
+the content of the records published so far and, for each record with an indexer, the value to
+search for in SCRUTINY Lens (`https://lens.scrutiny.cloud`, §12). Lens looks an indexer up exactly,
+so `part:EX-100` returns the events carrying `["i","part:EX-100"]` (protocol §8.1); the text gives
+that `prefix:value` string per record so the agent can hand the user a way to find the record, not
+just an event id.
 
 **Long runs and host time limits.** Hosts end a tool call after a fixed time, and several pilot
 hosts use 30–60 s that a user cannot always raise (omp 30 s; Codex 60 s; Claude Desktop 60 s for

@@ -10,6 +10,9 @@ import { KNOWN_INDEXER_PREFIXES } from '../preflight/gates.js'
 
 export const GUIDE_URI = 'scrutiny://publisher-guide'
 
+/** The public Lens instance (spec §12). No account; it discovers records by exact `i` value. */
+export const LENS_URL = 'https://lens.scrutiny.cloud'
+
 export const TOOL_DESCRIPTIONS = {
   status: [
     'Report this server, the publisher identity (npub) and the approval channel.',
@@ -183,6 +186,10 @@ part, each document's subtype, how to treat drafts and old versions, and the edg
 - Every metadata record bound to a product, with a label of at most 28 characters.
 - Every file has an \`alt\` text of at most 60 characters.
 - Headlines read well when truncated: the most specific words first.
+- A published record is found in Lens (\`${LENS_URL}\`) by searching one of its indexer values — the
+  event's \`i\` tag, written \`prefix:value\` — which Lens looks up exactly: searching
+  \`part:EX-100\` returns the records carrying \`["i","part:EX-100"]\`. So an indexer nobody would
+  type is a record nobody finds.
 
 ## Worked example (invented vendor)
 
