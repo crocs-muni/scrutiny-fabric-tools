@@ -93,7 +93,7 @@ export async function ensureBlob(opts: {
     response = await opts.fetch(`${base}/upload`, {
       method: 'PUT',
       headers: {
-        authorization: `Nostr ${Buffer.from(JSON.stringify(auth), 'utf8').toString('base64url')}`,
+        authorization: `Nostr ${Buffer.from(JSON.stringify(auth), 'utf8').toString('base64')}`,
         'content-type': opts.blob.m,
         'x-sha-256': opts.blob.x,
       },

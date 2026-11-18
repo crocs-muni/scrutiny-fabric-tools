@@ -246,7 +246,11 @@ describe('ensureBlob (BUD-02 upload, spec §9.3)', () => {
 
     const token = put?.headers.get('authorization') ?? ''
     expect(token.startsWith('Nostr ')).toBe(true)
-    const auth = JSON.parse(Buffer.from(token.slice(6), 'base64url').toString('utf8'))
+    // BUD-02: standard padded base64 (khatru decodes with Go's base64.StdEncoding).
+    const encoded = token.slice(6)
+    expect(encoded).toMatch(/^[A-Za-z0-9+/]+={0,2}$/)
+    expect(encoded.length % 4).toBe(0)
+    const auth = JSON.parse(Buffer.from(encoded, 'base64').toString('utf8'))
     expect(verifyEvent(auth)).toBe(true)
     expect(auth.kind).toBe(24242)
     expect(auth.created_at).toBe(NOW)
