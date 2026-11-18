@@ -29,12 +29,16 @@ export interface PrimaryTransport {
    * stops the resends: a run that returned `partial` leaves nothing writing to the relay.
    */
   publish(event: NostrEvent, signal?: AbortSignal): Promise<PublishReply>
-  fetchByIds(ids: readonly string[]): Promise<Map<string, NostrEvent>>
+  /**
+   * §8.4/§8.7 reads. Aborting `signal` stops waiting for the answer; the run returns `partial`
+   * either way, so a transport may accept it and ignore it.
+   */
+  fetchByIds(ids: readonly string[], signal?: AbortSignal): Promise<Map<string, NostrEvent>>
 }
 
 export interface MirrorTransport {
-  /** One attempt, no resends (§8.6). */
-  publish(event: NostrEvent): Promise<PublishReply>
+  /** One attempt, no resends (§8.6). The deadline aborts `signal`, as for the primary. */
+  publish(event: NostrEvent, signal?: AbortSignal): Promise<PublishReply>
 }
 
 export interface RunInput {
@@ -198,9 +202,16 @@ export async function runPlan(input: RunInput): Promise<RunResult> {
   // §8.4: signed but never acked. Ask the primary first; never resend stale bytes blindly.
   const unacked = [...latest.values()].filter((l) => l.state === 'signed')
   if (unacked.length > 0) {
-    let stored: Map<string, NostrEvent>
+    let waitedRead: Waited<Map<string, NostrEvent>>
     try {
-      stored = await input.primary.fetchByIds(unacked.map((l) => l.event_id))
+      waitedRead = await untilDeadline(
+        (signal) =>
+          input.primary.fetchByIds(
+            unacked.map((l) => l.event_id),
+            signal,
+          ),
+        input,
+      )
     } catch (cause) {
       return result(
         'stopped',
@@ -212,6 +223,8 @@ export async function runPlan(input: RunInput): Promise<RunResult> {
         ),
       )
     }
+    if (waitedRead.kind === 'deadline') return result('partial')
+    const stored = waitedRead.value
     for (const line of unacked) {
       const found = stored.get(line.event_id)
       if (found !== undefined) {
@@ -365,15 +378,18 @@ export async function runPlan(input: RunInput): Promise<RunResult> {
     for (const [url, mirror] of input.mirrors) {
       // §7/§8: a mirror write is the next write after the cancel; stop before it.
       if (input.signal?.aborted) return result('stopped', cancelled())
-      if (input.clock() >= input.deadline) return result('partial')
-      let reply: PublishReply
+      let waitedMirror: Waited<PublishReply>
       try {
-        reply = await mirror.publish(signed)
+        waitedMirror = await untilDeadline((signal) => mirror.publish(signed, signal), input)
       } catch (cause) {
-        reply = { ok: false, message: cause instanceof Error ? cause.message : 'no reply' }
+        waitedMirror = {
+          kind: 'value',
+          value: { ok: false, message: cause instanceof Error ? cause.message : 'no reply' },
+        }
       }
+      if (waitedMirror.kind === 'deadline') return result('partial')
       const record = records.get(event.ref)
-      if (record !== undefined) record.mirrors[url] = reply
+      if (record !== undefined) record.mirrors[url] = waitedMirror.value
     }
   }
 
@@ -383,12 +399,21 @@ export async function runPlan(input: RunInput): Promise<RunResult> {
   for (let i = 0; i < toVerify.length; i += batch) {
     if (input.clock() >= input.deadline) return result('partial')
     const slice = toVerify.slice(i, i + batch)
-    let stored: Map<string, NostrEvent>
+    let waitedVerify: Waited<Map<string, NostrEvent>>
     try {
-      stored = await input.primary.fetchByIds(slice.map((e) => acked.get(e.ref) ?? ''))
+      waitedVerify = await untilDeadline(
+        (signal) =>
+          input.primary.fetchByIds(
+            slice.map((e) => acked.get(e.ref) ?? ''),
+            signal,
+          ),
+        input,
+      )
     } catch {
       continue // Published, not proven: reported as `acked`.
     }
+    if (waitedVerify.kind === 'deadline') return result('partial')
+    const stored = waitedVerify.value
     for (const event of slice) {
       const id = acked.get(event.ref) ?? ''
       const journalled = journal.signedEvent(id)
