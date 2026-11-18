@@ -34,6 +34,11 @@
         "src/ledger/seccertsLedger-gate.test.ts"
       ],
       "project": ["src/**/*.ts"]
+    },
+    "packages/mcp": {
+      "vitest": false,
+      "entry": ["src/index.ts", "test/**/*.ts"],
+      "project": ["src/**/*.ts", "test/**/*.ts"]
     }
   }
 }
