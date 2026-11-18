@@ -51,20 +51,26 @@ function sleepUntilAborted(
 export class RelayClient {
   readonly #options: RelayClientOptions
   #connection: Promise<RelayConnection> | null = null
+  #stopped = false
 
   constructor(options: RelayClientOptions) {
     this.#options = options
   }
 
-  /** Resends the same bytes at most three times; an aborted `signal` stops the resends at once. */
+  /**
+   * Resends the same bytes at most three times; an aborted `signal` or a closed client stops the
+   * resends at once.
+   */
   async publish(event: NostrEvent, signal?: AbortSignal): Promise<PublishReply> {
     const sleep = this.#options.sleep ?? realSleep
     for (let attempt = 0; ; attempt++) {
-      if (signal?.aborted === true) throw new RelayError('closed', 'the publish was aborted')
+      if (this.#stopped) throw new RelayError('closed', 'the relay client is closed')
+      if (signal?.aborted) throw new RelayError('closed', 'the publish was aborted')
       try {
         return await (await this.#connect()).publish(event)
       } catch (cause) {
-        if (signal?.aborted === true) throw cause
+        if (signal?.aborted) throw cause
+        if (this.#stopped) throw cause
         const delay = RESEND_DELAYS_MS[attempt]
         if (!(cause instanceof RelayError) || !cause.retryable || delay === undefined) throw cause
         this.#drop()
@@ -81,11 +87,14 @@ export class RelayClient {
     return (await this.#connect()).query(filter)
   }
 
+  /** Stops the resends and any later dial; idempotent. */
   close(): void {
+    this.#stopped = true
     this.#drop()
   }
 
   #connect(): Promise<RelayConnection> {
+    if (this.#stopped) return Promise.reject(new RelayError('closed', 'the relay client is closed'))
     if (this.#connection === null) {
       const pending = RelayConnection.open(this.#options)
       this.#connection = pending
