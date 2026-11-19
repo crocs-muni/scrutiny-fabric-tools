@@ -16,10 +16,11 @@ services:
     image: scrutiny-fabric-tools-relay:latest
     restart: unless-stopped
     environment:
-      # NIP-42 anchor: replace the <HOSTNAME> label with the CVT-assigned host,
-      # byte-identical to deploy/Caddyfile's vhost and the CVT DNS record
-      # (see HOSTNAME SYNC above and deploy/README.md §2).
-      SCRUTINY_SERVICE_URL: "wss://<HOSTNAME>.fi.muni.cz"
+      # NIP-42 anchor: the deployment's host is relay.scrutiny.cloud,
+      # byte-identical to deploy/Caddyfile's site address and the CVT DNS record
+      # (see HOSTNAME SYNC above and deploy/README.md §2). Change all three
+      # together if the host ever changes.
+      SCRUTINY_SERVICE_URL: "wss://relay.scrutiny.cloud"
 
       # REQUIRED. Comma-separated publisher pubkeys, each 64 hex chars or
       # npub1... At least one is required; writes from anyone else are refused.

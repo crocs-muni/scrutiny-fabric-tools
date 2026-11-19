@@ -6,6 +6,9 @@ package relaytest
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
+	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -14,7 +17,9 @@ import (
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -517,15 +522,37 @@ func newTestRelay(t *testing.T) *httptest.Server {
 		MaxEventPastAge:  config.DefaultMaxEventPastAge,
 	}
 
+	return startTestRelay(t, cfg).Server
+}
+
+// testServer is an assembled relay mounted on an httptest server. It also
+// keeps the handler and the parsed config: the Blossom tests drive oversized
+// bodies through the handler directly (an early 413 must not race a
+// multi-megabyte socket write) and assert on the blob directory derived from
+// the config.
+type testServer struct {
+	*httptest.Server
+
+	handler http.Handler
+	cfg     config.Config
+}
+
+// startTestRelay builds the relay exactly like the binary (relay.Build) and
+// mounts bundle.Handler() on an httptest server. The bundle and the server are
+// closed by t.Cleanup.
+func startTestRelay(t *testing.T, cfg config.Config) *testServer {
+	t.Helper()
+
 	bundle, err := relay.Build(cfg, log.New(io.Discard, "", 0))
 	if err != nil {
 		t.Fatalf("building the relay: %v", err)
 	}
 	t.Cleanup(bundle.Close)
 
-	srv := httptest.NewServer(bundle.Handler())
+	handler := bundle.Handler()
+	srv := httptest.NewServer(handler)
 	t.Cleanup(srv.Close)
-	return srv
+	return &testServer{Server: srv, handler: handler, cfg: cfg}
 }
 
 // TestFilterComplexityCaps pins the request-complexity guard: a single filter
@@ -1038,5 +1065,578 @@ func assertNIP11(t *testing.T, baseURL string) {
 	}
 	if doc.Limitation.MaxLimit != 500 {
 		t.Errorf("NIP-11 limitation.max_limit = %d, want 500", doc.Limitation.MaxLimit)
+	}
+}
+
+// The Blossom endpoint (issue #123, docs/specs/mcp-publishing.md §9.4) is
+// driven black-box through the same handler the binary mounts. Uploads are
+// authenticated with kind-24242 authorization events, as the MCP client sends
+// them; nothing below reaches into the relay internals.
+
+// blobTimeout is generous for the 49 MB case; everything is loopback.
+const blobTimeout = 60 * time.Second
+
+// blobRelay is a relay built from config.FromEnv (so the default blob cap is
+// the configured one, not a test-local number) plus the allowlisted publisher
+// that signs the upload authorizations.
+type blobRelay struct {
+	*testServer
+
+	publisher nostr.SecretKey
+}
+
+func newBlobRelay(t *testing.T) *blobRelay {
+	t.Helper()
+
+	publisher := nostr.Generate()
+	cfg, err := config.FromEnv(config.LookupFromMap(map[string]string{
+		config.EnvDataDir:        t.TempDir(),
+		config.EnvServiceURL:     "ws://127.0.0.1:3334",
+		config.EnvAllowedPubkeys: publisher.Public().Hex(),
+	}))
+	if err != nil {
+		t.Fatalf("config.FromEnv: %v", err)
+	}
+	if cfg.BlobMaxBytes != config.DefaultBlobMaxBytes {
+		t.Fatalf("config.FromEnv default BlobMaxBytes = %d, want %d", cfg.BlobMaxBytes, config.DefaultBlobMaxBytes)
+	}
+
+	return &blobRelay{testServer: startTestRelay(t, cfg), publisher: publisher}
+}
+
+// blobDescriptor mirrors the JSON body of khatru's PUT /upload response.
+type blobDescriptor struct {
+	URL    string `json:"url"`
+	SHA256 string `json:"sha256"`
+	Size   int    `json:"size"`
+	Type   string `json:"type"`
+}
+
+// blobPath is the on-disk body path documented in §9.4.
+func (b *blobRelay) blobPath(hash string) string {
+	return filepath.Join(b.cfg.DataDir, "blobs", hash)
+}
+
+// blossomAuth signs a kind-24242 authorization and returns the
+// "Nostr <base64>" header value the Blossom spec (and the MCP client) sends.
+func blossomAuth(t *testing.T, sk nostr.SecretKey, verb, hash string) string {
+	t.Helper()
+
+	evt := nostr.Event{
+		Kind:      24242,
+		CreatedAt: nostr.Now(),
+		Tags: nostr.Tags{
+			{"t", verb},
+			{"x", hash},
+			{"expiration", strconv.FormatInt(int64(nostr.Now())+300, 10)},
+		},
+		Content: verb + " " + hash,
+	}
+	if err := evt.Sign(sk); err != nil {
+		t.Fatalf("signing the blossom %q authorization: %v", verb, err)
+	}
+	raw, err := json.Marshal(evt)
+	if err != nil {
+		t.Fatalf("marshaling the blossom %q authorization: %v", verb, err)
+	}
+	return "Nostr " + base64.StdEncoding.EncodeToString(raw)
+}
+
+func hashHex(t *testing.T, body []byte) string {
+	t.Helper()
+	sum := sha256.Sum256(body)
+	return hex.EncodeToString(sum[:])
+}
+
+// doHTTP issues one request and returns status, headers and body. Every
+// failure names the method and path so a red test says which route broke.
+func doHTTP(t *testing.T, method, url string, body io.Reader, headers map[string]string) (int, http.Header, []byte) {
+	t.Helper()
+
+	req, err := http.NewRequest(method, url, body)
+	if err != nil {
+		t.Fatalf("building %s %s: %v", method, url, err)
+	}
+	for k, v := range headers {
+		req.Header.Set(k, v)
+	}
+	client := &http.Client{Timeout: blobTimeout}
+	resp, err := client.Do(req)
+	if err != nil {
+		t.Fatalf("%s %s: %v", method, req.URL.Path, err)
+	}
+	defer resp.Body.Close()
+	raw, err := io.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatalf("%s %s: reading the response: %v", method, req.URL.Path, err)
+	}
+	return resp.StatusCode, resp.Header, raw
+}
+
+// headBlob returns the status and declared Content-Length of a HEAD request.
+// The MCP client treats any 2xx as "already present", so the length must come
+// from the response rather than a body.
+func headBlob(t *testing.T, url string) (int, int64) {
+	t.Helper()
+
+	req, err := http.NewRequest(http.MethodHead, url, nil)
+	if err != nil {
+		t.Fatalf("building HEAD %s: %v", url, err)
+	}
+	resp, err := (&http.Client{Timeout: blobTimeout}).Do(req)
+	if err != nil {
+		t.Fatalf("HEAD %s: %v", req.URL.Path, err)
+	}
+	defer resp.Body.Close()
+	if _, err := io.Copy(io.Discard, resp.Body); err != nil {
+		t.Fatalf("HEAD %s: draining the response: %v", req.URL.Path, err)
+	}
+	return resp.StatusCode, resp.ContentLength
+}
+
+// putBlob uploads body with a fresh upload authorization from sk.
+func (b *blobRelay) putBlob(t *testing.T, sk nostr.SecretKey, body []byte, contentType string) (int, []byte) {
+	t.Helper()
+
+	req, err := http.NewRequest(http.MethodPut, b.URL+"/upload", bytes.NewReader(body))
+	if err != nil {
+		t.Fatalf("building PUT /upload: %v", err)
+	}
+	req.Header.Set("Authorization", blossomAuth(t, sk, "upload", hashHex(t, body)))
+	req.Header.Set("Content-Type", contentType)
+	client := &http.Client{Timeout: blobTimeout}
+	resp, err := client.Do(req)
+	if err != nil {
+		t.Fatalf("PUT /upload (%d bytes): %v", len(body), err)
+	}
+	defer resp.Body.Close()
+	raw, err := io.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatalf("PUT /upload: reading the response: %v", err)
+	}
+	return resp.StatusCode, raw
+}
+
+// uploadOK uploads and fails the test unless the relay answers 200 with a
+// descriptor whose sha256 matches the body.
+func (b *blobRelay) uploadOK(t *testing.T, sk nostr.SecretKey, body []byte, contentType string) blobDescriptor {
+	t.Helper()
+
+	status, raw := b.putBlob(t, sk, body, contentType)
+	if status != http.StatusOK {
+		t.Fatalf("PUT /upload (%d bytes): status %d, want 200 (body %q)", len(body), status, raw)
+	}
+	var desc blobDescriptor
+	if err := json.Unmarshal(raw, &desc); err != nil {
+		t.Fatalf("PUT /upload: decoding the descriptor from %q: %v", raw, err)
+	}
+	if want := hashHex(t, body); desc.SHA256 != want {
+		t.Fatalf("PUT /upload: descriptor sha256 = %q, want %q", desc.SHA256, want)
+	}
+	if desc.Size != len(body) {
+		t.Fatalf("PUT /upload: descriptor size = %d, want %d", desc.Size, len(body))
+	}
+	return desc
+}
+
+// TestBlossomUploadExemptFromRequestBodyCap is the §9.4 body-cap acceptance
+// case: a blob one byte over Hardened's 64 KiB non-websocket cap is stored,
+// and the blob directory holds the raw bytes plus the size/uploader sidecar.
+func TestBlossomUploadExemptFromRequestBodyCap(t *testing.T) {
+	b := newBlobRelay(t)
+
+	body := make([]byte, 64*1024+1) // just over Hardened's cap, nothing more
+	desc := b.uploadOK(t, b.publisher, body, "application/octet-stream")
+
+	blobFile := b.blobPath(desc.SHA256)
+	info, err := os.Stat(blobFile)
+	if err != nil {
+		t.Fatalf("PUT /upload: stored blob %s: %v", blobFile, err)
+	}
+	if info.Size() != int64(len(body)) {
+		t.Fatalf("PUT /upload: stored blob size = %d, want %d", info.Size(), len(body))
+	}
+
+	raw, err := os.ReadFile(blobFile + ".json")
+	if err != nil {
+		t.Fatalf("PUT /upload: stored sidecar %s.json: %v", blobFile, err)
+	}
+	var sidecar struct {
+		Size     int64  `json:"size"`
+		Uploader string `json:"uploader"`
+	}
+	if err := json.Unmarshal(raw, &sidecar); err != nil {
+		t.Fatalf("PUT /upload: decoding the sidecar %s: %v", raw, err)
+	}
+	if sidecar.Size != int64(len(body)) {
+		t.Fatalf("PUT /upload: sidecar size = %d, want %d", sidecar.Size, len(body))
+	}
+	if want := b.publisher.Public().Hex(); sidecar.Uploader != want {
+		t.Fatalf("PUT /upload: sidecar uploader = %q, want %q", sidecar.Uploader, want)
+	}
+
+	// HEAD is unauthenticated and answers from the blob index with a length,
+	// which is what the MCP client uses to declare the blob present.
+	status, length := headBlob(t, b.URL+"/"+desc.SHA256)
+	if status != http.StatusOK {
+		t.Fatalf("HEAD /%s: status %d, want 200", desc.SHA256, status)
+	}
+	if length != int64(len(body)) {
+		t.Fatalf("HEAD /%s: Content-Length = %d, want %d", desc.SHA256, length, len(body))
+	}
+}
+
+// zeroReader streams zero bytes forever without allocating a large buffer; the
+// handler reads only the first bytes before it rejects on the declared size.
+type zeroReader struct{}
+
+func (zeroReader) Read(p []byte) (int, error) {
+	clear(p)
+	return len(p), nil
+}
+
+// TestBlossomUploadSizeLimits pins the cap itself: 49 MB is stored, and one
+// byte over the 50 MiB default is refused before the body is read. The
+// oversized request goes through bundle.Handler() directly so the early 413
+// cannot race a multi-megabyte socket write; the declared Content-Length is
+// the real size and the body streams.
+func TestBlossomUploadSizeLimits(t *testing.T) {
+	if testing.Short() {
+		t.Skip("the 49 MB / 50 MB uploads are skipped in -short")
+	}
+	b := newBlobRelay(t)
+
+	const largeSize = 49 << 20 // one allocation; the oversized case streams
+	large := make([]byte, largeSize)
+	desc := b.uploadOK(t, b.publisher, large, "application/octet-stream")
+	info, err := os.Stat(b.blobPath(desc.SHA256))
+	if err != nil {
+		t.Fatalf("PUT /upload (%d bytes): stored blob: %v", largeSize, err)
+	}
+	if info.Size() != largeSize {
+		t.Fatalf("PUT /upload (%d bytes): stored blob size = %d", largeSize, info.Size())
+	}
+	status, length := headBlob(t, b.URL+"/"+desc.SHA256)
+	if status != http.StatusOK {
+		t.Fatalf("HEAD /%s: status %d, want 200", desc.SHA256, status)
+	}
+	if length != largeSize {
+		t.Fatalf("HEAD /%s: Content-Length = %d, want %d", desc.SHA256, length, largeSize)
+	}
+
+	// Exactly one byte over the configured cap. Only the declared size reaches
+	// RejectUpload before the body is consumed, so stream the bytes.
+	tooBig := config.DefaultBlobMaxBytes + 1
+	sum := sha256.New()
+	if _, err := io.CopyN(sum, zeroReader{}, tooBig); err != nil {
+		t.Fatalf("hashing the oversized body: %v", err)
+	}
+	hash := hex.EncodeToString(sum.Sum(nil))
+
+	req := httptest.NewRequest(http.MethodPut, "/upload", io.LimitReader(zeroReader{}, tooBig))
+	req.ContentLength = tooBig
+	req.Header.Set("Authorization", blossomAuth(t, b.publisher, "upload", hash))
+	req.Header.Set("Content-Type", "application/octet-stream")
+	rec := httptest.NewRecorder()
+	b.handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusRequestEntityTooLarge {
+		t.Fatalf("PUT /upload (%d bytes): status %d, want 413 (body %q)",
+			tooBig, rec.Code, rec.Body.String())
+	}
+	// The 413 with X-Reason naming the cap is Hardened's pre-allocation
+	// guard (relay.go's /upload check) refusing the announced
+	// Content-Length before khatru reads the body; if that guard goes away,
+	// the body overflows MaxBytesReader mid-read and the failure looks
+	// different, so pin the guard's exact response.
+	wantReason := fmt.Sprintf("blocked: blob exceeds %d bytes", config.DefaultBlobMaxBytes)
+	if reason := rec.Header().Get("X-Reason"); reason != wantReason {
+		t.Fatalf("PUT /upload (%d bytes): X-Reason %q, want %q", tooBig, reason, wantReason)
+	}
+	if _, err := os.Stat(b.blobPath(hash)); !os.IsNotExist(err) {
+		t.Fatalf("PUT /upload (%d bytes): blob %s exists after rejection (stat err %v)",
+			tooBig, hash, err)
+	}
+	status, _, _ = doHTTP(t, http.MethodHead, b.URL+"/"+hash, nil, nil)
+	if status != http.StatusNotFound {
+		t.Fatalf("HEAD /%s after a rejected upload: status %d, want 404", hash, status)
+	}
+}
+
+// TestBlossomUploadSizeCapSurvivesWebsocketHeader: an Upload request that
+// carries Upgrade: websocket cannot bypass the upload cap. If the guard sits
+// below the websocket early-return, the request is passed straight to khatru,
+// which allocates from the announced Content-Length before any hook and never
+// answers this 413.
+func TestBlossomUploadSizeCapSurvivesWebsocketHeader(t *testing.T) {
+	b := newBlobRelay(t)
+
+	tooBig := config.DefaultBlobMaxBytes + 1
+	sum := sha256.New()
+	if _, err := io.CopyN(sum, zeroReader{}, tooBig); err != nil {
+		t.Fatalf("hashing the oversized body: %v", err)
+	}
+	hash := hex.EncodeToString(sum.Sum(nil))
+
+	// No body is written: with the guard in place it is never read, and even
+	// if it were, khatru would reject the anonymous request after its
+	// allocation, so the response cannot be this 413.
+	req := httptest.NewRequest(http.MethodPut, "/upload", nil)
+	req.ContentLength = tooBig
+	req.Header.Set("Upgrade", "websocket")
+	req.Header.Set("Content-Type", "application/octet-stream")
+	rec := httptest.NewRecorder()
+	b.handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusRequestEntityTooLarge {
+		t.Fatalf("PUT /upload with Upgrade: websocket (%d bytes): status %d, want 413 (body %q)",
+			tooBig, rec.Code, rec.Body.String())
+	}
+	wantReason := fmt.Sprintf("blocked: blob exceeds %d bytes", config.DefaultBlobMaxBytes)
+	if reason := rec.Header().Get("X-Reason"); reason != wantReason {
+		t.Fatalf("PUT /upload with Upgrade: websocket (%d bytes): X-Reason %q, want %q",
+			tooBig, reason, wantReason)
+	}
+	if _, err := os.Stat(b.blobPath(hash)); !os.IsNotExist(err) {
+		t.Fatalf("PUT /upload with Upgrade: websocket (%d bytes): blob %s exists after rejection (stat err %v)",
+			tooBig, hash, err)
+	}
+}
+
+// TestBlossomRejectsNonAllowlistedUploader: NIP-42/Blossom authentication
+// alone grants nothing; only SCRUTINY_ALLOWED_PUBKEYS may upload.
+func TestBlossomRejectsNonAllowlistedUploader(t *testing.T) {
+	b := newBlobRelay(t)
+
+	body := []byte("sybil upload must never be stored")
+	hash := hashHex(t, body)
+	status, raw := b.putBlob(t, nostr.Generate(), body, "text/plain")
+	if status != http.StatusForbidden {
+		t.Fatalf("PUT /upload as a non-allowlisted key: status %d, want 403 (body %q)", status, raw)
+	}
+	if _, err := os.Stat(b.blobPath(hash)); !os.IsNotExist(err) {
+		t.Fatalf("PUT /upload as a non-allowlisted key: blob %s exists (stat err %v)", hash, err)
+	}
+	status, _, _ = doHTTP(t, http.MethodHead, b.URL+"/"+hash, nil, nil)
+	if status != http.StatusNotFound {
+		t.Fatalf("HEAD /%s after a rejected upload: status %d, want 404", hash, status)
+	}
+}
+
+// TestBlossomDeleteAlwaysRejected: blobs are as permanent as the events citing
+// them, so DELETE is refused and the blob stays served.
+func TestBlossomDeleteAlwaysRejected(t *testing.T) {
+	b := newBlobRelay(t)
+
+	body := []byte("permanent artifact\n")
+	desc := b.uploadOK(t, b.publisher, body, "text/plain")
+
+	status, _, raw := doHTTP(t, http.MethodDelete, b.URL+"/"+desc.SHA256, nil, map[string]string{
+		"Authorization": blossomAuth(t, b.publisher, "delete", desc.SHA256),
+	})
+	if status != http.StatusForbidden {
+		t.Fatalf("DELETE /%s: status %d, want 403 (body %q)", desc.SHA256, status, raw)
+	}
+
+	status, _, raw = doHTTP(t, http.MethodGet, b.URL+"/"+desc.SHA256, nil, nil)
+	if status != http.StatusOK {
+		t.Fatalf("GET /%s after DELETE: status %d, want 200 (body %q)", desc.SHA256, status, raw)
+	}
+	if !bytes.Equal(raw, body) {
+		t.Fatalf("GET /%s after DELETE: body %q, want %q", desc.SHA256, raw, body)
+	}
+}
+
+// TestBlossomUnsupportedRoutes: the blob directory is not a public listing
+// endpoint (§9.4 keeps the index out of the event store, serves no /list) and
+// the BUD routes the relay does not wire (/mirror, /media, /report) are 404
+// before they can reach a handler that dereferences an absent store.
+func TestBlossomUnsupportedRoutes(t *testing.T) {
+	b := newBlobRelay(t)
+
+	b.uploadOK(t, b.publisher, []byte("listed nowhere"), "text/plain")
+
+	cases := []struct {
+		method string
+		path   string
+	}{
+		{http.MethodGet, "/list/" + b.publisher.Public().Hex()},
+		{http.MethodPut, "/mirror"},
+		{http.MethodGet, "/media"},
+		{http.MethodPut, "/report"},
+	}
+	for _, tc := range cases {
+		status, _, raw := doHTTP(t, tc.method, b.URL+tc.path, nil, nil)
+		if status != http.StatusNotFound {
+			t.Fatalf("%s %s: status %d, want 404 (body %q)", tc.method, tc.path, status, raw)
+		}
+	}
+}
+
+// TestBlossomServesByHash pins the read surface: GET/HEAD by hash with any
+// extension, attachment disposition and nosniff for non-images, inline for
+// PNG, 404 for absent hashes.
+func TestBlossomServesByHash(t *testing.T) {
+	b := newBlobRelay(t)
+
+	body := []byte("# scrutiny artifact\n\nserved by hash, not by extension\n")
+	desc := b.uploadOK(t, b.publisher, body, "text/markdown")
+
+	// GET without an extension, and with a requested extension used only for
+	// the filename (the hash is the lookup key). PDF and HTML are the
+	// active/opaque document cases: both must be attachments.
+	for _, path := range []string{
+		"/" + desc.SHA256,
+		"/" + desc.SHA256 + ".pdf",
+		"/" + desc.SHA256 + ".html",
+		"/" + desc.SHA256 + ".zip",
+	} {
+		status, hdr, raw := doHTTP(t, http.MethodGet, b.URL+path, nil, nil)
+		if status != http.StatusOK {
+			t.Fatalf("GET %s: status %d, want 200 (body %q)", path, status, raw)
+		}
+		if !bytes.Equal(raw, body) {
+			t.Fatalf("GET %s: body %q, want the uploaded bytes", path, raw)
+		}
+		cd := hdr.Get("Content-Disposition")
+		if !strings.HasPrefix(cd, "attachment") {
+			t.Fatalf("GET %s: Content-Disposition = %q, want an attachment", path, cd)
+		}
+		if !strings.Contains(cd, desc.SHA256) {
+			t.Fatalf("GET %s: Content-Disposition = %q, want the sha256 in the filename", path, cd)
+		}
+		if got := hdr.Get("X-Content-Type-Options"); got != "nosniff" {
+			t.Fatalf("GET %s: X-Content-Type-Options = %q, want nosniff", path, got)
+		}
+	}
+
+	// HEAD is unauthenticated, works for both shapes, and carries the size.
+	for _, path := range []string{"/" + desc.SHA256, "/" + desc.SHA256 + ".pdf"} {
+		status, length := headBlob(t, b.URL+path)
+		if status != http.StatusOK {
+			t.Fatalf("HEAD %s: status %d, want 200", path, status)
+		}
+		if length != int64(len(body)) {
+			t.Fatalf("HEAD %s: Content-Length = %d, want %d", path, length, len(body))
+		}
+	}
+
+	// Absent hashes are 404 on both methods.
+	absent := strings.Repeat("a", 64)
+	status, _, _ := doHTTP(t, http.MethodGet, b.URL+"/"+absent, nil, nil)
+	if status != http.StatusNotFound {
+		t.Fatalf("GET /%s: status %d, want 404", absent, status)
+	}
+	status, _ = headBlob(t, b.URL+"/"+absent)
+	if status != http.StatusNotFound {
+		t.Fatalf("HEAD /%s: status %d, want 404", absent, status)
+	}
+
+	// Images stay inline: the 8-byte PNG signature is enough for both the MIME
+	// sniff and the inline decision.
+	png := []byte("\x89PNG\r\n\x1a\n")
+	pngDesc := b.uploadOK(t, b.publisher, png, "image/png")
+	if !strings.HasPrefix(pngDesc.Type, "image/png") {
+		t.Fatalf("PUT /upload (png): descriptor type = %q, want image/png", pngDesc.Type)
+	}
+	status, hdr, raw := doHTTP(t, http.MethodGet, b.URL+"/"+pngDesc.SHA256+".png", nil, nil)
+	if status != http.StatusOK {
+		t.Fatalf("GET /%s.png: status %d, want 200 (body %q)", pngDesc.SHA256, status, raw)
+	}
+	if !bytes.Equal(raw, png) {
+		t.Fatalf("GET /%s.png: body %q, want the PNG bytes", pngDesc.SHA256, raw)
+	}
+	if ct := hdr.Get("Content-Type"); !strings.HasPrefix(ct, "image/png") {
+		t.Fatalf("GET /%s.png: Content-Type = %q, want image/png", pngDesc.SHA256, ct)
+	}
+	if cd := hdr.Get("Content-Disposition"); !strings.HasPrefix(cd, "inline") {
+		t.Fatalf("GET /%s.png: Content-Disposition = %q, want inline", pngDesc.SHA256, cd)
+	}
+}
+
+// TestBlossomUploadLeavesNoEventInStore: the blob directory is the index, so
+// no kind-24242 record may ever be served by REQ.
+func TestBlossomUploadLeavesNoEventInStore(t *testing.T) {
+	b := newBlobRelay(t)
+	b.uploadOK(t, b.publisher, []byte("no event may cite this upload"), "text/plain")
+
+	wsURL := "ws" + strings.TrimPrefix(b.URL, "http")
+	ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
+	defer cancel()
+	conn, _, err := websocket.Dial(ctx, wsURL, nil)
+	if err != nil {
+		t.Fatalf("dialing the relay: %v", err)
+	}
+	defer conn.Close(websocket.StatusNormalClosure, "test done")
+	client := &wsClient{t: t, ctx: ctx, conn: conn}
+	client.expectEagerChallenge()
+
+	client.send(nostr.ReqEnvelope{
+		SubscriptionID: "blossom-auth-events",
+		Filters:        []nostr.Filter{{Kinds: []nostr.Kind{24242}}},
+	})
+	if events := client.readUntilEOSE(); len(events) != 0 {
+		t.Fatalf("REQ kinds:[24242] after a Blossom upload returned %d events, want 0", len(events))
+	}
+}
+
+// TestBlossomCoexistsWithLandingAndOpsEndpoints: Blossom's catch-all "/" must
+// not shadow the landing page, /healthz or /metrics, and the upload counters
+// must move.
+func TestBlossomCoexistsWithLandingAndOpsEndpoints(t *testing.T) {
+	b := newBlobRelay(t)
+
+	status, _, raw := doHTTP(t, http.MethodGet, b.URL+"/", nil, nil)
+	if status != http.StatusOK {
+		t.Fatalf("GET / (landing page): status %d, want 200 (body %q)", status, raw)
+	}
+	if !bytes.Contains(bytes.ToLower(raw), []byte("scrutiny")) {
+		t.Fatalf("GET / (landing page): body %q does not mention scrutiny", raw)
+	}
+
+	status, _, raw = doHTTP(t, http.MethodGet, b.URL+"/healthz", nil, nil)
+	if status != http.StatusOK {
+		t.Fatalf("GET /healthz: status %d, want 200 (body %q)", status, raw)
+	}
+
+	type snapshot struct {
+		BlobsTotal     int64 `json:"blobs_total"`
+		BlobBytesTotal int64 `json:"blob_bytes_total"`
+	}
+	readSnapshot := func() snapshot {
+		t.Helper()
+		status, _, raw := doHTTP(t, http.MethodGet, b.URL+"/metrics", nil, nil)
+		if status != http.StatusOK {
+			t.Fatalf("GET /metrics: status %d, want 200 (body %q)", status, raw)
+		}
+		var s snapshot
+		if err := json.Unmarshal(raw, &s); err != nil {
+			t.Fatalf("GET /metrics: decoding %q: %v", raw, err)
+		}
+		return s
+	}
+
+	if before := readSnapshot(); before.BlobsTotal != 0 || before.BlobBytesTotal != 0 {
+		t.Fatalf("GET /metrics before the upload: blobs_total=%d blob_bytes_total=%d, want 0/0",
+			before.BlobsTotal, before.BlobBytesTotal)
+	}
+
+	const size = 64*1024 + 1
+	b.uploadOK(t, b.publisher, make([]byte, size), "application/octet-stream")
+
+	after := readSnapshot()
+	if after.BlobsTotal != 1 {
+		t.Fatalf("GET /metrics after one upload: blobs_total=%d, want 1", after.BlobsTotal)
+	}
+	if after.BlobBytesTotal != int64(size) {
+		t.Fatalf("GET /metrics after one upload: blob_bytes_total=%d, want %d", after.BlobBytesTotal, size)
+	}
+
+	// Guard the exact counter names the ops surface documents.
+	_, _, raw = doHTTP(t, http.MethodGet, b.URL+"/metrics", nil, nil)
+	for _, key := range []string{"blobs_total", "blob_bytes_total"} {
+		if !bytes.Contains(raw, []byte(key)) {
+			t.Fatalf("GET /metrics: response %s does not carry %q", raw, key)
+		}
 	}
 }

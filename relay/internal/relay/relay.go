@@ -1,6 +1,6 @@
 // Package relay assembles the complete relay (configuration + stores + gates +
-// metrics) into a single http.Handler (Bundle.Handler) that serves the khatru
-// relay behind the transport-level hardening (see Hardened).
+// metrics + blob storage) into a single http.Handler (Bundle.Handler) that
+// serves the khatru relay behind the transport-level hardening (see Hardened).
 //
 // The assembly lives here instead of in cmd/relay/main.go so that the binary
 // and the integration test build the exact same wiring and mount the same
@@ -11,17 +11,20 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"iter"
 	"log"
 	"mime"
 	"net"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
 	"fiatjaf.com/nostr"
 	"fiatjaf.com/nostr/eventstore"
 	"fiatjaf.com/nostr/khatru"
+	"fiatjaf.com/nostr/khatru/blossom"
 	"fiatjaf.com/nostr/khatru/policies"
 	"fiatjaf.com/nostr/nip11"
 
@@ -90,8 +93,10 @@ const (
 const filterTooComplexMessage = "rejected: filter too complex"
 
 // maxRequestBodyBytes caps every non-websocket request body handled by
-// Hardened. The only non-websocket surfaces are NIP-11 and the ops endpoints;
-// none of them takes a body, and khatru sets no cap of its own on HTTP bodies.
+// Hardened, except PUT /upload which carries blobs (cfg.BlobMaxBytes). The
+// other non-websocket surfaces are NIP-11, the ops endpoints and the small
+// JSON bodies of Blossom's auxiliary routes; none of them takes a body
+// anywhere near this size, and khatru sets no cap of its own on HTTP bodies.
 // 64 KiB is belt-and-braces, not a working limit.
 const maxRequestBodyBytes = 64 * 1024
 
@@ -102,6 +107,16 @@ const maxRequestBodyBytes = 64 * 1024
 // could force an unbounded read; and no ManagementAPI method is wired here
 // anyway.
 const nip86DisabledMessage = "// NIP-86 management API disabled: khatru reads the whole unauthenticated request body before auth (nip86.go:71) and no methods are wired."
+
+// blossomOutOfScopeMessage is the one-line body returned as the 404 for every
+// Blossom route this relay does not serve (spec §9.4). /mirror is why this is a
+// refusal and not just an omission: khatru's handler fetches the URL from the
+// relay, reads the whole response into memory before it calls any size gate
+// (handlers.go:446 vs 474), and then writes the result through Store.Keep +
+// StoreBlob — an outbound fetch we never want in this pilot, with no cap while
+// streaming. /list would hand out uploader identities, which the blob directory
+// never publishes.
+const blossomOutOfScopeMessage = "// Blossom /list, /mirror, /media and /report are not served: this relay stores and publishes blobs by hash only (docs/specs/mcp-publishing.md §9.4), never indexed per publisher, and never fetches a URL on a client's behalf."
 
 // relayInfoPubKey is the fixed operator pubkey advertised in NIP-11 ("pubkey").
 const relayInfoPubKey = "c0df886f934aad0c1e62f08b04bd54b44bdd1b5cb0b2ab250cbed25cf64c8a27"
@@ -369,6 +384,37 @@ func Build(cfg config.Config, logger *log.Logger) (*Bundle, error) {
 		return rl.OverwriteRelayInformation(r.Context(), r, info)
 	}))
 
+	// The Blossom blob surface (docs/specs/mcp-publishing.md §9.4) MUST be the
+	// last thing Build does: blossom.New replaces the relay's router with its
+	// own mux whose "/" catch-all forwards everything it does not handle to
+	// the mux built above, so /healthz, /metrics and the landing page have to
+	// be registered on rl.Router() first.
+	//
+	// The directory is the index (blobIndex); khatru answers HEAD and DELETE,
+	// while GET is answered in front of khatru by Hardened so the download
+	// headers are ours.
+	dir := blobDir(cfg)
+	blobServer := blossom.New(rl, blobServiceURL(cfg.ServiceURL))
+	blobServer.Store = blobIndex{dir: dir}
+	blobServer.StoreBlob = func(_ context.Context, sha string, _ string, body []byte) error {
+		// khatru's detected extension is dropped on purpose: a blob is
+		// addressed by its hash and served with a sniffed media type
+		// (storeBlob explains).
+		if err := storeBlob(dir, sha, body); err != nil {
+			return err
+		}
+		m.BlobsTotal.Add(1)
+		m.BlobBytesTotal.Add(uint64(len(body)))
+		return nil
+	}
+	blobServer.LoadBlob = func(_ context.Context, sha string, _ string) (io.ReadSeeker, *url.URL, error) {
+		return loadBlob(dir, sha)
+	}
+	blobServer.RejectUpload = blobRejectUpload(cfg)
+	blobServer.RejectGet = blobRejectGet
+	blobServer.RejectList = blobRejectList
+	blobServer.RejectDelete = blobRejectDelete
+
 	return &Bundle{Relay: rl, Store: dual, Metrics: m, cfg: cfg}, nil
 }
 
@@ -388,15 +434,32 @@ func Build(cfg config.Config, logger *log.Logger) (*Bundle, error) {
 //     peer address; the VM-internal tunnel and local development are
 //     private/loopback as well.
 //
-//  2. NIP-86 requests are refused with 404 before khatru's routing can hand
+//  2. Blossom's routes this relay does not serve (/list/..., /mirror, /media,
+//     /report) are refused with 404 before khatru's Blossom mux sees them
+//     (spec §9.4). /mirror especially: khatru's handler fetches a URL from the
+//     relay and feeds the result into the upload path, and /list would publish
+//     uploader identities.
+//
+//  3. GET /<sha256>[.<anything>] — every path khatru's Blossom route would
+//     answer as a blob (khatru/blossom/server.go:62) — is answered from the
+//     blob directory here, in front of khatru, so a stored artifact is sent as
+//     a download and can never run in the relay's origin
+//     (serveBlobAttachment). HEAD still goes to khatru.
+//
+//  4. Every non-websocket request body is capped at maxRequestBodyBytes, except
+//     PUT /upload: it carries a blob, so it is capped at cfg.BlobMaxBytes
+//     instead (spec §9.4) and its declared Content-Length is refused before
+//     khatru can allocate the size it announces. The upload check runs before
+//     the websocket early-return, so even an upload request carrying
+//     Upgrade: websocket cannot skip the guard. Every other websocket upgrade
+//     is exempt: its frames are already capped by MaxMessageSize, and the
+//     upgrade body is not read by anyone.
+//
+//  5. NIP-86 requests are refused with 404 before khatru's routing can hand
 //     them to its management handler, which reads and hashes the whole request
 //     body first and only then checks Authorization (khatru/nip86.go:71 vs
 //     79). No ManagementAPI method is wired, so the endpoint would exist only
 //     as an unauthenticated unbounded read.
-//
-//  3. Every non-websocket request body is capped at maxRequestBodyBytes.
-//     Websocket upgrades are exempt: their frames are already capped by
-//     MaxMessageSize, and the upgrade body is not read by anyone.
 func Hardened(next http.Handler, cfg config.Config) http.Handler {
 	trusted := cfg.TrustedProxyChecker()
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -414,15 +477,53 @@ func Hardened(next http.Handler, cfg config.Config) http.Handler {
 			return
 		}
 
-		// Mirror khatru's routing condition (khatru/handlers.go:54): only the
-		// bare token is an upgrade here; anything else is a plain HTTP request
-		// and gets the body cap below.
-		if r.Header.Get("Upgrade") == "websocket" {
-			next.ServeHTTP(w, r)
+		// Blossom's out-of-scope routes: refused before the websocket and body
+		// branches, so no method or upgrade can reach handleMirror (an outbound
+		// fetch feeding the upload path) or handleList (a per-publisher index
+		// this relay does not keep).
+		if isBlossomOutOfScopePath(r.URL.Path) {
+			http.Error(w, blossomOutOfScopeMessage, http.StatusNotFound)
 			return
 		}
 
-		r.Body = http.MaxBytesReader(w, r.Body, maxRequestBodyBytes)
+		// Blob downloads: the bytes are addressed by hash, so this needs
+		// nothing khatru knows. The test mirrors khatru's blob route
+		// (isKhatruBlobPath), not parseBlobPath: any path khatru would answer
+		// as a blob must be answered here instead. This stays above the
+		// websocket branch because khatru's Blossom mux answers a blob GET
+		// before any upgrade routing (khatru/blossom/server.go:62), so an
+		// Upgrade header on such a path would otherwise reach handleGetBlob.
+		if r.Method == http.MethodGet && isKhatruBlobPath(r.URL.Path) {
+			serveBlobAttachment(w, r, cfg)
+			return
+		}
+
+		// Mirror khatru's routing condition (khatru/handlers.go:54): only the
+		// bare token is an upgrade here; anything else is a plain HTTP request
+		// and gets the body cap below.
+		if r.Method == http.MethodPut && r.URL.Path == "/upload" {
+			maxBytes := blobMaxBytes(cfg)
+			// khatru reads the announced size into memory before it calls any
+			// hook (khatru/blossom/handlers.go:70-77), so an oversized
+			// Content-Length is refused here rather than after the
+			// allocation. The reason travels in X-Reason, like every other
+			// Blossom error. This branch precedes the websocket early-return
+			// so an Upload carrying an Upgrade header cannot skip the guard:
+			// khatru's handleUpload allocates from the announced
+			// Content-Length before any authorization check.
+			if r.ContentLength > maxBytes {
+				w.Header().Set("X-Reason", fmt.Sprintf(msgBlobTooLarge, maxBytes))
+				w.WriteHeader(http.StatusRequestEntityTooLarge)
+				return
+			}
+			r.Body = http.MaxBytesReader(w, r.Body, maxBytes)
+		} else {
+			if r.Header.Get("Upgrade") == "websocket" {
+				next.ServeHTTP(w, r)
+				return
+			}
+			r.Body = http.MaxBytesReader(w, r.Body, maxRequestBodyBytes)
+		}
 
 		if isNIP86Request(r) {
 			http.Error(w, nip86DisabledMessage, http.StatusNotFound)
@@ -438,6 +539,20 @@ func Hardened(next http.Handler, cfg config.Config) http.Handler {
 // list (no wildcards) so a suffix cannot smuggle a hit.
 func isOpsPath(p string) bool {
 	return p == "/healthz" || p == "/metrics"
+}
+
+// isBlossomOutOfScopePath reports whether p is a route khatru's Blossom mux
+// would otherwise answer but this relay does not serve (spec §9.4). Kept in
+// sync with khatru/blossom/server.go:37-83: /list/<pubkey> is a prefix route,
+// the others are exact. Both "/list" and "/list/" are refused, so a request
+// that would fall through to khatru's mux as the root route cannot be mistaken
+// for something supported.
+func isBlossomOutOfScopePath(p string) bool {
+	switch p {
+	case "/mirror", "/media", "/report", "/list":
+		return true
+	}
+	return strings.HasPrefix(p, "/list/")
 }
 
 // isLoopbackPeer reports whether the transport peer address is loopback.

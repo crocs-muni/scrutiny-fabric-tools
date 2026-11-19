@@ -1,15 +1,18 @@
 # deploy/Caddyfile — TLS terminator and reverse proxy for the scrutiny-fabric relay.
 #
-# HOSTNAME SYNC (NIP-42): the hostname in the site address below MUST be
-# byte-for-byte identical to SCRUTINY_SERVICE_URL in deploy/compose.yaml and to
-# the CVT DNS record. See deploy/README.md §2 for why a mismatch silently breaks
-# every authenticated publish.
+# HOSTNAME SYNC (NIP-42): `relay.scrutiny.cloud` is the deployment's hostname;
+# the site address below, SCRUTINY_SERVICE_URL in deploy/compose.yaml and the
+# CVT DNS record must all carry that string byte-for-byte. See deploy/README.md
+# §2 for why a mismatch silently breaks every authenticated publish.
 #
 # Caddy obtains a Let's Encrypt certificate automatically and proxies the Nostr
 # WebSocket upgrade transparently, so ports 80 and 443 must be reachable from the
 # internet — request that scope from CVT.
 
-<HOSTNAME>.fi.muni.cz {
+relay.scrutiny.cloud {
+	# Mirrors SCRUTINY_BLOB_MAX_BYTES (default 50 MiB) for blob uploads.
+	request_body max_size 50MiB
+
 	# /healthz and /metrics are operator-only. This vhost is public, so answer
 	# 404 for the exact paths and never expose them through the proxy; operators
 	# reach the real endpoints over the internal docker network (deploy/README.md §7).

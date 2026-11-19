@@ -33,6 +33,7 @@ const (
 	EnvMaxQueryLimit     = "SCRUTINY_MAX_QUERY_LIMIT"
 	EnvMaxEventPastAge   = "SCRUTINY_MAX_EVENT_PAST_AGE"
 	EnvTrustedProxyCIDRs = "SCRUTINY_TRUSTED_PROXY_CIDRS"
+	EnvBlobMaxBytes      = "SCRUTINY_BLOB_MAX_BYTES"
 )
 
 // Defaults.
@@ -50,6 +51,16 @@ const (
 	// lie. Short on purpose (fresh live writes); widened temporarily on the
 	// mirror host during backfills via SCRUTINY_MAX_EVENT_PAST_AGE.
 	DefaultMaxEventPastAge = 2 * time.Hour
+
+	// DefaultBlobMaxBytes is the blob upload cap: 50 MiB, matching the spec's
+	// artifact ceiling (docs/specs/mcp-publishing.md §9.4) and the Caddy
+	// request_body max_size in relay/deploy/Caddyfile.
+	DefaultBlobMaxBytes int64 = 50 << 20
+
+	// MaxBlobMaxBytes is the hard ceiling for SCRUTINY_BLOB_MAX_BYTES: 1 GiB.
+	// khatru reads an upload entirely into memory to hash it, so a larger cap
+	// would turn one request into a multi-gigabyte allocation.
+	MaxBlobMaxBytes int64 = 1 << 30
 )
 
 // DefaultRelayDescription is the NIP-11 description used when
@@ -150,6 +161,10 @@ type Config struct {
 	// rate limiters always key on the real socket address of untrusted peers.
 	// Empty means only loopback is trusted (direct-exposure deployments).
 	TrustedProxyCIDRs []*net.IPNet
+
+	// BlobMaxBytes is the largest blob /upload accepts, enforced while
+	// streaming (see relay.Hardened) and again in the upload gate.
+	BlobMaxBytes int64
 }
 
 // Load reads the configuration from the process environment.
@@ -232,6 +247,18 @@ func FromEnv(lookup func(string) (string, bool)) (Config, error) {
 	cfg.TrustedProxyCIDRs, err = parseTrustedProxyCIDRs(lookup)
 	if err != nil {
 		return cfg, err
+	}
+
+	cfg.BlobMaxBytes = DefaultBlobMaxBytes
+	if raw, ok := lookup(EnvBlobMaxBytes); ok && strings.TrimSpace(raw) != "" {
+		n, err := strconv.ParseInt(strings.TrimSpace(raw), 10, 64)
+		if err != nil || n <= 0 {
+			return cfg, fmt.Errorf("%s: %q is not a positive decimal byte count (e.g. 52428800 for 50 MiB)", EnvBlobMaxBytes, raw)
+		}
+		if n > MaxBlobMaxBytes {
+			return cfg, fmt.Errorf("%s: %q exceeds the 1 GiB ceiling (%d bytes)", EnvBlobMaxBytes, raw, MaxBlobMaxBytes)
+		}
+		cfg.BlobMaxBytes = n
 	}
 
 	return cfg, nil
