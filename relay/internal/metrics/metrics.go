@@ -32,6 +32,12 @@ type Metrics struct {
 	// `relay reindex` runs.
 	StoreDrift atomic.Uint64
 
+	// BlobsTotal counts accepted Blossom uploads (a re-upload of an already
+	// stored hash counts again: it is an accepted request, not a new blob).
+	BlobsTotal atomic.Uint64
+	// BlobBytesTotal sums the bytes of those uploads.
+	BlobBytesTotal atomic.Uint64
+
 	started time.Time
 }
 
@@ -47,6 +53,8 @@ type Snapshot struct {
 	EventsReplaced    uint64 `json:"events_replaced"`
 	QueriesWithSearch uint64 `json:"queries_with_search"`
 	StoreDrift        uint64 `json:"store_drift"`
+	BlobsTotal        uint64 `json:"blobs_total"`
+	BlobBytesTotal    uint64 `json:"blob_bytes_total"`
 	UptimeSeconds     int64  `json:"uptime_s"`
 }
 
@@ -58,6 +66,8 @@ func (m *Metrics) Snapshot() Snapshot {
 		EventsReplaced:    m.EventsReplaced.Load(),
 		QueriesWithSearch: m.QueriesWithSearch.Load(),
 		StoreDrift:        m.StoreDrift.Load(),
+		BlobsTotal:        m.BlobsTotal.Load(),
+		BlobBytesTotal:    m.BlobBytesTotal.Load(),
 		UptimeSeconds:     int64(time.Since(m.started).Seconds()),
 	}
 }

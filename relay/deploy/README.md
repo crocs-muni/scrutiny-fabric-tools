@@ -18,9 +18,10 @@ Send a **production request to `unix@fi.muni.cz`** and ask for:
 1. **A persistent VM** on the Stratus OpenNebula cloud (persistent storage, not a
    sandbox/ephemeral instance: the relay's bbolt store and bleve index must
    survive reboots).
-2. **A hostname** (`<HOSTNAME>.fi.muni.cz`) with a DNS record pointing at the VM.
-   You must supply this exact hostname in the request, and then use it
-   identically in the Caddyfile vhost and `SCRUTINY_SERVICE_URL` (see §2).
+2. **A hostname** — the pilot uses `relay.scrutiny.cloud` — with a DNS record
+   pointing at the VM. You must supply this exact hostname in the request, and
+   then use it identically in the Caddyfile site address and
+   `SCRUTINY_SERVICE_URL` (see §2).
 3. **Ports 80 and 443 open to the internet.** Caddy needs both: 443 serves the
    relay, and 80/443 are used for the ACME challenge that issues the TLS
    certificate. No other inbound port is required.
@@ -55,8 +56,8 @@ and it verifies client signatures against that URL. Clients sign the URL they
 connected to. Therefore these three values **MUST carry the same hostname,
 byte-for-byte**:
 
-1. the vhost in `deploy/Caddyfile` (`<HOSTNAME>.fi.muni.cz`)
-2. `SCRUTINY_SERVICE_URL` in `deploy/compose.yaml` (`wss://<HOSTNAME>.fi.muni.cz`)
+1. the vhost in `deploy/Caddyfile` (`relay.scrutiny.cloud`)
+2. `SCRUTINY_SERVICE_URL` in `deploy/compose.yaml` (`wss://relay.scrutiny.cloud`)
 3. the DNS record from the CVT request
 
 A mismatch (wrong label, `http` vs `wss`, trailing slash, `www` prefix) makes
@@ -67,11 +68,16 @@ so the failure is quiet and easy to miss. Change all three together.
 
 ## 3. First run
 
-1. **Edit `compose.yaml`** and fill the placeholders:
-   - `SCRUTINY_SERVICE_URL`: `wss://<HOSTNAME>.fi.muni.cz` (must match §2)
+1. **Edit `compose.yaml`** and fill the remaining placeholder:
+   - `SCRUTINY_SERVICE_URL`: already `wss://relay.scrutiny.cloud`, the
+     deployment's hostname (must match §2)
    - `SCRUTINY_ALLOWED_PUBKEYS`: comma-separated publisher pubkeys (64 hex chars
      or `npub1...`). At least one is required. Only these may write.
-2. **Edit `Caddyfile`** and replace `<HOSTNAME>` with the same host label.
+2. **Caddyfile**: nothing to fill in — its site address is already
+   `relay.scrutiny.cloud`. **If the host ever changes**, change the three places
+   of §2 together to the same new string: the `Caddyfile` site address,
+   `SCRUTINY_SERVICE_URL` in `compose.yaml`, and the DNS record. Nothing else in
+   this stack names the host.
 3. **Start the stack** from `deploy/`:
 
    ```sh
@@ -86,9 +92,9 @@ so the failure is quiet and easy to miss. Change all three together.
    ```
 
 5. **Check from the outside** (needs DNS to be live): a Nostr client pointed at
-   `wss://<HOSTNAME>.fi.muni.cz` should read events. An allowlisted publisher
+   `wss://relay.scrutiny.cloud` should read events. An allowlisted publisher
    should be able to publish. The operator endpoints must **not** be public:
-   `curl -i https://<HOSTNAME>.fi.muni.cz/healthz` should return `404`, not `200`.
+   `curl -i https://relay.scrutiny.cloud/healthz` should return `404`, not `200`.
    Reach the real `/healthz` and `/metrics` inside the docker network (§7).
 
 ### Configuration environment

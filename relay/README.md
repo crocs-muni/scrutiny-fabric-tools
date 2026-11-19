@@ -29,6 +29,7 @@ from the base store.
 | `SCRUTINY_MAX_QUERY_LIMIT` | no | `500` | max events one filter may return |
 | `SCRUTINY_MAX_EVENT_PAST_AGE` | no | `2h` | Go duration. How old an event's `created_at` may be before the relay rejects it as too old. Widen it only temporarily for backfills (writes stay allowlist-gated regardless) |
 | `SCRUTINY_TRUSTED_PROXY_CIDRS` | no | loopback only | Comma-separated CIDRs (or bare IPs) whose transport peer may set `X-Forwarded-For`. Set it to the reverse proxy's network (`172.16.0.0/12` for the compose docker network); a direct client outside the list gets its XFF deleted, so the per-IP limiters key on its real address. Loopback is always trusted. |
+| `SCRUTINY_BLOB_MAX_BYTES` | no | `52428800` (50 MiB) | max size of uploaded blobs via `/upload`; enforced by relay and must be <= Caddy request_body max_size |
 
 The default `SCRUTINY_ACCEPTED_TAGS` set is the canonical vocabulary
 (`scrutiny-fabric`, `scrutiny-v0.8.1`, `scrutiny-product`, `scrutiny-metadata`,
@@ -60,12 +61,22 @@ Endpoints:
   root match only; every other unmatched path stays `404`.
 * `GET /healthz`: `200 ok` when the base store answers, else `503`
 * `GET /metrics`: JSON counters: `events_stored`, `events_rejected`,
-  `events_replaced`, `queries_with_search`, `store_drift`, `uptime_s`.
+  `events_replaced`, `queries_with_search`, `store_drift`, `blobs_total`,
+  `blob_bytes_total`, `uptime_s`.
   `events_replaced` counts kind-0 profile accepts through the NIP-01 replace
   path (a re-send of an older, already-superseded profile also counts: the
   client gets OK, the store stays unchanged). `store_drift` counts
   search-index writes that failed after the base store accepted the event;
   nonzero means NIP-50 results are incomplete until a `relay reindex`.
+  `blobs_total` and `blob_bytes_total` count accepted `/upload` writes and the
+  bytes those uploads carried. A re-upload of a blob whose hash is already
+  stored is counted again, although nothing new is written.
+* `PUT /upload` (NIP-42 authenticated, size ≤ `SCRUTINY_BLOB_MAX_BYTES`): stores the blob
+  in `<data>/blobs/<sha256>` with a side-car `<sha256>.json` (size, uploader). Exempt from
+  the 64 KiB body cap.
+* `GET /<sha256>[.<ext>]`: serves the stored blob by hash. Non-image types are sent with
+  `Content-Disposition: attachment` and `X-Content-Type-Options: nosniff`; PNG/JPEG are
+  served `inline`.
 
 To rebuild the search index from the base store, stop the relay first. boltdb holds
 an exclusive lock:
@@ -127,6 +138,9 @@ docker run --rm -v scrutiny-relay-data:/data \
   -e SCRUTINY_DATA_DIR=/data --entrypoint /relay \
   <image> import -in /data/corpus.ndjson
 ```
+
+The blob directory `<data>/blobs` (and its `.json` sidecars) lives in the data volume,
+so include it in any backup or restore of that volume.
 
 ## Behavior notes
 

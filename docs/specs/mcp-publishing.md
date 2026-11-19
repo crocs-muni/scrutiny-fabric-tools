@@ -630,13 +630,13 @@ type `m` and the URL extension come from a fixed **extension map**, with no cont
 | `.zip` | `application/zip` |
 | `.png`, `.jpg`/`.jpeg`, `.svg` | `image/png`, `image/jpeg`, `image/svg+xml` (for `picture` only) |
 
-Any other extension raises `artifact.type`. Files over 50 MB raise `artifact.too_large`.
+Any other extension raises `artifact.type`. Files over 50 MiB raise `artifact.too_large`.
 
-`.html` is active content: `khatru` sniffs a blob's bytes when serving it (§9.4, "MIME policy is
-client-side"), so a published page is delivered as `text/html` from the relay's own origin and a
-browser executes it. A publisher **MUST NOT** publish HTML they did not author, and **SHOULD** keep
-it self-contained: the relay serves the file by hash, not the directory it came from, so relative
-links and assets will not resolve.
+`.html` is active content: `khatru` sniffs a blob's bytes when serving it. The relay serves
+non-image blobs (including `.html`) as a download (`Content-Disposition: attachment`,
+`X-Content-Type-Options: nosniff`), while PNG/JPEG are served `inline`. A publisher **MUST NOT**
+publish HTML they did not author, and **SHOULD** keep it self-contained: the relay serves the file
+by hash, not the directory it came from, so relative links and assets will not resolve.
 
 ### 9.2 Publisher-hosted URL (`{path, url}`)
 
@@ -662,7 +662,8 @@ event is signed:
 
 | Concern | Decision |
 |---|---|
-| **Body cap** | The relay's `Hardened` wrapper caps every non-WebSocket body at 64 KiB (`maxRequestBodyBytes`, `relay.go`). `PUT /upload` is exempted from that cap and gets its own: `SCRUTINY_BLOB_MAX_BYTES` (default 50 MB), enforced with `http.MaxBytesReader` while streaming. Every other endpoint keeps 64 KiB |
+| **Body cap** | The relay's `Hardened` wrapper caps every non-WebSocket body at 64 KiB (`maxRequestBodyBytes`, `relay.go`). `PUT /upload` is exempted from that cap and gets its own: `SCRUTINY_BLOB_MAX_BYTES` (default 50 MiB), enforced with `http.MaxBytesReader` while streaming. Every other endpoint keeps 64 KiB |
+| **GET serving** | Non-image blobs are served with `Content-Disposition: attachment` and `X-Content-Type-Options: nosniff`; PNG/JPEG are served `inline`. |
 | **Index** | **Not** `EventStoreBlobIndexWrapper`: it writes unsigned kind-24242 records into the main event store, where public `REQ` would serve them and the store counts would include them. The blob directory is the index (`<data volume>/blobs/<sha256>`, plus a small sidecar holding the size and the uploader). `/list` is not supported |
 | `StoreBlob` / `LoadBlob` | Read and write the blob directory. `LoadBlob` serves by hash and ignores the requested extension |
 | `RejectUpload` | Uploader **MUST** be on `SCRUTINY_ALLOWED_PUBKEYS`; size ≤ `SCRUTINY_BLOB_MAX_BYTES`. No MIME or extension check on the relay. MIME policy is client-side (§9.1), because khatru sniffs content and would reject legitimate Markdown, CSV or JSON |
@@ -677,9 +678,10 @@ Acceptance for the relay change:
 - No kind-24242 event is ever returned by `REQ`.
 - Caddy's `request_body max_size` ≥ `SCRUTINY_BLOB_MAX_BYTES`.
 - `/metrics` gains `blobs_total` and `blob_bytes_total`.
+- GET `/…` serves non-image blobs as attachment with `nosniff`; PNG/JPEG are `inline`.
 - The Caddyfile vhost, `SCRUTINY_SERVICE_URL` and the public hostname are the same string
   (`relay.scrutiny.cloud`). NIP-42 and the Blossom URLs both depend on the exact host
-  (`relay/deploy/README.md` §2 still shows the `<HOSTNAME>.fi.muni.cz` placeholder).
+  (`relay/deploy/README.md` §2 says the same).
 
 ---
 
